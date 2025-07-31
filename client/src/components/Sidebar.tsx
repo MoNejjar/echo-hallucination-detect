@@ -12,7 +12,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onNewAnalysis, onUploadFile }) => {
       onUploadFile(file);
     }
   };
-
+g
   const handleFeedback = () => {
     window.open('mailto:feedback@echo-app.com?subject=Echo Feedback', '_blank');
   };
@@ -35,7 +35,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onNewAnalysis, onUploadFile }) => {
       <div className="p-4 border-b border-gray-700 dark:border-gray-600">
         <h1 className="text-lg font-serif font-bold text-center">Echo</h1>
         <p className="text-xs text-gray-300 text-center mt-1 italic">
-          Refine before you align
+          Eliminate Hallucinations
         </p>
       </div>
 
