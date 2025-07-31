@@ -14,11 +14,11 @@ const Toolbar: React.FC<ToolbarProps> = ({
   hasAnalysis 
 }) => {
   return (
-    <div className="flex gap-2 p-2 border-b border-gray-200 bg-gray-50">
+    <div className="flex gap-2 p-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 transition-colors">
       <button
         onClick={onAnalyze}
         disabled={isAnalyzing}
-        className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+        className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
       >
         🔍 {isAnalyzing ? 'Analyzing...' : 'Analyze Again'}
       </button>

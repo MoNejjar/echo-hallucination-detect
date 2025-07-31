@@ -30,9 +30,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onNewAnalysis, onUploadFile }) => {
   };
 
   return (
-    <div className="w-[5%] min-w-[80px] bg-gradient-to-b from-gray-800 to-gray-900 text-white flex flex-col">
+    <div className="w-[5%] min-w-[80px] bg-gradient-to-b from-gray-800 to-gray-900 dark:from-gray-950 dark:to-gray-800 text-white flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b border-gray-700">
+      <div className="p-4 border-b border-gray-700 dark:border-gray-600">
         <h1 className="text-lg font-serif font-bold text-center">Echo</h1>
         <p className="text-xs text-gray-300 text-center mt-1 italic">
           Refine before you align
@@ -43,13 +43,13 @@ const Sidebar: React.FC<SidebarProps> = ({ onNewAnalysis, onUploadFile }) => {
       <div className="flex-1 flex flex-col gap-2 p-3">
         <button
           onClick={onNewAnalysis}
-          className="w-full p-3 text-sm bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors flex flex-col items-center gap-1"
+          className="w-full p-3 text-sm bg-gray-700 hover:bg-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg transition-colors flex flex-col items-center gap-1"
         >
           <span className="text-lg">➕</span>
           <span className="text-xs">New Analysis</span>
         </button>
 
-        <label className="w-full p-3 text-sm bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors flex flex-col items-center gap-1 cursor-pointer">
+        <label className="w-full p-3 text-sm bg-gray-700 hover:bg-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg transition-colors flex flex-col items-center gap-1 cursor-pointer">
           <span className="text-lg">📁</span>
           <span className="text-xs text-center">Upload File</span>
           <input
@@ -62,7 +62,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onNewAnalysis, onUploadFile }) => {
 
         <button
           onClick={handleFeedback}
-          className="w-full p-3 text-sm bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors flex flex-col items-center gap-1"
+          className="w-full p-3 text-sm bg-gray-700 hover:bg-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg transition-colors flex flex-col items-center gap-1"
         >
           <span className="text-lg">💬</span>
           <span className="text-xs text-center">Give Feedback</span>
@@ -70,7 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onNewAnalysis, onUploadFile }) => {
 
         <button
           onClick={showRating}
-          className="w-full p-3 text-sm bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors flex flex-col items-center gap-1"
+          className="w-full p-3 text-sm bg-gray-700 hover:bg-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg transition-colors flex flex-col items-center gap-1"
         >
           <span className="text-lg">⭐</span>
           <span className="text-xs text-center">Rate Tool</span>
@@ -78,7 +78,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onNewAnalysis, onUploadFile }) => {
 
         <button
           onClick={showHelp}
-          className="w-full p-3 text-sm bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors flex flex-col items-center gap-1"
+          className="w-full p-3 text-sm bg-gray-700 hover:bg-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg transition-colors flex flex-col items-center gap-1"
         >
           <span className="text-lg">❓</span>
           <span className="text-xs text-center">Help</span>
@@ -86,7 +86,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onNewAnalysis, onUploadFile }) => {
 
         <button
           onClick={showLibrary}
-          className="w-full p-3 text-sm bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors flex flex-col items-center gap-1"
+          className="w-full p-3 text-sm bg-gray-700 hover:bg-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg transition-colors flex flex-col items-center gap-1"
         >
           <span className="text-lg">📚</span>
           <span className="text-xs text-center">Library</span>

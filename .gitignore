@@ -39,6 +39,7 @@ yarn-error.log*
 # Build outputs
 client/dist/
 client/build/
+client/package-lock.json
 
 # IDE
 .vscode/

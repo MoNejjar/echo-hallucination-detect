@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatPanel from './components/ChatPanel';
 import Editor from './components/Editor';
@@ -31,6 +31,29 @@ export interface ChatMessage {
   analysisId?: string;
 }
 
+function DarkModeToggle() {
+  const [darkMode, setDarkMode] = useState(() =>
+    document.documentElement.classList.contains('dark')
+  );
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
+
+  return (
+    <button
+      onClick={() => setDarkMode(!darkMode)}
+      className="absolute top-4 right-4 z-50 px-3 py-1 rounded text-sm font-medium border dark:text-white dark:border-white"
+    >
+      {darkMode ? '🌞 Light' : '🌙 Dark'}
+    </button>
+  );
+}
+
 function App() {
   const [currentPrompt, setCurrentPrompt] = useState<string>('');
   const [analysis, setAnalysis] = useState<PromptAnalysis | null>(null);
@@ -56,7 +79,7 @@ function App() {
 
   const handleAnalyze = async () => {
     if (!currentPrompt.trim()) return;
-    
+
     setIsAnalyzing(true);
     try {
       const response = await fetch('http://localhost:8000/api/analyze/', {
@@ -64,20 +87,19 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: currentPrompt })
       });
-      
+
       if (!response.ok) throw new Error('Analysis failed');
-      
+
       const analysisResult = await response.json();
       setAnalysis(analysisResult);
-      
-      // Add AI response to chat
+
       const aiMessage: ChatMessage = {
         role: 'assistant',
         content: analysisResult.analysisSummary,
         timestamp: new Date()
       };
       setChatMessages(prev => [...prev, aiMessage]);
-      
+
     } catch (error) {
       console.error('Analysis failed:', error);
     } finally {
@@ -103,39 +125,41 @@ function App() {
           userMessage: message
         })
       });
-      
+
       if (!response.ok) throw new Error('Refinement failed');
-      
+
       const result = await response.json();
-      
+
       const aiMessage: ChatMessage = {
         role: 'assistant',
         content: result.assistantMessage,
         timestamp: new Date()
       };
       setChatMessages(prev => [...prev, aiMessage]);
-      
+
     } catch (error) {
       console.error('Refinement failed:', error);
     }
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-white transition-colors duration-300">
+      <DarkModeToggle />
+
       <Sidebar 
         onNewAnalysis={handleNewAnalysis}
         onUploadFile={handlePromptUpload}
       />
-      
+
       <div className="flex-1 flex">
-        <div className="w-[55%] border-r border-gray-300">
+        <div className="w-[55%] border-r border-gray-300 dark:border-gray-700">
           <ChatPanel 
             messages={chatMessages}
             onSendMessage={handleSendMessage}
             isLoading={isAnalyzing}
           />
         </div>
-        
+
         <div className="w-[40%] flex flex-col">
           <Editor 
             prompt={currentPrompt}
@@ -145,7 +169,7 @@ function App() {
             isAnalyzing={isAnalyzing}
             onToggleOverview={() => setShowAnalysisOverview(!showAnalysisOverview)}
           />
-          
+
           {showAnalysisOverview && analysis && (
             <AnalysisView 
               analysis={analysis}
