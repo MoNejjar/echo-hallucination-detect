@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  
+  .font-serif {
+    font-family: 'Crimson Text', serif;
+  }
+}
+
+@layer components {
+  .prose {
+    color: #374151;
+    line-height: 1.6;
+  }
+  
+  .prose strong {
+    font-weight: 600;
+    color: #111827;
+  }
+  
+  .prose em {
+    font-style: italic;
+    color: #6b7280;
+  }
+}
+
+@layer utilities {
+  .animate-pulse-delayed {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
