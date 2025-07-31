@@ -12,7 +12,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onNewAnalysis, onUploadFile }) => {
       onUploadFile(file);
     }
   };
-g
   const handleFeedback = () => {
     window.open('mailto:feedback@echo-app.com?subject=Echo Feedback', '_blank');
   };
