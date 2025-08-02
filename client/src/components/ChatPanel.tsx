@@ -41,7 +41,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, isLoadin
     <div className="flex flex-col h-full bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors">
       {/* Header */}
       <div className="border-b border-gray-200 dark:border-gray-700 p-4">
-        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">AI Assistant</h2>
+        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Echo</h2>
         <div className="flex items-center gap-2 mt-1">
           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
           <span className="text-sm text-gray-600 dark:text-gray-300">Status: Online</span>
@@ -52,8 +52,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, isLoadin
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
           <div className="text-center text-gray-500 dark:text-gray-400 mt-8">
-            <p className="text-lg">👋 Welcome to Echo!</p>
-            <p className="text-sm mt-2">Start by entering a prompt in the editor and clicking "Analyze"</p>
+            <p className="text-lg">🌀 Welcome to Echo!</p>
+            <p className="text-sm mt-2">Your AI-powered assistant for hallucination detection and prompt improvement.</p>
           </div>
         )}
 

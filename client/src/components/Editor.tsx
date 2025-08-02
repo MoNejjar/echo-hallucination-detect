@@ -1,4 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Search, Brain } from 'lucide-react';
 import { PromptAnalysis } from '../App';
 
 interface EditorProps {
@@ -19,10 +21,9 @@ const Editor: React.FC<EditorProps> = ({
   onToggleOverview
 }) => {
   const [hoveredSegment, setHoveredSegment] = useState<number | null>(null);
-  const editorRef = useRef<HTMLDivElement>(null);
 
   const renderHighlightedText = () => {
-    if (!analysis || !analysis.highlightedSegments) return prompt;
+    if (!analysis) return null;
 
     const segments = [...analysis.highlightedSegments].sort((a, b) => a.start - b.start);
     let lastIndex = 0;
@@ -70,7 +71,7 @@ const Editor: React.FC<EditorProps> = ({
     });
 
     if (lastIndex < prompt.length) {
-      result.push(<span key="text-end">{prompt.slice(lastIndex)}</span>);
+      result.push(<span key="text-final">{prompt.slice(lastIndex)}</span>);
     }
 
     return result;
@@ -78,25 +79,30 @@ const Editor: React.FC<EditorProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors">
-      {/* Toolbar */}
+      {/* Header */}
       <div className="border-b border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center">
         <h3 className="font-semibold text-gray-800 dark:text-gray-100">Prompt Editor</h3>
         <div className="flex gap-2">
-          <button
+          <Button
             onClick={onAnalyze}
             disabled={!prompt.trim() || isAnalyzing}
-            className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+            className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+            size="sm"
           >
-            🔍 {isAnalyzing ? 'Analyzing...' : 'Analyze'}
-          </button>
+            <Search className="mr-2 h-4 w-4" />
+            {isAnalyzing ? 'Analyzing...' : 'Analyze'}
+          </Button>
 
           {analysis && (
-            <button
+            <Button
               onClick={onToggleOverview}
-              className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600 transition-colors flex items-center gap-1"
+              variant="outline"
+              size="sm"
+              className="border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700 dark:border-green-400 dark:text-green-400 dark:hover:bg-green-900/20 transition-all duration-300"
             >
-              🧠 Overview
-            </button>
+              <Brain className="mr-2 h-4 w-4" />
+              Overview
+            </Button>
           )}
         </div>
       </div>
@@ -108,19 +114,21 @@ const Editor: React.FC<EditorProps> = ({
             value={prompt}
             onChange={(e) => onChange(e.target.value)}
             placeholder="Enter your prompt here to begin analysis..."
-            className="w-full h-full p-4 border border-gray-300 dark:border-gray-700 rounded-lg font-mono text-sm resize-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full h-full p-4 border border-gray-300 dark:border-gray-700 rounded-lg font-mono text-sm resize-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
           />
         ) : (
           <>
             <textarea
               value={prompt}
               onChange={(e) => onChange(e.target.value)}
-              className="w-full h-[60%] p-4 border border-gray-300 dark:border-gray-700 rounded-lg font-mono text-sm resize-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
+              className="w-full h-[60%] p-4 border border-gray-300 dark:border-gray-700 rounded-lg font-mono text-sm resize-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4 transition-all duration-200"
             />
 
             <div className="h-[35%] border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800 overflow-y-auto">
-              <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Analysis View:</div>
-              <div ref={editorRef} className="font-mono text-sm leading-relaxed whitespace-pre-wrap">
+              <h4 className="text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">
+                Analysis Results
+              </h4>
+              <div className="text-sm leading-relaxed font-mono">
                 {renderHighlightedText()}
               </div>
             </div>
@@ -128,13 +136,11 @@ const Editor: React.FC<EditorProps> = ({
         )}
       </div>
 
-      {/* Status Bar */}
       {analysis && (
-        <div className="border-t border-gray-200 dark:border-gray-700 p-2 bg-gray-50 dark:bg-gray-800 text-xs text-gray-600 dark:text-gray-300">
-          <div className="flex justify-between">
-            <span>Issues: {analysis.totalFlagged}</span>
-            <span>Risk Score: {Math.round(analysis.overallConfidence * 100)}%</span>
-            <span>Characters: {prompt.length}</span>
+        <div className="border-t border-gray-200 dark:border-gray-700 p-3 bg-gray-50 dark:bg-gray-800">
+          <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
+            <span>Issues Found: {analysis.totalFlagged}</span>
+            <span>Confidence: {Math.round(analysis.overallConfidence * 100)}%</span>
           </div>
         </div>
       )}

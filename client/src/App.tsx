@@ -31,29 +31,6 @@ export interface ChatMessage {
   analysisId?: string;
 }
 
-function DarkModeToggle() {
-  const [darkMode, setDarkMode] = useState(() =>
-    document.documentElement.classList.contains('dark')
-  );
-
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
-
-  return (
-    <button
-      onClick={() => setDarkMode(!darkMode)}
-      className="absolute top-4 right-4 z-50 px-3 py-1 rounded text-sm font-medium border dark:text-white dark:border-white"
-    >
-      {darkMode ? '🌞 Light' : '🌙 Dark'}
-    </button>
-  );
-}
-
 function App() {
   const [currentPrompt, setCurrentPrompt] = useState<string>('');
   const [analysis, setAnalysis] = useState<PromptAnalysis | null>(null);
@@ -144,8 +121,6 @@ function App() {
 
   return (
     <div className="flex h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-white transition-colors duration-300">
-      <DarkModeToggle />
-
       <Sidebar 
         onNewAnalysis={handleNewAnalysis}
         onUploadFile={handlePromptUpload}
@@ -160,7 +135,7 @@ function App() {
           />
         </div>
 
-        <div className="w-[40%] flex flex-col">
+        <div className="w-[45%] flex flex-col">
           <Editor 
             prompt={currentPrompt}
             onChange={setCurrentPrompt}
