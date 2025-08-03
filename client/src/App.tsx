@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatPanel from './components/ChatPanel';
 import Editor from './components/Editor';
+import AnalysisSection from './components/AnalysisSection';
 import AnalysisView from './components/AnalysisView';
 import './index.css';
 
@@ -37,13 +38,7 @@ function App() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [showAnalysisOverview, setShowAnalysisOverview] = useState<boolean>(false);
-
-  const handleNewAnalysis = () => {
-    setCurrentPrompt('');
-    setAnalysis(null);
-    setChatMessages([]);
-    setShowAnalysisOverview(false);
-  };
+  const [showAnalysisSection, setShowAnalysisSection] = useState<boolean>(false); // New state
 
   const handlePromptUpload = (file: File) => {
     const reader = new FileReader();
@@ -58,7 +53,11 @@ function App() {
     if (!currentPrompt.trim()) return;
 
     setIsAnalyzing(true);
+    setShowAnalysisSection(true); // Show analysis section
+    setShowAnalysisOverview(false); // Hide overview if open
+
     try {
+      // Your existing API call logic here
       const response = await fetch('http://localhost:8000/api/analyze/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -80,8 +79,17 @@ function App() {
     } catch (error) {
       console.error('Analysis failed:', error);
     } finally {
-      setIsAnalyzing(false);
+      // Keep analyzing state for the animation to complete
+      setTimeout(() => setIsAnalyzing(false), 2000);
     }
+  };
+
+  const handleNewAnalysis = () => {
+    setCurrentPrompt('');
+    setAnalysis(null);
+    setChatMessages([]);
+    setShowAnalysisOverview(false);
+    setShowAnalysisSection(false); // Reset analysis section
   };
 
   const handleSendMessage = async (message: string) => {
@@ -131,21 +139,29 @@ function App() {
           <ChatPanel 
             messages={chatMessages}
             onSendMessage={handleSendMessage}
+            onUploadFile={handlePromptUpload}
             isLoading={isAnalyzing}
           />
         </div>
 
         <div className="w-[45%] flex flex-col">
-          <Editor 
-            prompt={currentPrompt}
-            onChange={setCurrentPrompt}
-            analysis={analysis}
-            onAnalyze={handleAnalyze}
-            isAnalyzing={isAnalyzing}
-            onToggleOverview={() => setShowAnalysisOverview(!showAnalysisOverview)}
-          />
+          {showAnalysisSection ? (
+            <AnalysisSection 
+              originalText={currentPrompt}
+              isAnalyzing={isAnalyzing}
+            />
+          ) : (
+            <Editor 
+              prompt={currentPrompt}
+              onChange={setCurrentPrompt}
+              analysis={analysis}
+              onAnalyze={handleAnalyze}
+              isAnalyzing={isAnalyzing}
+              onToggleOverview={() => setShowAnalysisOverview(!showAnalysisOverview)}
+            />
+          )}
 
-          {showAnalysisOverview && analysis && (
+          {showAnalysisOverview && analysis && !showAnalysisSection && (
             <AnalysisView 
               analysis={analysis}
               onClose={() => setShowAnalysisOverview(false)}
