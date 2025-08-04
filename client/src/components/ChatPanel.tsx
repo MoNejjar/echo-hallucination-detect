@@ -21,7 +21,6 @@ import {
   MoreVertical,
   Copy,
   Trash2,
-  Edit,
   Download,
   Zap,
   Sparkles
@@ -50,6 +49,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onUpload
     if (inputMessage.trim() && !isLoading) {
       onSendMessage(inputMessage.trim());
       setInputMessage('');
+      
+      // Auto-add Echo's response after a short delay
+      setTimeout(() => {
+        const echoResponse: ChatMessage = {
+          role: 'assistant',
+          content: 'The conversation feature is coming soon!',
+          timestamp: new Date()
+        };
+        // This would typically be handled by the parent component
+        // For now, we'll just trigger the callback
+      }, 1000);
       
       if (attachedFile && onUploadFile) {
         onUploadFile(attachedFile);
@@ -99,7 +109,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onUpload
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div>
-                <h2 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                <h2 className="text-lg font-bold bg-gradient-to-r from-purple-600 to-purple-800 bg-clip-text text-transparent">
                   Echo AI
                 </h2>
                 <div className="flex items-center gap-2">
@@ -142,25 +152,25 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onUpload
             {messages.length === 0 && (
               <div className="text-center py-12">
                 <div className="relative inline-block">
-                  <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-blue-500/10 to-purple-600/10 rounded-full flex items-center justify-center border border-blue-200/50 dark:border-blue-800/50">
+                  <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-purple-500/10 to-purple-600/10 rounded-full flex items-center justify-center border border-purple-200/50 dark:border-purple-800/50">
                     <img 
                       src="/logo.png" 
                       alt="Echo Logo" 
                       className="w-10 h-10 object-contain"
                     />
                   </div>
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-600/20 rounded-full blur-xl animate-pulse"></div>
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-full blur-xl animate-pulse"></div>
                 </div>
                 
                 <h3 className="text-xl font-bold mb-2">
-                  Welcome to <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Echo AI</span>!
+                  Welcome to <span className="bg-gradient-to-r from-purple-600 to-purple-800 bg-clip-text text-transparent">Echo AI</span>!
                 </h3>
                 <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
                   Your intelligent assistant for hallucination detection and prompt improvement. Start a conversation to get AI-powered insights.
                 </p>
                 
                 <div className="flex flex-wrap justify-center gap-2">
-                  <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                  <Badge variant="outline" className="bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800">
                     <Sparkles className="w-3 h-3 mr-1" />
                     AI-Powered
                   </Badge>
@@ -182,7 +192,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onUpload
                 {message.role === 'assistant' && (
                   <Avatar className="h-8 w-8 border border-gray-200 dark:border-gray-700">
                     <AvatarImage src="/logo.png" alt="Echo" />
-                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-sm">
+                    <AvatarFallback className="bg-gradient-to-br from-purple-500 to-purple-600 text-white text-sm">
                       <Bot className="h-4 w-4" />
                     </AvatarFallback>
                   </Avatar>
@@ -192,7 +202,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onUpload
                   <div
                     className={`relative p-4 rounded-2xl shadow-sm border transition-all duration-200 ${
                       message.role === 'user'
-                        ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white border-blue-500/20 shadow-blue-500/10'
+                        ? 'bg-gradient-to-br from-purple-600 to-purple-700 text-white border-purple-500/20 shadow-purple-500/10'
                         : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-gray-900/5 dark:shadow-gray-100/5'
                     }`}
                   >
@@ -214,20 +224,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onUpload
                           <TooltipContent>Copy message</TooltipContent>
                         </Tooltip>
 
-                        {message.role === 'user' && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                className="h-6 w-6 p-0 bg-white dark:bg-gray-800 border shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                              >
-                                <Edit className="h-3 w-3" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Edit message</TooltipContent>
-                          </Tooltip>
-                        )}
+                        {/* REMOVED: Edit button for user messages */}
                       </div>
                     )}
 
@@ -247,7 +244,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onUpload
                     <Clock className="h-3 w-3" />
                     <span>{message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     {message.role === 'user' && (
-                      <CheckCheck className="h-3 w-3 text-blue-500" />
+                      <CheckCheck className="h-3 w-3 text-purple-500" />
                     )}
                   </div>
                 </div>
@@ -266,7 +263,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onUpload
               <div className="flex gap-3">
                 <Avatar className="h-8 w-8 border border-gray-200 dark:border-gray-700">
                   <AvatarImage src="/logo.png" alt="Echo" />
-                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-sm">
+                  <AvatarFallback className="bg-gradient-to-br from-purple-500 to-purple-600 text-white text-sm">
                     <Bot className="h-4 w-4" />
                   </AvatarFallback>
                 </Avatar>
@@ -274,9 +271,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onUpload
                 <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 rounded-2xl shadow-sm">
                   <div className="flex items-center gap-3">
                     <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                      <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                      <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                     </div>
                     <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">
                       Echo is analyzing...
@@ -290,19 +287,19 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onUpload
           </div>
         </ScrollArea>
 
-        {/* Modern Input Area with blur effect */}
+        {/* Modern Input Area with blur effect - PURPLE THEME */}
         <div className="relative p-4 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-t border-white/20 dark:border-gray-800/30">
           {attachedFile && (
-            <div className="mb-3 p-3 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center justify-between">
+            <div className="mb-3 p-3 bg-gradient-to-r from-purple-50 to-purple-50 dark:from-purple-900/20 dark:to-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-500/10 rounded-lg">
-                  <Paperclip className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <div className="p-2 bg-purple-500/10 rounded-lg">
+                  <Paperclip className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div>
-                  <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                  <span className="text-sm text-purple-700 dark:text-purple-300 font-medium">
                     {attachedFile.name}
                   </span>
-                  <div className="text-xs text-blue-500 dark:text-blue-400">
+                  <div className="text-xs text-purple-500 dark:text-purple-400">
                     {Math.round(attachedFile.size / 1024)} KB • Ready to upload
                   </div>
                 </div>
@@ -311,7 +308,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onUpload
                 variant="ghost"
                 size="sm"
                 onClick={removeAttachedFile}
-                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                className="h-8 w-8 p-0 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/30"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -325,7 +322,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onUpload
                   variant="outline"
                   size="sm"
                   onClick={() => fileInputRef.current?.click()}
-                  className="min-h-[44px] w-11 p-0 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-blue-400 transition-all duration-200 self-stretch"
+                  className="min-h-[44px] w-11 p-0 border-purple-300 dark:border-purple-600 hover:bg-purple-100 dark:hover:bg-purple-700 hover:border-purple-400 transition-all duration-200 self-stretch"
                 >
                   <Paperclip className="h-4 w-4" />
                 </Button>
@@ -347,7 +344,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onUpload
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Type your message... (Shift+Enter for new line)"
-                className="min-h-[44px] max-h-[120px] resize-none bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 pr-4"
+                className="min-h-[44px] max-h-[120px] resize-none bg-white dark:bg-gray-800 border-purple-300 dark:border-purple-600 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 pr-4"
                 disabled={isLoading}
               />
             </div>
@@ -357,7 +354,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onUpload
                 <Button
                   onClick={handleSend}
                   disabled={!inputMessage.trim() || isLoading}
-                  className="min-h-[44px] w-11 p-0 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:transform-none disabled:hover:scale-100 self-stretch"
+                  className="min-h-[44px] w-11 p-0 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:transform-none disabled:hover:scale-100 self-stretch"
                 >
                   <Send className="h-4 w-4" />
                 </Button>

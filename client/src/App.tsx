@@ -100,32 +100,44 @@ function App() {
     };
     setChatMessages(prev => [...prev, userMessage]);
 
-    try {
-      const response = await fetch('http://localhost:8000/api/refine/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: currentPrompt,
-          conversationHistory: chatMessages,
-          userMessage: message
-        })
-      });
+// Auto-add Echo's "coming soon" response
+  setTimeout(() => {
+    const echoResponse: ChatMessage = {
+      role: 'assistant',
+      content: 'The conversation feature is coming soon!',
+      timestamp: new Date()
+    };
+    setChatMessages(prev => [...prev, echoResponse]);
+  }, 1500); // 1.5 second delay to simulate thinking
 
-      if (!response.ok) throw new Error('Refinement failed');
+  /* COMMENTED OUT: Original API call
+  try {
+    const response = await fetch('http://localhost:8000/api/refine/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: currentPrompt,
+        conversationHistory: chatMessages,
+        userMessage: message
+      })
+    });
 
-      const result = await response.json();
+    if (!response.ok) throw new Error('Refinement failed');
 
-      const aiMessage: ChatMessage = {
-        role: 'assistant',
-        content: result.assistantMessage,
-        timestamp: new Date()
-      };
-      setChatMessages(prev => [...prev, aiMessage]);
+    const result = await response.json();
 
-    } catch (error) {
-      console.error('Refinement failed:', error);
-    }
-  };
+    const aiMessage: ChatMessage = {
+      role: 'assistant',
+      content: result.assistantMessage,
+      timestamp: new Date()
+    };
+    setChatMessages(prev => [...prev, aiMessage]);
+
+  } catch (error) {
+    console.error('Refinement failed:', error);
+  }
+  */
+};
 
   return (
     <div className="flex h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-white transition-colors duration-300">

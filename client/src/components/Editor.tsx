@@ -216,7 +216,7 @@ const Editor: React.FC<EditorProps> = ({
               <Button
                 onClick={onAnalyze}
                 disabled={!prompt.trim() || isAnalyzing}
-                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
                 size="sm"
               >
                 <Search className="mr-2 h-4 w-4" />
