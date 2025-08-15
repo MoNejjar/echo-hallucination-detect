@@ -1,511 +1,411 @@
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import React, { useRef, useState } from 'react';
+import { Button } from './ui/button';
 import { 
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from './ui/tooltip';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from './ui/dialog';
+import { ScrollArea } from './ui/scroll-area';
 import { 
-  Sparkles, 
-  MessageCircle, 
-  Star, 
-  HelpCircle, 
-  Library,
-  Plus,
-  Settings,
-  X,
-  Search,
-  Target,
+  Plus, 
+  Upload, 
   MessageSquare,
-  Users,
-  GraduationCap,
-  Mail
+  HelpCircle,
+  BookOpen,
+  Settings,
+  Download,
+  Archive,
+  Trash2,
+  Sparkles,
+  Zap,
+  FileText,
+  Heart,
+  Info,
+  Library,
+  MoreHorizontal
 } from 'lucide-react';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 import DarkModeToggle from './DarkModeToggle';
+import type { ChatMessage } from '../types';
 
 interface SidebarProps {
+  messages: ChatMessage[];
   onNewAnalysis: () => void;
   onUploadFile: (file: File) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ onNewAnalysis, onUploadFile }) => {
+const Sidebar: React.FC<SidebarProps> = ({ 
+  messages, 
+  onNewAnalysis, 
+  onUploadFile
+}) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [showHelp, setShowHelp] = useState(false);
 
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && (file.type === 'text/plain' || file.name.endsWith('.md') || file.name.endsWith('.txt'))) {
+      onUploadFile(file);
+    }
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleFeedback = () => {
-    window.open('mailto:mohamed.nejjar@tum.de?subject=Echo Feedback', '_blank');
+    const subject = encodeURIComponent('Echo - Feedback');
+    const body = encodeURIComponent('Hi Mohamed,\n\nI have feedback about Echo:\n\n[Please share your thoughts here]\n\nBest regards');
+    window.open(`mailto:mohamed.nejjar@tum.de?subject=${subject}&body=${body}`, '_blank');
   };
 
-  const showRating = () => {
-    alert('Rating feature coming soon!');
+  const handleLibrary = () => {
+    // Placeholder for library functionality
+    alert('Hallucination Detection Best Practices library coming soon!');
   };
 
-  const showLibrary = () => {
-    alert('Library: Access to hallucination detection rules and research findings.');
+  const exportConversations = () => {
+    if (messages.length === 0) {
+      alert('No conversations to export');
+      return;
+    }
+    
+    const data = JSON.stringify(messages, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `echo-conversations-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
-  const showSettings = () => {
-    alert('Settings feature coming soon!');
+  const clearAllConversations = () => {
+    if (window.confirm('Are you sure you want to clear all conversations? This action cannot be undone.')) {
+      console.log('Clear all conversations requested');
+    }
   };
-
-  // Help Content Modal/Panel
-  const HelpPanel = () => (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden border border-gray-200 dark:border-gray-700 shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg">
-              <HelpCircle className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                About Echo
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                AI-powered hallucination detection and prompt refinement
-              </p>
-            </div>
-          </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setShowHelp(false)}
-            className="h-8 w-8 p-0"
-          >
-            <X className="w-4 h-4" />
-          </Button>
-        </div>
-
-        {/* Content */}
-        <ScrollArea className="h-[calc(90vh-120px)]">
-          <div className="p-6 space-y-8">
-            {/* What Is Echo Section */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 mb-4">
-                <Search className="w-6 h-6 text-purple-500" />
-                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  What Is Echo?
-                </h3>
-              </div>
-              <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 p-6 rounded-xl border border-purple-200 dark:border-purple-800">
-                <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg">
-                  <strong className="text-purple-600 dark:text-purple-400">Echo</strong> is a lightweight tool designed to{' '}
-                  <strong>detect hallucination potential</strong> in user-written prompts and{' '}
-                  <strong>guide users through a conversational refinement process</strong>. It empowers non-experts to create clearer, more faithful instructions for LLMs — without needing to fine-tune models or write advanced prompt logic.
-                </p>
-              </div>
-            </div>
-
-            {/* Motivation Section */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 mb-4">
-                <Target className="w-6 h-6 text-blue-500" />
-                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  Motivation
-                </h3>
-              </div>
-              <div className="space-y-4">
-                <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                  LLMs are impressive — but they often generate <em>hallucinations</em>: factually incorrect, logically inconsistent, or unfaithful outputs. A major cause? Poorly structured or ambiguous prompts.
-                </p>
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <p className="text-blue-800 dark:text-blue-300 font-medium mb-2">
-                    Echo tackles this challenge head-on by:
-                  </p>
-                  <ul className="space-y-2 text-blue-700 dark:text-blue-300">
-                    <li className="flex items-start gap-2">
-                      <span className="text-blue-500 mt-1">🧩</span>
-                      <span>Identifying hallucination-prone segments of prompts</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-blue-500 mt-1">🗣️</span>
-                      <span>Explaining why those segments are risky</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-blue-500 mt-1">🔄</span>
-                      <span>Helping users rewrite prompts via an intuitive feedback loop</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            {/* How It Works Section */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 mb-4">
-                <MessageSquare className="w-6 h-6 text-green-500" />
-                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  How It Works
-                </h3>
-              </div>
-              <div className="grid gap-4">
-                <div className="flex gap-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                  <div className="flex-shrink-0 w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
-                    1
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-green-800 dark:text-green-300 mb-1">
-                      Prompt Submission
-                    </h4>
-                    <p className="text-green-700 dark:text-green-300 text-sm">
-                      Users submit a prompt into a simple web interface.
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex gap-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                  <div className="flex-shrink-0 w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
-                    2
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-green-800 dark:text-green-300 mb-1">
-                      Token Analysis
-                    </h4>
-                    <p className="text-green-700 dark:text-green-300 text-sm">
-                      Echo uses an LLM-based backend to assess segments that could mislead or confuse the model.
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex gap-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                  <div className="flex-shrink-0 w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
-                    3
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-green-800 dark:text-green-300 mb-1">
-                      Feedback Loop
-                    </h4>
-                    <p className="text-green-700 dark:text-green-300 text-sm">
-                      The system flags issues and explains them clearly, then enters a conversational refinement process with the user.
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex gap-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                  <div className="flex-shrink-0 w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
-                    4
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-green-800 dark:text-green-300 mb-1">
-                      Iteration
-                    </h4>
-                    <p className="text-green-700 dark:text-green-300 text-sm">
-                      With each iteration, the prompt becomes clearer and more model-aligned — reducing hallucination risk.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Research Foundations Section */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 mb-4">
-                <GraduationCap className="w-6 h-6 text-orange-500" />
-                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  Research Foundations
-                </h3>
-              </div>
-              <div className="bg-orange-50 dark:bg-orange-900/20 p-6 rounded-xl border border-orange-200 dark:border-orange-800">
-                <p className="text-orange-800 dark:text-orange-300 leading-relaxed mb-4">
-                  This project is based on a bachelor's thesis at the{' '}
-                  <strong>Technical University of Munich</strong>, exploring:
-                </p>
-                <ul className="space-y-2 text-orange-700 dark:text-orange-300">
-                  <li className="flex items-start gap-2">
-                    <span className="text-orange-500 mt-1">•</span>
-                    <span>Causes of faithfulness hallucinations in LLMs</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-orange-500 mt-1">•</span>
-                    <span>Model-agnostic techniques for hallucination detection</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-orange-500 mt-1">•</span>
-                    <span>Interactive systems for prompt optimization</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            {/* Use Cases Section */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 mb-4">
-                <Users className="w-6 h-6 text-indigo-500" />
-                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  Use Cases
-                </h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
-                  <h4 className="font-semibold text-indigo-800 dark:text-indigo-300 mb-2">
-                    Researchers
-                  </h4>
-                  <p className="text-indigo-700 dark:text-indigo-300 text-sm">
-                    Testing LLM prompts for robustness and reliability
-                  </p>
-                </div>
-                
-                <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
-                  <h4 className="font-semibold text-indigo-800 dark:text-indigo-300 mb-2">
-                    Developers
-                  </h4>
-                  <p className="text-indigo-700 dark:text-indigo-300 text-sm">
-                    Building prompt-based applications with confidence
-                  </p>
-                </div>
-                
-                <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
-                  <h4 className="font-semibold text-indigo-800 dark:text-indigo-300 mb-2">
-                    Educators
-                  </h4>
-                  <p className="text-indigo-700 dark:text-indigo-300 text-sm">
-                    Guiding students in AI literacy and best practices
-                  </p>
-                </div>
-                
-                <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
-                  <h4 className="font-semibold text-indigo-800 dark:text-indigo-300 mb-2">
-                    Everyone
-                  </h4>
-                  <p className="text-indigo-700 dark:text-indigo-300 text-sm">
-                    Anyone writing prompts for LLMs!
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Contact Section */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 mb-4">
-                <Mail className="w-6 h-6 text-purple-500" />
-                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  Let's Talk!
-                </h3>
-              </div>
-              <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-6 rounded-xl border border-purple-200 dark:border-purple-800">
-                <p className="text-purple-800 dark:text-purple-300 leading-relaxed mb-4">
-                  Have ideas, feedback, or want to collaborate? Please reach out via{' '}
-                  <a 
-                    href="mailto:mohamed.nejjar@tum.de" 
-                    className="font-semibold text-purple-600 dark:text-purple-400 hover:underline"
-                  >
-                    mohamed.nejjar@tum.de
-                  </a>
-                </p>
-                <Button 
-                  onClick={() => window.open('mailto:mohamed.nejjar@tum.de', '_blank')}
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white"
-                >
-                  <Mail className="w-4 h-4 mr-2" />
-                  Contact Us
-                </Button>
-              </div>
-            </div>
-          </div>
-        </ScrollArea>
-      </div>
-    </div>
-  );
 
   return (
     <TooltipProvider>
-      <div className="w-[5%] min-w-[80px] bg-gradient-to-b from-gray-800 via-gray-850 to-gray-900 dark:from-gray-950 dark:via-gray-900 dark:to-gray-800 text-white flex flex-col relative overflow-hidden">
-        {/* Subtle background pattern */}
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-purple-500/10"></div>
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-blue-500"></div>
-        </div>
-
-        {/* Header */}
-        <div className="relative z-10 p-6 border-b border-gray-700/50 dark:border-gray-600/50 backdrop-blur-sm">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex justify-center mb-3 cursor-pointer">
-                <div className="relative group">
-                  <div className="absolute -inset-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full blur opacity-25 group-hover:opacity-50 transition-opacity duration-300"></div>
-                  <div className="relative w-10 h-10 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 flex items-center justify-center group-hover:bg-white/20 transition-all duration-300">
-                    <img 
-                      src="/logo.png" 
-                      alt="Echo Logo" 
-                      className="h-6 w-6 object-contain"
-                    />
-                  </div>
-                </div>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>Echo - AI Hallucination Detector</p>
-            </TooltipContent>
-          </Tooltip>
-
-          <div className="flex justify-center">
-            <DarkModeToggle />
+      <div className="w-28 bg-gradient-to-b from-white via-gray-50/50 to-white dark:from-gray-900 dark:via-gray-950/50 dark:to-gray-900 border-r border-gray-200/60 dark:border-gray-800/60 flex flex-col shadow-xl backdrop-blur-sm">
+        {/* Logo Section */}
+        <div className="p-4 flex flex-col items-center border-b border-gray-200/60 dark:border-gray-800/60 bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg">
+          <div className="relative mb-3 group">
+            {/* Enhanced purple aura background */}
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-400/30 to-blue-400/30 rounded-full blur-2xl scale-150 group-hover:scale-175 transition-transform duration-500"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/40 to-blue-500/40 rounded-full blur-xl scale-125 group-hover:scale-150 transition-transform duration-300"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 to-blue-600/20 rounded-full blur-lg scale-110 animate-pulse"></div>
+            {/* Logo */}
+            <div className="relative w-12 h-12 bg-gradient-to-r from-purple-600 via-purple-500 to-blue-600 rounded-full flex items-center justify-center shadow-2xl ring-2 ring-purple-200/50 dark:ring-purple-800/50 group-hover:shadow-purple-500/25 transition-all duration-300">
+              <img src="/logo.png" alt="Echo Logo" className="w-7 h-7 drop-shadow-lg" />
+            </div>
           </div>
+          
+          {/* Dark Mode Toggle */}
+          <DarkModeToggle />
         </div>
-
-        {/* Navigation */}
-        <div className="relative z-10 flex-1 flex flex-col p-4 space-y-4">
+        
+        {/* Main Actions */}
+        <div className="flex-1 p-3 space-y-2">
           {/* Primary Action */}
-          <div className="space-y-3">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={onNewAnalysis}
-                  className="group relative w-full h-auto p-4 bg-gradient-to-r from-purple-600 via-purple-650 to-purple-700 hover:from-purple-500 hover:via-purple-550 hover:to-purple-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 rounded-xl overflow-hidden"
-                  size="lg"
-                >
-                  {/* Animated background */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-400/0 via-purple-400/20 to-purple-400/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-                  
-                  <div className="relative flex flex-col items-center gap-2">
-                    <div className="p-2 bg-white/20 backdrop-blur-sm rounded-lg group-hover:bg-white/30 transition-colors duration-300 group-hover:scale-110">
-                      <Plus className="h-5 w-5 transition-transform duration-300 group-hover:rotate-90" />
-                    </div>
-                    <span className="text-xs font-semibold tracking-wide">New</span>
-                  </div>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>Start a new analysis session</p>
-              </TooltipContent>
-            </Tooltip>
+          <div className="mb-3">
+            <Button 
+              onClick={onNewAnalysis}
+              className="h-20 w-20 mx-auto block bg-gradient-to-r from-purple-600 via-purple-500 to-blue-600 hover:from-purple-500 hover:via-purple-400 hover:to-blue-500 text-white shadow-lg hover:shadow-xl hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] rounded-lg group relative overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+              <div className="relative flex flex-col items-center justify-center">
+                <div className="p-1.5 rounded-md bg-white/10 backdrop-blur-sm mb-1 group-hover:bg-white/20 transition-all duration-200">
+                  <Plus className="w-4 h-4 group-hover:rotate-90 group-hover:scale-110 transition-all duration-300" />
+                </div>
+                <span className="text-xs font-medium">New</span>
+              </div>
+            </Button>
           </div>
 
-          <Separator className="bg-white/10" />
+          {/* Subtle separator */}
+          <div className="relative mb-3">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-200/30 to-transparent dark:via-purple-700/30 h-px"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-300/20 to-transparent dark:via-purple-600/20 h-px blur-sm"></div>
+          </div>
 
           {/* Secondary Actions */}
           <div className="space-y-2">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
+                <Button 
+                  onClick={() => fileInputRef.current?.click()}
+                  variant="outline"
+                  className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-purple-300 dark:hover:border-purple-600 hover:bg-gradient-to-r hover:from-purple-50 hover:to-blue-50 dark:hover:from-purple-900/20 dark:hover:to-blue-900/20 transition-all duration-300 transform hover:scale-[1.01] rounded-lg group"
+                >
+                  <div className="flex flex-col items-center justify-center">
+                    <div className="p-1.5 rounded-md bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:from-purple-100 group-hover:to-blue-100 dark:group-hover:from-purple-800/50 dark:group-hover:to-blue-800/50 transition-all duration-200 mb-1">
+                      <Upload className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors duration-200" />
+                    </div>
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-700 dark:group-hover:text-purple-300">Upload</span>
+                  </div>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="bg-gray-900 dark:bg-gray-700 text-white">
+                <p>Upload text or markdown file</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
                   onClick={handleFeedback}
-                  variant="ghost"
-                  className="group w-full h-auto p-3 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all duration-300 transform hover:scale-105 border border-white/10 hover:border-white/20 rounded-lg backdrop-blur-sm"
-                  size="sm"
+                  variant="outline"
+                  className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-pink-300 dark:hover:border-pink-600 hover:bg-gradient-to-r hover:from-pink-50 hover:to-rose-50 dark:hover:from-pink-900/20 dark:hover:to-rose-900/20 transition-all duration-300 transform hover:scale-[1.01] rounded-lg group"
                 >
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="p-1 rounded-md group-hover:bg-white/10 transition-colors duration-300">
-                      <MessageCircle className="h-4 w-4 group-hover:scale-110 transition-transform duration-300" />
+                  <div className="flex flex-col items-center justify-center">
+                    <div className="p-1.5 rounded-md bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:from-pink-100 group-hover:to-rose-100 dark:group-hover:from-pink-800/50 dark:group-hover:to-rose-800/50 transition-all duration-200 mb-1 relative">
+                      <Heart className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors duration-200" />
+                      <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse group-hover:animate-bounce"></div>
                     </div>
-                    <span className="text-xs font-medium">Feedback</span>
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-pink-700 dark:group-hover:text-pink-300">Feedback</span>
                   </div>
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>Send feedback to our team</p>
+              <TooltipContent side="right" className="bg-gray-900 dark:bg-gray-700 text-white">
+                <p>Send feedback to the developer</p>
               </TooltipContent>
             </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={showRating}
-                  variant="ghost"
-                  className="group w-full h-auto p-3 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all duration-300 transform hover:scale-105 border border-white/10 hover:border-white/20 rounded-lg backdrop-blur-sm relative"
-                  size="sm"
-                >
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="p-1 rounded-md group-hover:bg-white/10 transition-colors duration-300">
-                      <Star className="h-4 w-4 group-hover:scale-110 transition-transform duration-300" />
+            <Dialog>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DialogTrigger asChild>
+                    <Button 
+                      variant="outline"
+                      className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-green-300 dark:hover:border-green-600 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 dark:hover:from-green-900/20 dark:hover:to-emerald-900/20 transition-all duration-300 transform hover:scale-[1.01] rounded-lg group"
+                    >
+                      <div className="flex flex-col items-center justify-center">
+                        <div className="p-1.5 rounded-md bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:from-green-100 group-hover:to-emerald-100 dark:group-hover:from-green-800/50 dark:group-hover:to-emerald-800/50 transition-all duration-200 mb-1 relative">
+                          <Info className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-200" />
+                          <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-green-500 rounded-full opacity-0 group-hover:opacity-100 animate-ping transition-opacity"></div>
+                        </div>
+                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-green-700 dark:group-hover:text-green-300">Help</span>
+                      </div>
+                    </Button>
+                  </DialogTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="bg-gray-900 dark:bg-gray-700 text-white">
+                  <p>Learn about Echo</p>
+                </TooltipContent>
+              </Tooltip>
+              <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
+                <DialogHeader className="flex-shrink-0">
+                  <DialogTitle className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center">
+                      <Sparkles className="w-5 h-5 text-white" />
                     </div>
-                    <span className="text-xs font-medium">Rate</span>
+                    Echo: Prompt Refinement for Hallucination-Free LLMs
+                  </DialogTitle>
+                  <DialogDescription>
+                    Learn how Echo helps you write better prompts
+                  </DialogDescription>
+                </DialogHeader>
+                <ScrollArea className="flex-1 overflow-auto pr-4" style={{ maxHeight: 'calc(80vh - 120px)' }}>
+                  <div className="space-y-6 py-4">
+                    <section>
+                      <h2 className="text-xl font-semibold mb-3 text-purple-600 dark:text-purple-400">
+                        🔍 What Is Echo?
+                      </h2>
+                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+                        <strong>Echo</strong> is a lightweight tool designed to <strong>detect hallucination potential</strong> in user-written prompts and <strong>guide users through a conversational refinement process</strong>. It empowers non-experts to create clearer, more faithful instructions for LLMs — without needing to fine-tune models or write advanced prompt logic.
+                      </p>
+                    </section>
+
+                    <section>
+                      <h2 className="text-xl font-semibold mb-3 text-purple-600 dark:text-purple-400">
+                        🎯 Motivation
+                      </h2>
+                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed mb-4">
+                        LLMs are impressive — but they often generate <em>hallucinations</em>: factually incorrect, logically inconsistent, or unfaithful outputs. A major cause? Poorly structured or ambiguous prompts.
+                      </p>
+                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed mb-3">
+                        <strong>Echo</strong> tackles this challenge head-on by:
+                      </p>
+                      <ul className="list-disc list-inside space-y-2 text-gray-700 dark:text-gray-300 ml-4">
+                        <li>Identifying hallucination-prone segments of prompts 🧩</li>
+                        <li>Explaining why those segments are risky 🗣️</li>
+                        <li>Helping users rewrite prompts via an intuitive feedback loop 🔄</li>
+                      </ul>
+                    </section>
+
+                    <section>
+                      <h2 className="text-xl font-semibold mb-3 text-purple-600 dark:text-purple-400">
+                        🛠️ How It Works
+                      </h2>
+                      <ol className="list-decimal list-inside space-y-2 text-gray-700 dark:text-gray-300 ml-4">
+                        <li><strong>Prompt Submission</strong>: Users submit a prompt into a simple web interface.</li>
+                        <li><strong>Token Analysis</strong>: Echo uses an LLM-based backend to assess segments that could mislead or confuse the model.</li>
+                        <li><strong>Feedback Loop</strong>: The system flags issues and explains them clearly, then enters a conversational refinement process with the user.</li>
+                        <li><strong>Iteration</strong>: With each iteration, the prompt becomes clearer and more model-aligned — reducing hallucination risk.</li>
+                      </ol>
+                    </section>
+
+                    <section>
+                      <h2 className="text-xl font-semibold mb-3 text-purple-600 dark:text-purple-400">
+                        🧪 Research Foundations
+                      </h2>
+                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed mb-3">
+                        This project is based on a bachelor's thesis at the <strong>Technical University of Munich</strong>, exploring:
+                      </p>
+                      <ul className="list-disc list-inside space-y-2 text-gray-700 dark:text-gray-300 ml-4">
+                        <li>Causes of faithfulness hallucinations in LLMs</li>
+                        <li>Model-agnostic techniques for hallucination detection</li>
+                        <li>Interactive systems for prompt optimization</li>
+                      </ul>
+                    </section>
+
+                    <section>
+                      <h2 className="text-xl font-semibold mb-3 text-purple-600 dark:text-purple-400">
+                        🌐 Use Cases
+                      </h2>
+                      <ul className="list-disc list-inside space-y-2 text-gray-700 dark:text-gray-300 ml-4">
+                        <li>Researchers testing LLM prompts for robustness</li>
+                        <li>Developers building prompt-based applications</li>
+                        <li>Educators guiding students in AI literacy</li>
+                        <li>Anyone writing prompts for LLMs!</li>
+                      </ul>
+                    </section>
+
+                    <section className="border-t pt-4">
+                      <h2 className="text-xl font-semibold mb-3 text-purple-600 dark:text-purple-400">
+                        💬 Let's Talk!
+                      </h2>
+                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+                        Have ideas, feedback, or want to collaborate? Please reach out via{' '}
+                        <a 
+                          href="mailto:mohamed.nejjar@tum.de" 
+                          className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                        >
+                          mohamed.nejjar@tum.de
+                        </a>
+                      </p>
+                    </section>
                   </div>
-                  <Badge 
-                    variant="secondary" 
-                    className="absolute -top-1 -right-1 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs px-1.5 py-0.5 h-5 min-w-[20px] rounded-full border border-white/20 shadow-lg animate-pulse"
-                  >
-                    New
-                  </Badge>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>Rate your experience (Coming Soon!)</p>
-              </TooltipContent>
-            </Tooltip>
+                </ScrollArea>
+              </DialogContent>
+            </Dialog>
 
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  onClick={() => setShowHelp(true)}
-                  variant="ghost"
-                  className="group w-full h-auto p-3 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all duration-300 transform hover:scale-105 border border-white/10 hover:border-white/20 rounded-lg backdrop-blur-sm"
-                  size="sm"
+                <Button 
+                  onClick={handleLibrary}
+                  variant="outline"
+                  className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-amber-300 dark:hover:border-amber-600 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 dark:hover:from-amber-900/20 dark:hover:to-orange-900/20 transition-all duration-300 transform hover:scale-[1.01] rounded-lg group relative"
                 >
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="p-1 rounded-md group-hover:bg-white/10 transition-colors duration-300">
-                      <HelpCircle className="h-4 w-4 group-hover:scale-110 transition-transform duration-300" />
+                  <div className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-amber-500 text-white text-[8px] font-bold rounded-full z-10">
+                    SOON
+                  </div>
+                  <div className="flex flex-col items-center justify-center">
+                    <div className="p-1.5 rounded-md bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:from-amber-100 group-hover:to-orange-100 dark:group-hover:from-amber-800/50 dark:group-hover:to-orange-800/50 transition-all duration-200 mb-1">
+                      <Library className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors duration-200" />
                     </div>
-                    <span className="text-xs font-medium">Help</span>
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-amber-700 dark:group-hover:text-amber-300">Library</span>
                   </div>
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>Get help and documentation</p>
-              </TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={showLibrary}
-                  variant="ghost"
-                  className="group w-full h-auto p-3 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all duration-300 transform hover:scale-105 border border-white/10 hover:border-white/20 rounded-lg backdrop-blur-sm"
-                  size="sm"
-                >
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="p-1 rounded-md group-hover:bg-white/10 transition-colors duration-300">
-                      <Library className="h-4 w-4 group-hover:scale-110 transition-transform duration-300" />
-                    </div>
-                    <span className="text-xs font-medium">Library</span>
-                  </div>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>Access detection rules and research</p>
+              <TooltipContent side="right" className="bg-gray-900 dark:bg-gray-700 text-white">
+                <p>Hallucination detection best practices (Coming Soon)</p>
               </TooltipContent>
             </Tooltip>
           </div>
+        </div>
 
-          {/* Bottom Section */}
-          <div className="flex-1"></div>
-          
-          <Separator className="bg-white/10" />
-          
-          {/* Settings */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                onClick={showSettings}
-                variant="ghost"
-                className="group w-full h-auto p-3 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all duration-300 transform hover:scale-105 border border-white/10 hover:border-white/20 rounded-lg backdrop-blur-sm"
-                size="sm"
+        {/* Bottom Options Section */}
+        <div className="p-3 border-t border-gray-200/60 dark:border-gray-800/60 bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg">
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-indigo-300 dark:hover:border-indigo-600 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-violet-50 dark:hover:from-indigo-900/20 dark:hover:to-violet-900/20 transition-all duration-300 transform hover:scale-[1.01] rounded-lg group"
+                  >
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="p-1.5 rounded-md bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:from-indigo-100 group-hover:to-violet-100 dark:group-hover:from-indigo-800/50 dark:group-hover:to-violet-800/50 transition-all duration-200 mb-1 relative">
+                        <MoreHorizontal className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors duration-200" />
+                        <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
+                      </div>
+                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-indigo-700 dark:group-hover:text-indigo-300">Options</span>
+                    </div>
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="bg-gray-900 dark:bg-gray-700 text-white">
+                <p>Settings & Options</p>
+              </TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="start" className="w-48 bg-white/95 dark:bg-gray-900/95 backdrop-blur-lg border-gray-200/60 dark:border-gray-700/60 shadow-xl">
+              <DropdownMenuItem 
+                onClick={exportConversations}
+                className="flex items-center p-2.5 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors duration-200 group"
               >
-                <div className="flex flex-col items-center gap-1">
-                  <div className="p-1 rounded-md group-hover:bg-white/10 transition-colors duration-300">
-                    <Settings className="h-4 w-4 group-hover:scale-110 transition-transform duration-300 group-hover:rotate-90" />
-                  </div>
-                  <span className="text-xs font-medium">Settings</span>
+                <div className="p-1 rounded-md bg-green-100 dark:bg-green-800/50 mr-2.5 group-hover:bg-green-200 dark:group-hover:bg-green-700/50 transition-colors">
+                  <Download className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
                 </div>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>Application settings (Coming Soon!)</p>
-            </TooltipContent>
-          </Tooltip>
-        
-          {/* Footer accent */}
-          <div className="h-1 bg-gradient-to-r from-transparent via-blue-500/50 to-transparent rounded-full mt-2"></div>
+                <div>
+                  <div className="font-medium text-sm text-gray-900 dark:text-gray-100">Export</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Download JSON</div>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem className="flex items-center p-2.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-200 group">
+                <div className="p-1 rounded-md bg-blue-100 dark:bg-blue-800/50 mr-2.5 group-hover:bg-blue-200 dark:group-hover:bg-blue-700/50 transition-colors">
+                  <Archive className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <div className="font-medium text-sm text-gray-900 dark:text-gray-100">Archive</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Clean up data</div>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-gray-200/60 dark:bg-gray-700/60" />
+              <DropdownMenuItem 
+                onClick={clearAllConversations}
+                className="flex items-center p-2.5 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-200 group"
+              >
+                <div className="p-1 rounded-md bg-red-100 dark:bg-red-800/50 mr-2.5 group-hover:bg-red-200 dark:group-hover:bg-red-700/50 transition-colors">
+                  <Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
+                </div>
+                <div>
+                  <div className="font-medium text-sm text-red-600 dark:text-red-400">Clear All</div>
+                  <div className="text-xs text-red-500/70 dark:text-red-400/70">Permanent deletion</div>
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".txt,.md,.json"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
         </div>
       </div>
-
-      {/* Help Panel Modal */}
-      {showHelp && <HelpPanel />}
     </TooltipProvider>
   );
 };
-
 export default Sidebar;

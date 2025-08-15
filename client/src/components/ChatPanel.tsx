@@ -1,257 +1,247 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Button } from './ui/button';
+import { Textarea } from './ui/textarea';
+import { Badge } from './ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { ScrollArea } from './ui/scroll-area';
+import { Progress } from './ui/progress';
 import { 
   Send, 
-  Paperclip, 
-  X, 
   Bot,
   User,
-  Clock,
-  CheckCheck,
-  MoreVertical,
+  Sparkles,
+  MessageSquare,
+  Loader2,
   Copy,
-  Trash2,
-  Download,
-  Zap,
-  Sparkles
+  ThumbsUp,
+  ThumbsDown
 } from 'lucide-react';
-import { ChatMessage } from '../App';
+import { ChatMessage } from '../types';
 
 interface ChatPanelProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
-  onUploadFile?: (file: File) => void;
-  isLoading: boolean;
+  isLoading?: boolean;
 }
 
-const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onUploadFile, isLoading }) => {
+const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, isLoading }) => {
   const [inputMessage, setInputMessage] = useState('');
-  const [attachedFile, setAttachedFile] = useState<File | null>(null);
-  const [hoveredMessage, setHoveredMessage] = useState<number | null>(null);
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = () => {
-    if (inputMessage.trim() && !isLoading) {
-      onSendMessage(inputMessage.trim());
-      setInputMessage('');
-      
-      // Auto-add Echo's response after a short delay
-      setTimeout(() => {
-        const echoResponse: ChatMessage = {
-          role: 'assistant',
-          content: 'The conversation feature is coming soon!',
-          timestamp: new Date()
-        };
-        // This would typically be handled by the parent component
-        // For now, we'll just trigger the callback
-      }, 1000);
-      
-      if (attachedFile && onUploadFile) {
-        onUploadFile(attachedFile);
-        setAttachedFile(null);
-      }
+  useEffect(() => {
+    // Check if the last message is still being typed (streaming)
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage?.role === 'assistant' && lastMessage.content === '') {
+      setIsTyping(true);
+    } else {
+      setIsTyping(false);
     }
+  }, [messages]);
+
+  const handleSend = () => {
+    if (!inputMessage.trim() || isLoading || isTyping) return;
+    onSendMessage(inputMessage);
+    setInputMessage('');
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setAttachedFile(file);
-    }
-  };
-
-  const removeAttachedFile = () => {
-    setAttachedFile(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
   };
 
   const formatMessage = (content: string) => {
-    return content
+    // Enhanced markdown-to-HTML formatting for better readability
+    let formatted = content
+      // Handle code blocks first (triple backticks)
+      .replace(/```([\s\S]*?)```/g, '<pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg my-3 overflow-x-auto border"><code class="text-sm font-mono">$1</code></pre>')
+      
+      // Handle inline code (single backticks)
+      .replace(/`([^`]+)`/g, '<code class="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded text-sm font-mono">$1</code>')
+      
+      // Handle blockquotes
+      .replace(/^> (.+)$/gm, '<blockquote class="border-l-4 border-gray-300 dark:border-gray-600 pl-4 py-2 my-2 bg-gray-50 dark:bg-gray-800/50 italic">$1</blockquote>')
+      
+      // Handle headers
+      .replace(/^### (.*$)/gm, '<h3 class="text-lg font-semibold mt-4 mb-2 text-gray-900 dark:text-gray-100">$1</h3>')
+      .replace(/^## (.*$)/gm, '<h2 class="text-xl font-semibold mt-4 mb-2 text-gray-900 dark:text-gray-100">$1</h2>')
+      .replace(/^# (.*$)/gm, '<h1 class="text-2xl font-bold mt-4 mb-2 text-gray-900 dark:text-gray-100">$1</h1>')
+      
+      // Handle bold text (both **text** and __text__)
       .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
-      .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm font-mono">$1</code>')
-      .replace(/(R\d+\.\d+)/g, '<span class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium">$1</span>');
+      .replace(/__(.*?)__/g, '<strong class="font-semibold">$1</strong>')
+      
+      // Handle italic text (both *text* and _text_, but not inside other formatting)
+      .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em class="italic">$1</em>')
+      .replace(/(?<!_)_([^_\n]+)_(?!_)/g, '<em class="italic">$1</em>')
+      
+      // Handle unordered lists
+      .replace(/^[\s]*[-*+]\s(.+)$/gm, '<li class="ml-6 mb-1">$1</li>')
+      
+      // Handle ordered lists
+      .replace(/^[\s]*\d+\.\s(.+)$/gm, '<li class="ml-6 mb-1">$1</li>')
+      
+      // Handle line breaks (double newlines become paragraphs, single newlines become <br>)
+      .split('\n\n').map(paragraph => {
+        if (paragraph.trim()) {
+          // Don't wrap if it's already a block element
+          if (/^<(h[1-6]|pre|blockquote|ul|ol)/.test(paragraph.trim())) {
+            return paragraph.replace(/\n/g, '<br>');
+          }
+          return `<p class="mb-3">${paragraph.replace(/\n/g, '<br>')}</p>`;
+        }
+        return '';
+      }).join('')
+      
+      // Handle links (basic URL detection)
+      .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>');
+    
+    // Wrap orphaned <li> elements in appropriate lists
+    formatted = formatted
+      .replace(/(<li class="ml-6[^>]*>.*?<\/li>)/g, (match) => {
+        // Check if this is part of an ordered list (contains numbers)
+        const prevContent = formatted.substring(0, formatted.indexOf(match));
+        const hasNumberedItems = /\d+\.\s/.test(prevContent.split('\n').pop() || '');
+        
+        if (hasNumberedItems) {
+          return `<ol class="list-decimal ml-4 mb-3">${match}</ol>`;
+        } else {
+          return `<ul class="list-disc ml-4 mb-3">${match}</ul>`;
+        }
+      });
+    
+    return { __html: formatted };
   };
 
-  const copyMessage = (content: string) => {
-    navigator.clipboard.writeText(content);
+  const formatTimestamp = (timestamp: Date) => {
+    try {
+      return timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (error) {
+      // Fallback if timestamp is not a valid Date
+      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
   };
 
   return (
-    <TooltipProvider>
-      <div className="flex flex-col h-full bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-950 text-gray-900 dark:text-gray-100 transition-all duration-300">
-        {/* Modern Header with blur effect */}
-        <div className="relative p-4 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-white/20 dark:border-gray-800/30">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div>
-                <h2 className="text-lg font-bold bg-gradient-to-r from-purple-600 to-purple-800 bg-clip-text text-transparent">
-                  Echo AI
-                </h2>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs">
-                    <Zap className="w-3 h-3 mr-1" />
-                    Online
-                  </Badge>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    Response time: ~2s
-                  </span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                    <Download className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Export conversation</TooltipContent>
-              </Tooltip>
-              
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>More options</TooltipContent>
-              </Tooltip>
-            </div>
-          </div>
-        </div>
-
+    <Card className="h-full flex flex-col overflow-hidden">
+      <CardContent className="flex-1 flex flex-col min-h-0 p-0 overflow-hidden">
         {/* Messages Area */}
-        <ScrollArea className="flex-1 p-4">
-          <div className="space-y-6">
-            {messages.length === 0 && (
+        <ScrollArea className="flex-1 p-4 min-h-0 overflow-y-auto">
+          <div className={`${messages.length === 0 && !isLoading ? 'min-h-[400px] flex items-center justify-center' : 'space-y-4'}`}>
+            {messages.length === 0 && !isLoading && (
               <div className="text-center py-12">
-                <div className="relative inline-block">
-                  <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-purple-500/10 to-purple-600/10 rounded-full flex items-center justify-center border border-purple-200/50 dark:border-purple-800/50">
-                    <img 
-                      src="/logo.png" 
-                      alt="Echo Logo" 
-                      className="w-10 h-10 object-contain"
-                    />
+                <div className="w-16 h-16 mx-auto mb-4 relative">
+                  <div className="absolute inset-0 bg-purple-500/20 rounded-full blur-xl"></div>
+                  <div className="relative w-full h-full bg-white dark:bg-gray-800 rounded-full flex items-center justify-center shadow-lg border border-purple-200 dark:border-purple-800">
+                    <img src="/logo.png" alt="Echo Logo" className="w-10 h-10" />
                   </div>
-                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-full blur-xl animate-pulse"></div>
                 </div>
-                
-                <h3 className="text-xl font-bold mb-2">
-                  Welcome to <span className="bg-gradient-to-r from-purple-600 to-purple-800 bg-clip-text text-transparent">Echo AI</span>!
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
-                  Your intelligent assistant for hallucination detection and prompt improvement. Start a conversation to get AI-powered insights.
+                <h3 className="text-lg font-semibold mb-2">Welcome to <span className="text-purple-600 dark:text-purple-400">Echo AI</span>!</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 max-w-sm mx-auto">
+                  After analyzing your prompt, I'll provide an improved version and continue helping you refine it through conversation.
                 </p>
-                
-                <div className="flex flex-wrap justify-center gap-2">
-                  <Badge variant="outline" className="bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800">
-                    <Sparkles className="w-3 h-3 mr-1" />
-                    AI-Powered
-                  </Badge>
-                  <Badge variant="outline" className="bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800">
-                    <Zap className="w-3 h-3 mr-1" />
-                    Real-time Analysis
-                  </Badge>
+              </div>
+            )}
+
+            {isLoading && messages.length === 0 && (
+              <div className="text-center py-8">
+                <div className="flex items-center justify-center gap-3 mb-4">
+                  <Bot className="w-8 h-8 text-purple-500" />
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
                 </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Generating improved version of your prompt...
+                </p>
               </div>
             )}
 
             {messages.map((message, index) => (
               <div
                 key={index}
-                className={`flex gap-3 group ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                onMouseEnter={() => setHoveredMessage(index)}
-                onMouseLeave={() => setHoveredMessage(null)}
+                className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 {message.role === 'assistant' && (
                   <Avatar className="h-8 w-8 border border-gray-200 dark:border-gray-700">
                     <AvatarImage src="/logo.png" alt="Echo" />
-                    <AvatarFallback className="bg-gradient-to-br from-purple-500 to-purple-600 text-white text-sm">
+                    <AvatarFallback className="bg-gradient-to-br from-purple-500 to-blue-600 text-white text-sm">
                       <Bot className="h-4 w-4" />
                     </AvatarFallback>
                   </Avatar>
                 )}
 
-                <div className={`flex flex-col max-w-[75%] ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
+                <div className={`max-w-[80%] ${message.role === 'user' ? 'order-first' : ''}`}>
                   <div
-                    className={`relative p-4 rounded-2xl shadow-sm border transition-all duration-200 ${
+                    className={`p-4 rounded-2xl ${
                       message.role === 'user'
-                        ? 'bg-gradient-to-br from-purple-600 to-purple-700 text-white border-purple-500/20 shadow-purple-500/10'
-                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-gray-900/5 dark:shadow-gray-100/5'
+                        ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white ml-auto'
+                        : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm'
                     }`}
                   >
-                    {hoveredMessage === index && (
-                      <div className={`absolute -top-2 flex gap-1 ${
-                        message.role === 'user' ? '-left-2' : '-right-2'
-                      }`}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="h-6 w-6 p-0 bg-white dark:bg-gray-800 border shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => copyMessage(message.content)}
+                    {message.role === 'assistant' && message.content === '' && isTyping ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="text-sm text-gray-500">Typing...</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div 
+                          className={`text-sm leading-relaxed ${
+                            message.role === 'user' 
+                              ? 'text-white [&_strong]:text-white [&_em]:text-white [&_code]:text-white [&_code]:bg-white/20 [&_a]:text-white [&_a]:underline' 
+                              : 'text-gray-900 dark:text-gray-100 [&_a]:text-blue-600 dark:[&_a]:text-blue-400 [&_a]:hover:underline'
+                          }`}
+                          dangerouslySetInnerHTML={formatMessage(message.content)}
+                        />
+                        
+                        {message.role === 'assistant' && message.content && (
+                          <div className="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-6 px-2 text-xs"
+                              onClick={() => copyToClipboard(message.content)}
                             >
-                              <Copy className="h-3 w-3" />
+                              <Copy className="w-3 h-3 mr-1" />
+                              Copy
                             </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Copy message</TooltipContent>
-                        </Tooltip>
-
-                        {/* REMOVED: Edit button for user messages */}
+                            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+                              <ThumbsUp className="w-3 h-3" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+                              <ThumbsDown className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
-
-                    <div
-                      className={`text-sm leading-relaxed ${
-                        message.role === 'user' ? 'text-white' : 'text-gray-900 dark:text-gray-100'
-                      }`}
-                      dangerouslySetInnerHTML={{
-                        __html: formatMessage(message.content)
-                      }}
-                    />
                   </div>
-
-                  <div className={`flex items-center gap-2 mt-1 text-xs text-gray-500 dark:text-gray-400 ${
-                    message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
+                  
+                  <div className={`text-xs text-gray-500 mt-1 ${
+                    message.role === 'user' ? 'text-right' : 'text-left'
                   }`}>
-                    <Clock className="h-3 w-3" />
-                    <span>{message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    {message.role === 'user' && (
-                      <CheckCheck className="h-3 w-3 text-purple-500" />
-                    )}
+                    {formatTimestamp(message.timestamp)}
                   </div>
                 </div>
 
                 {message.role === 'user' && (
                   <Avatar className="h-8 w-8 border border-gray-200 dark:border-gray-700">
-                    <AvatarFallback className="bg-gradient-to-br from-gray-500 to-gray-600 text-white text-sm">
+                    <AvatarFallback className="bg-gray-200 dark:bg-gray-700">
                       <User className="h-4 w-4" />
                     </AvatarFallback>
                   </Avatar>
@@ -259,127 +249,68 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onUpload
               </div>
             ))}
 
-            {isLoading && (
-              <div className="flex gap-3">
-                <Avatar className="h-8 w-8 border border-gray-200 dark:border-gray-700">
-                  <AvatarImage src="/logo.png" alt="Echo" />
-                  <AvatarFallback className="bg-gradient-to-br from-purple-500 to-purple-600 text-white text-sm">
-                    <Bot className="h-4 w-4" />
-                  </AvatarFallback>
-                </Avatar>
-                
-                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 rounded-2xl shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                      <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                    </div>
-                    <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-                      Echo is analyzing...
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
             <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
 
-        {/* Modern Input Area with blur effect - PURPLE THEME */}
-        <div className="relative p-4 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-t border-white/20 dark:border-gray-800/30">
-          {attachedFile && (
-            <div className="mb-3 p-3 bg-gradient-to-r from-purple-50 to-purple-50 dark:from-purple-900/20 dark:to-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-500/10 rounded-lg">
-                  <Paperclip className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                </div>
-                <div>
-                  <span className="text-sm text-purple-700 dark:text-purple-300 font-medium">
-                    {attachedFile.name}
-                  </span>
-                  <div className="text-xs text-purple-500 dark:text-purple-400">
-                    {Math.round(attachedFile.size / 1024)} KB • Ready to upload
-                  </div>
-                </div>
+        {/* Input Area */}
+        <div className="flex-shrink-0 p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+          {messages.length > 0 && (
+            <div className="mb-3">
+              <div className="flex flex-wrap gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setInputMessage("Make this more specific")}
+                  className="text-xs"
+                >
+                  Make more specific
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setInputMessage("Reduce ambiguity")}
+                  className="text-xs"
+                >
+                  Reduce ambiguity
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setInputMessage("Explain the changes")}
+                  className="text-xs"
+                >
+                  Explain changes
+                </Button>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={removeAttachedFile}
-                className="h-8 w-8 p-0 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/30"
-              >
-                <X className="h-4 w-4" />
-              </Button>
             </div>
           )}
-
-          <div className="flex items-stretch gap-3">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="min-h-[44px] w-11 p-0 border-purple-300 dark:border-purple-600 hover:bg-purple-100 dark:hover:bg-purple-700 hover:border-purple-400 transition-all duration-200 self-stretch"
-                >
-                  <Paperclip className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Attach file</TooltipContent>
-            </Tooltip>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".txt,.md"
-              onChange={handleFileSelect}
-              className="hidden"
+          
+          <div className="flex gap-2">
+            <Textarea
+              ref={textareaRef}
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder={
+                messages.length === 0 
+                  ? "You will be able to chat to me after analyzing your prompt..." 
+                  : "Ask me to refine the prompt further..."
+              }
+              className="min-h-[44px] max-h-32 resize-none"
+              disabled={isLoading || isTyping || messages.length === 0}
             />
-
-            <div className="flex-1 relative">
-              <Textarea
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Type your message... (Shift+Enter for new line)"
-                className="min-h-[44px] max-h-[120px] resize-none bg-white dark:bg-gray-800 border-purple-300 dark:border-purple-600 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 pr-4"
-                disabled={isLoading}
-              />
-            </div>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={handleSend}
-                  disabled={!inputMessage.trim() || isLoading}
-                  className="min-h-[44px] w-11 p-0 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:transform-none disabled:hover:scale-100 self-stretch"
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Send message (Enter)</TooltipContent>
-            </Tooltip>
-          </div>
-
-          <div className="flex justify-between items-center mt-2 text-xs text-gray-500 dark:text-gray-400">
-            <div className="flex items-center gap-4">
-              {inputMessage.length > 0 && (
-                <span className="flex items-center gap-1">
-                  <span>{inputMessage.length} characters</span>
-                  <span className="text-gray-300 dark:text-gray-600">•</span>
-                  <span>{inputMessage.split(/\s+/).filter(word => word.length > 0).length} words</span>
-                </span>
-              )}
-            </div>
-            <span className="text-gray-400 dark:text-gray-500">
-              Press Enter to send • Shift+Enter for new line
-            </span>
+            <Button
+              onClick={handleSend}
+              disabled={!inputMessage.trim() || isLoading || isTyping || messages.length === 0}
+              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 px-3"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
           </div>
         </div>
-      </div>
-    </TooltipProvider>
+      </CardContent>
+    </Card>
   );
 };
 

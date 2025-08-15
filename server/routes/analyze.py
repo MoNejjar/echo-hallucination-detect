@@ -1,33 +1,56 @@
 from fastapi import APIRouter, HTTPException
-from models.prompt import AnalyzeRequest, PromptAnalysis
-from models.response import AnalysisOverview
-from services.checker import HallucinationChecker
-from services.sanitizer import PromptSanitizer
+from pydantic import BaseModel
+from typing import Optional
+from ..services.llm import OpenAILLM
+from ..models.response import RiskAssessment
 
 router = APIRouter()
-checker = HallucinationChecker()
-sanitizer = PromptSanitizer()
 
-@router.post("/", response_model=PromptAnalysis)
+class AnalyzeRequest(BaseModel):
+    prompt: str
+
+class AnalyzeResponse(BaseModel):
+    annotated_prompt: str
+    analysis_summary: str
+    risk_assessment: Optional[RiskAssessment] = None
+
+# Initialize LLM service
+llm_service = OpenAILLM()
+
+@router.post("/", response_model=AnalyzeResponse)
 async def analyze_prompt(request: AnalyzeRequest):
+    """Analyze a prompt for hallucination risks with detailed risk assessment."""
     try:
-        # Sanitize input
-        if not sanitizer.is_safe(request.prompt):
-            raise HTTPException(status_code=400, detail="Prompt contains unsafe content")
+        print(f"Analyzing prompt: {request.prompt[:50]}...")
         
-        # Perform analysis
-        analysis = await checker.analyze_prompt(request.prompt)
-        return analysis
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
-
-@router.post("/overview", response_model=AnalysisOverview)
-async def get_analysis_overview(request: AnalyzeRequest):
-    try:
-        if not sanitizer.is_safe(request.prompt):
-            raise HTTPException(status_code=400, detail="Prompt contains unsafe content")
+        # Check if prompt is provided
+        if not request.prompt or not request.prompt.strip():
+            raise HTTPException(status_code=400, detail="Prompt is required")
         
-        overview = await checker.get_analysis_overview(request.prompt)
-        return overview
+        # Use LLM service for analysis
+        result = await llm_service.analyze_prompt(request.prompt)
+        
+        # Convert risk assessment to Pydantic model if present
+        risk_assessment = None
+        if "risk_assessment" in result:
+            risk_data = result["risk_assessment"]
+            risk_assessment = RiskAssessment(**risk_data)
+        
+        return AnalyzeResponse(
+            annotated_prompt=result["annotated_prompt"],
+            analysis_summary=result["analysis_summary"],
+            risk_assessment=risk_assessment
+        )
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Overview generation failed: {str(e)}")
+        print(f"Analysis error: {str(e)}")
+        
+        error_msg = f"Analysis failed: {str(e)}"
+        if "api key" in str(e).lower():
+            error_msg = "OpenAI API key is invalid or missing"
+        elif "rate limit" in str(e).lower():
+            error_msg = "OpenAI API rate limit exceeded"
+        elif "network" in str(e).lower():
+            error_msg = "Network connection error"
+            
+        raise HTTPException(status_code=500, detail=error_msg)

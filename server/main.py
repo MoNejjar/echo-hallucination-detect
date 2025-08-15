@@ -1,26 +1,61 @@
-from fastapi import FastAPI, HTTPException
+from dotenv import load_dotenv
+import os
+
+# Load environment variables FIRST
+load_dotenv()
+
+from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-import uvicorn
-from routes.analyze import router as analyze_router
-from routes.refine import router as refine_router
-from routes.health import router as health_router
+from server.routes import health, analyze, refine
 
-app = FastAPI(title="Echo - Hallucination Mitigation Tool", version="1.0.0")
+# Create FastAPI app
+app = FastAPI(
+    title="Echo Hallucination Detection API",
+    description="AI-powered prompt analysis for hallucination detection",
+    version="1.0.0"
+)
 
-# CORS middleware
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["*"],  # In production, specify exact origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(health_router, prefix="/api/health")
-app.include_router(analyze_router, prefix="/api/analyze")
-app.include_router(refine_router, prefix="/api/refine")
+# Create main API router
+api_router = APIRouter()
+
+# Include route modules
+api_router.include_router(health.router, prefix="/health", tags=["health"])
+api_router.include_router(analyze.router, prefix="/analyze", tags=["analyze"])
+api_router.include_router(refine.router, prefix="/refine", tags=["refine"])
+
+# Include the main API router
+app.include_router(api_router, prefix="/api")
+
+# Debug router for development
+debug_router = APIRouter()
+
+@debug_router.get("/test")
+async def debug_test():
+    return {"status": "ok", "message": "Debug endpoint working"}
+
+@debug_router.get("/env")
+async def debug_env():
+    return {
+        "has_openai_key": bool(os.getenv("OPENAI_API_KEY")),
+        "api_base": os.getenv("OPENAI_API_BASE", "default"),
+    }
+
+app.include_router(debug_router, prefix="/api/debug", tags=["debug"])
+
+# Root endpoint
+@app.get("/")
+async def root():
+    return {"message": "Echo Hallucination Detection API is running"}
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8001)

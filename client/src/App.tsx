@@ -1,183 +1,785 @@
-import React, { useState, useEffect } from 'react';
-import Sidebar from './components/Sidebar';
-import ChatPanel from './components/ChatPanel';
-import Editor from './components/Editor';
-import AnalysisSection from './components/AnalysisSection';
-import AnalysisView from './components/AnalysisView';
-import './index.css';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { analyzePrompt, refineOnce, openRefineSSE } from "./lib/api";
+import { Button } from "./components/ui/button";
+import { Textarea } from "./components/ui/textarea";
+import { Input } from "./components/ui/input";
+import { ScrollArea } from "./components/ui/scroll-area";
+import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
+import { Progress } from "./components/ui/progress";
+import { Badge } from "./components/ui/badge";
+import { Separator } from "./components/ui/separator";
+import { Loader2, Brain, MessageSquare, Sparkles, ChevronDown, ChevronUp, AlertTriangle, Tag, Lightbulb, FileText, Search, Zap, Target } from "lucide-react";
+import type { ChatMessage, PromptAnalysis, RiskAssessment } from "./types";
+import Sidebar from "./components/Sidebar";
+import AnalysisSection from "./components/AnalysisSection";
+import ChatPanel from "./components/ChatPanel";
 
-export interface HighlightSegment {
-  start: number;
-  end: number;
-  text: string;
-  riskLevel: 'high' | 'medium' | 'low';
-  confidence: number;
-  reason: string;
-  category: string;
-}
+// Render the annotated prompt by converting <r>/<y> tags to styled spans
+const renderAnnotated = (text: string) => {
+  const safe = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const parts = safe
+    .replace(/&lt;r&gt;/gi, "%%RSTART%%")
+    .replace(/&lt;\/r&gt;/gi, "%%REND%%")
+    .replace(/&lt;y&gt;/gi, "%%YSTART%%")
+    .replace(/&lt;\/y&gt;/gi, "%%YEND%%")
+    .split(/(%%RSTART%%|%%REND%%|%%YSTART%%|%%YEND%%)/);
 
-export interface PromptAnalysis {
-  promptText: string;
-  highlightedSegments: HighlightSegment[];
-  overallConfidence: number;
-  totalFlagged: number;
-  categories: Record<string, number>;
-  analysisSummary: string;
-}
+  const out: React.ReactNode[] = [];
+  let buf = "";
+  let mode: "none" | "red" | "yellow" = "none";
 
-export interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-  analysisId?: string;
-}
-
-function App() {
-  const [currentPrompt, setCurrentPrompt] = useState<string>('');
-  const [analysis, setAnalysis] = useState<PromptAnalysis | null>(null);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
-  const [showAnalysisOverview, setShowAnalysisOverview] = useState<boolean>(false);
-  const [showAnalysisSection, setShowAnalysisSection] = useState<boolean>(false); // New state
-
-  const handlePromptUpload = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const content = e.target?.result as string;
-      setCurrentPrompt(content);
-    };
-    reader.readAsText(file);
+  const flush = () => {
+    if (!buf) return;
+    if (mode === "red") {
+      out.push(
+        <span
+          key={out.length}
+          className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-1 rounded font-medium"
+        >
+          {buf}
+        </span>
+      );
+    } else if (mode === "yellow") {
+      out.push(
+        <span
+          key={out.length}
+          className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 px-1 rounded"
+        >
+          {buf}
+        </span>
+      );
+    } else {
+      out.push(<span key={out.length}>{buf}</span>);
+    }
+    buf = "";
   };
 
-  const handleAnalyze = async () => {
-    if (!currentPrompt.trim()) return;
+  for (const p of parts) {
+    if (p === "%%RSTART%%") {
+      flush();
+      mode = "red";
+      continue;
+    }
+    if (p === "%%REND%%") {
+      flush();
+      mode = "none";
+      continue;
+    }
+    if (p === "%%YSTART%%") {
+      flush();
+      mode = "yellow";
+      continue;
+    }
+    if (p === "%%YEND%%") {
+      flush();
+      mode = "none";
+      continue;
+    }
+    buf += p;
+  }
+  flush();
+  return <div className="whitespace-pre-wrap text-sm leading-relaxed font-mono">{out}</div>;
+};
 
+// Strip tags helper for clean text
+const stripTags = (text: string) => text.replace(/<\/?(?:r|y)>/gi, "");
+
+function App() {
+  const [currentPrompt, setCurrentPrompt] = useState("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [analysis, setAnalysis] = useState<PromptAnalysis | null>(null);
+  const [riskAssessment, setRiskAssessment] = useState<RiskAssessment | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [isInitialRewrite, setIsInitialRewrite] = useState(false);
+  const [showAnalysisSection, setShowAnalysisSection] = useState(false);
+  const [riskDetailsExpanded, setRiskDetailsExpanded] = useState(false);
+  const [tokensExpanded, setTokensExpanded] = useState(false);
+  const [analysisResultsExpanded, setAnalysisResultsExpanded] = useState(false);
+
+  const eventSourceRef = useRef<EventSource | null>(null);
+
+  const canAnalyze = useMemo(() => currentPrompt.trim().length > 10, [currentPrompt]);
+
+  const handleAnalyze = useCallback(async () => {
+    if (!canAnalyze) return;
+
+    // Reset session
     setIsAnalyzing(true);
-    setShowAnalysisSection(true); // Show analysis section
-    setShowAnalysisOverview(false); // Hide overview if open
+    setAnalysisProgress(0);
+    setAnalysis(null);
+    setChatMessages([]);
+    // Don't immediately show analysis section - let animation show first
+    setIsInitialRewrite(false);
 
     try {
-      // Your existing API call logic here
-      const response = await fetch('http://localhost:8000/api/analyze/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: currentPrompt })
-      });
+      // Step 1: Analysis with progress simulation
+      const progressInterval = setInterval(() => {
+        setAnalysisProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + Math.random() * 15;
+        });
+      }, 200);
 
-      if (!response.ok) throw new Error('Analysis failed');
+      // Perform analysis
+      const result = await analyzePrompt(currentPrompt);
+      
+      clearInterval(progressInterval);
+      setAnalysisProgress(100);
 
-      const analysisResult = await response.json();
-      setAnalysis(analysisResult);
+      // Set risk assessment if available
+      if (result.risk_assessment) {
+        setRiskAssessment(result.risk_assessment);
+      }
 
-      const aiMessage: ChatMessage = {
-        role: 'assistant',
-        content: analysisResult.analysisSummary,
-        timestamp: new Date()
+      // Map to PromptAnalysis format
+      const mapped: PromptAnalysis = {
+        promptText: stripTags(result.annotated_prompt || currentPrompt),
+        highlightedSegments: [],
+        overallConfidence: 0.0,
+        totalFlagged: 0,
+        categories: {},
+        analysisSummary: result.analysis_summary,
+        annotated_prompt: result.annotated_prompt,
       };
-      setChatMessages(prev => [...prev, aiMessage]);
+      setAnalysis(mapped);
 
-    } catch (error) {
-      console.error('Analysis failed:', error);
+      // Wait a moment to show completed analysis, then switch to analysis section
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setShowAnalysisSection(true);
+
+      // Step 2: Initial conversational rewrite
+      setIsInitialRewrite(true);
+      const initial = await refineOnce(
+        currentPrompt,
+        [],
+        "Please rewrite this prompt to be clearer and reduce hallucination risks. Explain what changes you made and why. Format your response with clear sections showing the improved prompt and explanations."
+      );
+
+      const assistantMsg: ChatMessage = {
+        role: "assistant",
+        content: initial.assistant_message,
+        timestamp: new Date(), // Changed from string to Date object
+      };
+      setChatMessages([assistantMsg]);
+
+    } catch (err) {
+      console.error("Analyze sequence failed:", err);
     } finally {
-      // Keep analyzing state for the animation to complete
-      setTimeout(() => setIsAnalyzing(false), 2000);
+      setIsAnalyzing(false);
+      setIsInitialRewrite(false);
+      setAnalysisProgress(0);
     }
+  }, [canAnalyze, currentPrompt]);
+
+  const startStream = useCallback(
+    (userMessage: string) => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+
+      const userChat: ChatMessage = {
+        role: "user",
+        content: userMessage,
+        timestamp: new Date(), // Changed from string to Date object
+      };
+      setChatMessages((prev) => [...prev, userChat]);
+
+      const id = String(Date.now());
+      const placeholder: ChatMessage = {
+        role: "assistant",
+        content: "",
+        timestamp: new Date(), // Changed from string to Date object
+        id,
+      };
+      setChatMessages((prev) => [...prev, placeholder]);
+
+      const historyCompact = [...chatMessages, userChat].map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      const es = openRefineSSE(currentPrompt, userMessage, historyCompact);
+      eventSourceRef.current = es;
+
+      let acc = "";
+      es.onmessage = (e) => {
+        acc += e.data;
+        setChatMessages((prev) => prev.map((m) => (m.id === id ? { ...m, content: acc } : m)));
+      };
+      es.addEventListener("done", () => {
+        es.close();
+        eventSourceRef.current = null;
+      });
+      es.onerror = () => {
+        es.close();
+        eventSourceRef.current = null;
+      };
+    },
+    [chatMessages, currentPrompt]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) eventSourceRef.current.close();
+    };
+  }, []);
+
+  const onSendMessage = (message: string) => {
+    if (!message.trim()) return;
+    startStream(message);
   };
 
   const handleNewAnalysis = () => {
-    setCurrentPrompt('');
+    setCurrentPrompt("");
     setAnalysis(null);
     setChatMessages([]);
-    setShowAnalysisOverview(false);
-    setShowAnalysisSection(false); // Reset analysis section
+    setShowAnalysisSection(false);
+    setIsAnalyzing(false);
+    setAnalysisProgress(0);
+    setIsInitialRewrite(false);
+    setRiskDetailsExpanded(false);
+    setTokensExpanded(false);
+    setAnalysisResultsExpanded(false);
   };
 
-  const handleSendMessage = async (message: string) => {
-    const userMessage: ChatMessage = {
-      role: 'user',
-      content: message,
-      timestamp: new Date()
-    };
-    setChatMessages(prev => [...prev, userMessage]);
+  const handleFileUpload = async (file: File) => {
+    if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
+      try {
+        const text = await file.text();
+        setCurrentPrompt(text);
+      } catch (error) {
+        console.error('Error reading file:', error);
+        // You could add a toast notification here
+      }
+    } else {
+      console.error('Only .txt files are supported');
+      // You could add a toast notification here
+    }
+  };
 
-// Auto-add Echo's "coming soon" response
-  setTimeout(() => {
-    const echoResponse: ChatMessage = {
-      role: 'assistant',
-      content: 'The conversation feature is coming soon!',
-      timestamp: new Date()
-    };
-    setChatMessages(prev => [...prev, echoResponse]);
-  }, 1500); // 1.5 second delay to simulate thinking
-
-  /* COMMENTED OUT: Original API call
-  try {
-    const response = await fetch('http://localhost:8000/api/refine/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        prompt: currentPrompt,
-        conversationHistory: chatMessages,
-        userMessage: message
-      })
-    });
-
-    if (!response.ok) throw new Error('Refinement failed');
-
-    const result = await response.json();
-
-    const aiMessage: ChatMessage = {
-      role: 'assistant',
-      content: result.assistantMessage,
-      timestamp: new Date()
-    };
-    setChatMessages(prev => [...prev, aiMessage]);
-
-  } catch (error) {
-    console.error('Refinement failed:', error);
-  }
-  */
-};
+  const onSend = () => {
+    const msg = chatInput.trim();
+    if (!msg) return;
+    setChatInput("");
+    startStream(msg);
+  };
 
   return (
-    <div className="flex h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-white transition-colors duration-300">
+    <div className="flex h-screen w-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 overflow-hidden">
+      {/* Sidebar */}
       <Sidebar 
-        onNewAnalysis={handleNewAnalysis}
-        onUploadFile={handlePromptUpload}
+        messages={chatMessages}
+        onNewAnalysis={handleNewAnalysis} 
+        onUploadFile={handleFileUpload} 
       />
 
-      <div className="flex-1 flex">
-        <div className="w-[55%] border-r border-gray-300 dark:border-gray-700">
-          <ChatPanel 
-            messages={chatMessages}
-            onSendMessage={handleSendMessage}
-            onUploadFile={handlePromptUpload}
-            isLoading={isAnalyzing}
-          />
-        </div>
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <header className="flex-shrink-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                  Echo - Hallucination Detector
+                </h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  AI-powered prompt analysis and refinement
+                </p>
+              </div>
+            </div>
+            {analysis && (
+              <Badge variant="outline" className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+                <Sparkles className="w-3 h-3 mr-1" />
+                Analysis Complete
+              </Badge>
+            )}
+          </div>
+        </header>
 
-        <div className="w-[45%] flex flex-col">
-          {showAnalysisSection ? (
-            <AnalysisSection 
-              originalText={currentPrompt}
-              isAnalyzing={isAnalyzing}
+        {/* Main Interface */}
+        <div className="flex-1 p-6 gap-6 grid grid-cols-1 lg:grid-cols-5 min-h-0 overflow-hidden">
+          {/* Chat Panel */}
+          <div className={showAnalysisSection ? "lg:col-span-3 min-h-0 overflow-hidden" : "lg:col-span-3 min-h-0 overflow-hidden"}>
+            <ChatPanel 
+              messages={chatMessages}
+              onSendMessage={onSendMessage}
+              isLoading={isInitialRewrite}
             />
-          ) : (
-            <Editor 
-              prompt={currentPrompt}
-              onChange={setCurrentPrompt}
-              analysis={analysis}
-              onAnalyze={handleAnalyze}
-              isAnalyzing={isAnalyzing}
-              onToggleOverview={() => setShowAnalysisOverview(!showAnalysisOverview)}
-            />
+          </div>
+
+          {/* Analysis Results */}
+          {showAnalysisSection && (
+            <Card className="lg:col-span-2 flex flex-col overflow-hidden">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Brain className="w-5 h-5" />
+                  Analysis Results
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 overflow-auto">
+                {analysis?.annotated_prompt ? (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium flex items-center gap-2">
+                          <FileText className="w-4 h-4" />
+                          Annotated Prompt
+                          <div className="w-3 h-3 bg-red-500 rounded-full ml-4"></div>
+                          High Risk
+                          <div className="w-3 h-3 bg-yellow-500 rounded-full ml-2"></div>
+                          Medium Risk
+                        </h4>
+                        <button 
+                          className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm flex items-center gap-1"
+                          onClick={() => setAnalysisResultsExpanded(!analysisResultsExpanded)}
+                        >
+                          {analysisResultsExpanded ? (
+                            <>Collapse <ChevronUp className="w-4 h-4" /></>
+                          ) : (
+                            <>Expand <ChevronDown className="w-4 h-4" /></>
+                          )}
+                        </button>
+                      </div>
+                      <ScrollArea className={analysisResultsExpanded ? "h-auto max-h-[600px]" : "h-[150px]"}>
+                        <div className={`${!analysisResultsExpanded ? 'relative' : ''}`}>
+                          {renderAnnotated(analysis.annotated_prompt)}
+                          {!analysisResultsExpanded && (
+                            <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-gray-50 dark:from-gray-800/50 to-transparent pointer-events-none" />
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                    {/* Hallucination Risk Section */}
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                          <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                          Hallucination Risk Score
+                        </h4>
+                        <button 
+                          className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm flex items-center gap-1"
+                          onClick={() => setRiskDetailsExpanded(!riskDetailsExpanded)}
+                        >
+                          {riskDetailsExpanded ? (
+                            <>Collapse Details <ChevronUp className="w-4 h-4" /></>
+                          ) : (
+                            <>Expand Details <ChevronDown className="w-4 h-4" /></>
+                          )}
+                        </button>
+                      </div>
+                      <div className="bg-gray-100/50 dark:bg-gray-700/20 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-700 dark:text-gray-300">
+                            Overall Risk Assessment
+                          </span>
+                          <div className="flex items-center gap-3">
+                            <div className="relative w-16 h-16">
+                              <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 100 100">
+                                <circle
+                                  cx="50"
+                                  cy="50"
+                                  r="40"
+                                  stroke="currentColor"
+                                  strokeWidth="8"
+                                  fill="transparent"
+                                  className="text-gray-200 dark:text-gray-600"
+                                />
+                                <circle
+                                  cx="50"
+                                  cy="50"
+                                  r="40"
+                                  stroke="currentColor"
+                                  strokeWidth="8"
+                                  fill="transparent"
+                                  strokeDasharray={`${2 * Math.PI * 40}`}
+                                  strokeDashoffset={`${2 * Math.PI * 40 * (1 - (riskAssessment?.overall_assessment?.percentage || 65) / 100)}`}
+                                  className="text-blue-500 transition-all duration-1000"
+                                  strokeLinecap="round"
+                                />
+                              </svg>
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                                  {riskAssessment?.overall_assessment?.percentage || 65}%
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Expanded Risk Details */}
+                      {riskDetailsExpanded && (
+                        <div className="mt-4 space-y-4 border-t border-gray-200 dark:border-gray-600 pt-4">
+                          <h5 className="font-semibold text-gray-800 dark:text-gray-200">Risk Assessment Criteria</h5>
+                          
+                          <div className="space-y-3">
+                            {riskAssessment?.criteria?.length ? (
+                              riskAssessment.criteria.map((criterion, index) => (
+                                <div key={index} className="flex items-center justify-between p-3 bg-white dark:bg-gray-900/50 rounded-lg">
+                                  <div>
+                                    <div className="font-medium text-sm text-gray-800 dark:text-gray-200">{criterion.name}</div>
+                                    <div className="text-xs text-gray-600 dark:text-gray-400">{criterion.description}</div>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className={`text-sm font-bold ${
+                                      criterion.risk === 'high' ? 'text-red-600 dark:text-red-400' :
+                                      criterion.risk === 'medium' ? 'text-yellow-600 dark:text-yellow-400' :
+                                      'text-green-600 dark:text-green-400'
+                                    }`}>
+                                      {criterion.risk === 'high' ? 'High Risk' :
+                                       criterion.risk === 'medium' ? 'Medium Risk' :
+                                       'Low Risk'}
+                                    </div>
+                                    <div className="text-xs text-gray-500">{criterion.percentage}%</div>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-900/50 rounded-lg">
+                                <div>
+                                  <div className="font-medium text-sm text-gray-800 dark:text-gray-200">No risk criteria available</div>
+                                  <div className="text-xs text-gray-600 dark:text-gray-400">Run analysis to see detailed risk assessment</div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <div className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">Overall Assessment</div>
+                            <div className="text-xs text-blue-700 dark:text-blue-400">
+                              {riskAssessment?.overall_assessment?.description || 
+                               "Run analysis to see detailed assessment of hallucination risks."}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* High Risk Tokens Section */}
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                          <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                          High Risk Tokens (3)
+                        </h4>
+                        <button 
+                          className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm flex items-center gap-1"
+                          onClick={() => setTokensExpanded(!tokensExpanded)}
+                        >
+                          {tokensExpanded ? (
+                            <>Collapse Analysis <ChevronUp className="w-4 h-4" /></>
+                          ) : (
+                            <>Expand Analysis <ChevronDown className="w-4 h-4" /></>
+                          )}
+                        </button>
+                      </div>
+                      
+                      {!tokensExpanded ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 rounded font-mono">
+                              "this"
+                            </span>
+                            <span className="text-gray-700 dark:text-gray-300">
+                              Ambiguous reference
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 rounded font-mono">
+                              "many"
+                            </span>
+                            <span className="text-gray-700 dark:text-gray-300">
+                              Vague quantifier
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                            Click expand to see detailed analysis and suggestions
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {/* Token 1: "this" */}
+                          <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                            <div className="flex items-center gap-3 mb-4">
+                              <span className="px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded font-mono text-lg">
+                                "this"
+                              </span>
+                              <Badge variant="destructive" className="text-xs">High Risk</Badge>
+                            </div>
+                            
+                            <div className="space-y-4">
+                              {/* Reasoning Section */}
+                              <div className="flex gap-3">
+                                <div className="flex-shrink-0 mt-0.5">
+                                  <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                                </div>
+                                <div>
+                                  <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">Reasoning</div>
+                                  <div className="text-sm text-gray-700 dark:text-gray-300">
+                                    Ambiguous pronoun that lacks clear antecedent, making it unclear what specific object or concept is being referenced.
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Classification Section */}
+                              <div className="flex gap-3">
+                                <div className="flex-shrink-0 mt-0.5">
+                                  <Tag className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                </div>
+                                <div>
+                                  <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">Classification</div>
+                                  <div className="text-sm text-gray-700 dark:text-gray-300">
+                                    Ambiguous Reference
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Mitigation Section */}
+                              <div className="flex gap-3">
+                                <div className="flex-shrink-0 mt-0.5">
+                                  <Lightbulb className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                </div>
+                                <div>
+                                  <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">Mitigation</div>
+                                  <div className="text-sm text-gray-700 dark:text-gray-300">
+                                    Replace "this" with the specific noun or concept being referenced. For example: "this algorithm" to "the sorting algorithm" or "this approach" to "the machine learning approach"
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Token 2: "many" */}
+                          <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                            <div className="flex items-center gap-3 mb-4">
+                              <span className="px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded font-mono text-lg">
+                                "many"
+                              </span>
+                              <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">Medium Risk</Badge>
+                            </div>
+                            
+                            <div className="space-y-4">
+                              {/* Reasoning Section */}
+                              <div className="flex gap-3">
+                                <div className="flex-shrink-0 mt-0.5">
+                                  <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                                </div>
+                                <div>
+                                  <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">Reasoning</div>
+                                  <div className="text-sm text-gray-700 dark:text-gray-300">
+                                    Vague quantifier that provides no specific numerical information, leading to subjective interpretation.
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Classification Section */}
+                              <div className="flex gap-3">
+                                <div className="flex-shrink-0 mt-0.5">
+                                  <Tag className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                </div>
+                                <div>
+                                  <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">Classification</div>
+                                  <div className="text-sm text-gray-700 dark:text-gray-300">
+                                    Vague Quantifier
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Mitigation Section */}
+                              <div className="flex gap-3">
+                                <div className="flex-shrink-0 mt-0.5">
+                                  <Lightbulb className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                </div>
+                                <div>
+                                  <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">Mitigation</div>
+                                  <div className="text-sm text-gray-700 dark:text-gray-300">
+                                    Specify exact numbers or ranges. For example: "many users" to "over 1,000 users" or "many options" to "5-10 different options"
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Token 3: "significant" */}
+                          <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                            <div className="flex items-center gap-3 mb-4">
+                              <span className="px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded font-mono text-lg">
+                                "significant"
+                              </span>
+                              <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">Medium Risk</Badge>
+                            </div>
+                            
+                            <div className="space-y-4">
+                              {/* Reasoning Section */}
+                              <div className="flex gap-3">
+                                <div className="flex-shrink-0 mt-0.5">
+                                  <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                                </div>
+                                <div>
+                                  <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">Reasoning</div>
+                                  <div className="text-sm text-gray-700 dark:text-gray-300">
+                                    Subjective adjective that can be interpreted differently depending on context and perspective.
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Classification Section */}
+                              <div className="flex gap-3">
+                                <div className="flex-shrink-0 mt-0.5">
+                                  <Tag className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                </div>
+                                <div>
+                                  <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">Classification</div>
+                                  <div className="text-sm text-gray-700 dark:text-gray-300">
+                                    Subjective Qualifier
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Mitigation Section */}
+                              <div className="flex gap-3">
+                                <div className="flex-shrink-0 mt-0.5">
+                                  <Lightbulb className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                </div>
+                                <div>
+                                  <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">Mitigation</div>
+                                  <div className="text-sm text-gray-700 dark:text-gray-300">
+                                    Define what constitutes "significant" with measurable criteria. For example: "significant improvement" to "20% performance improvement" or "statistically significant with p less than 0.05"
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-gray-500">
+                    Run analysis to see highlighted results
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           )}
 
-          {showAnalysisOverview && analysis && !showAnalysisSection && (
-            <AnalysisView 
-              analysis={analysis}
-              onClose={() => setShowAnalysisOverview(false)}
-            />
+          {/* Prompt Editor - Only shown when analysis section is not visible */}
+          {!showAnalysisSection && (
+            <Card className="lg:col-span-2 flex flex-col overflow-hidden">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5" />
+                  Prompt Editor
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 flex-1 overflow-auto">
+                <Textarea
+                  value={currentPrompt}
+                  onChange={(e) => setCurrentPrompt(e.target.value)}
+                  placeholder="Enter your prompt here for hallucination analysis..."
+                  className="min-h-[300px] font-mono text-sm"
+                />
+                
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-gray-500">
+                    {currentPrompt.length} characters • {currentPrompt.split(/\s+/).filter(w => w.length > 0).length} words
+                  </div>
+                  <Button
+                    onClick={handleAnalyze}
+                    disabled={!canAnalyze || isAnalyzing}
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500"
+                  >
+                    {isAnalyzing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Analyzing...
+                      </>
+                    ) : (
+                      <>
+                        <Brain className="w-4 h-4 mr-2" />
+                        Analyze
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Analysis Progress in Prompt Editor */}
+                {isAnalyzing && (
+                  <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <Loader2 className="w-6 h-6 text-blue-600 dark:text-blue-400 animate-spin" />
+                        <div className="absolute inset-0 w-6 h-6 border-2 border-blue-200 dark:border-blue-800 rounded-full animate-pulse"></div>
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-blue-900 dark:text-blue-100">
+                          AI Analysis in Progress
+                        </div>
+                        <div className="text-sm text-blue-700 dark:text-blue-300">
+                          {analysisProgress < 30 ? (
+                            <span className="flex items-center gap-1">
+                              <Search className="w-3 h-3" />
+                              Scanning for ambiguous references...
+                            </span>
+                          ) : analysisProgress < 60 ? (
+                            <span className="flex items-center gap-1">
+                              <Target className="w-3 h-3" />
+                              Identifying vague quantifiers...
+                            </span>
+                          ) : analysisProgress < 90 ? (
+                            <span className="flex items-center gap-1">
+                              <Zap className="w-3 h-3" />
+                              Calculating hallucination risk...
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1">
+                              <Brain className="w-3 h-3" />
+                              {isInitialRewrite ? "Generating improvements..." : "Finalizing analysis..."}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                          {Math.round(analysisProgress)}%
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Progress value={analysisProgress} className="h-3 bg-blue-100 dark:bg-blue-900/50" />
+                      
+                      {/* Analysis Steps */}
+                      <div className="flex justify-between text-xs text-blue-600 dark:text-blue-400 mt-2">
+                        <div className={`flex items-center gap-1 ${analysisProgress >= 25 ? 'opacity-100' : 'opacity-50'}`}>
+                          <div className={`w-2 h-2 rounded-full ${analysisProgress >= 25 ? 'bg-blue-500' : 'bg-blue-200 dark:bg-blue-800'}`}></div>
+                          <span>Scan</span>
+                        </div>
+                        <div className={`flex items-center gap-1 ${analysisProgress >= 50 ? 'opacity-100' : 'opacity-50'}`}>
+                          <div className={`w-2 h-2 rounded-full ${analysisProgress >= 50 ? 'bg-blue-500' : 'bg-blue-200 dark:bg-blue-800'}`}></div>
+                          <span>Analyze</span>
+                        </div>
+                        <div className={`flex items-center gap-1 ${analysisProgress >= 75 ? 'opacity-100' : 'opacity-50'}`}>
+                          <div className={`w-2 h-2 rounded-full ${analysisProgress >= 75 ? 'bg-blue-500' : 'bg-blue-200 dark:bg-blue-800'}`}></div>
+                          <span>Calculate</span>
+                        </div>
+                        <div className={`flex items-center gap-1 ${analysisProgress >= 100 ? 'opacity-100' : 'opacity-50'}`}>
+                          <div className={`w-2 h-2 rounded-full ${analysisProgress >= 100 ? 'bg-green-500' : 'bg-blue-200 dark:bg-blue-800'}`}></div>
+                          <span>Complete</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           )}
         </div>
       </div>

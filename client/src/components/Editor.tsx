@@ -41,7 +41,7 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
-import { PromptAnalysis } from '../App';
+import { PromptAnalysis } from '../types';
 
 interface EditorProps {
   prompt: string;
