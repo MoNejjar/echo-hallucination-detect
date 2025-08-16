@@ -5,6 +5,7 @@ import re
 import xml.etree.ElementTree as ET
 from typing import Dict, Any, List, Optional, AsyncGenerator
 from dotenv import load_dotenv
+from ..config import OPENAI_MODEL
 
 load_dotenv()
 
@@ -13,9 +14,7 @@ class OpenAILLM:
         self.client = openai.AsyncOpenAI(
             api_key=os.getenv("OPENAI_API_KEY")
         )
-        # Force the model to gpt-5-mini, ignoring environment variable
-        self.model = "gpt-5-mini"
-        print(f"🤖 LLM initialized with model: {self.model}")
+        self.model = OPENAI_MODEL
         self.max_tokens = int(os.getenv("MAX_TOKENS", "4000"))
         self.temperature = float(os.getenv("TEMPERATURE", "0.3"))
         self.timeout = int(os.getenv("LLM_REQUEST_TIMEOUT", "60"))
@@ -128,7 +127,7 @@ Always reference the current prompt state when making suggestions."""
                     messages=[
                         {"role": "system", "content": self._get_hallucination_analysis_prompt(prompt)}
                     ],
-                    max_tokens=self.max_tokens,
+                    max_completion_tokens=self.max_tokens,
                     temperature=0.3,  # Lower temperature for analysis consistency
                 ),
                 timeout=self.timeout
@@ -181,7 +180,7 @@ Always reference the current prompt state when making suggestions."""
                 self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
-                    max_tokens=self.max_tokens,
+                    max_completion_tokens=self.max_tokens,
                     temperature=self.temperature,
                 ),
                 timeout=self.timeout
@@ -217,7 +216,7 @@ Always reference the current prompt state when making suggestions."""
             stream = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=self.max_tokens,
+                max_completion_tokens=self.max_tokens,
                 temperature=self.temperature,
                 stream=True
             )

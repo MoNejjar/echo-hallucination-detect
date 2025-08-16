@@ -1,13 +1,16 @@
 import React from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { 
   Settings as SettingsIcon, 
   Stethoscope, 
   Scale, 
   Code,
   Info,
-  Book
+  Book,
+  Zap,
+  Target
 } from 'lucide-react';
 import { 
   Tooltip,
@@ -17,10 +20,13 @@ import {
 } from '@/components/ui/tooltip';
 
 export type Domain = 'general' | 'technical' | 'medical' | 'juridical' | 'historical';
+export type AnalysisMode = 'simple' | 'comprehensive';
 
 interface SettingsProps {
   domain: Domain;
   onDomainChange: (domain: Domain) => void;
+  analysisMode: AnalysisMode;
+  onAnalysisModeChange: (mode: AnalysisMode) => void;
 }
 
 const DOMAIN_CONFIG = {
@@ -116,59 +122,110 @@ CRITICAL REQUIREMENTS for historical content:
   }
 };
 
-const Settings: React.FC<SettingsProps> = ({ domain, onDomainChange }) => {
+const Settings: React.FC<SettingsProps> = ({ domain, onDomainChange, analysisMode, onAnalysisModeChange }) => {
   const selectedDomain = DOMAIN_CONFIG[domain];
   const IconComponent = selectedDomain.icon;
 
   return (
     <TooltipProvider>
-      <div className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
-        <div className="flex items-center gap-2">
-          <SettingsIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Domain Context:
-          </label>
+      <div className="space-y-4">
+        {/* Domain Context Container */}
+        <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
+          <div className="flex items-center gap-2">
+            <SettingsIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Domain Context:
+            </label>
+          </div>
+          
+          <Select value={domain} onValueChange={(value: Domain) => onDomainChange(value)}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Select domain context">
+                <div className="flex items-center gap-2">
+                  <IconComponent className="w-4 h-4" />
+                  {selectedDomain.label}
+                </div>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(DOMAIN_CONFIG).map(([key, config]) => {
+                const Icon = config.icon;
+                return (
+                  <SelectItem key={key} value={key}>
+                    <div className="flex items-center gap-2">
+                      <Icon className="w-4 h-4" />
+                      <span className="font-medium">{config.label}</span>
+                    </div>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+
+          {domain !== 'general' && (
+            <Badge className={`${selectedDomain.color} text-white flex items-center gap-1`}>
+              <IconComponent className="w-3 h-3" />
+              {selectedDomain.label} Active
+            </Badge>
+          )}
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent className="bg-gray-900 dark:bg-gray-700 text-white">
+              <p>LLM applies {selectedDomain.label.toLowerCase()} domain context during analysis</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
-        
-        <Select value={domain} onValueChange={(value: Domain) => onDomainChange(value)}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Select domain context">
-              <div className="flex items-center gap-2">
-                <IconComponent className="w-4 h-4" />
-                {selectedDomain.label}
-              </div>
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(DOMAIN_CONFIG).map(([key, config]) => {
-              const Icon = config.icon;
-              return (
-                <SelectItem key={key} value={key}>
-                  <div className="flex items-center gap-2">
-                    <Icon className="w-4 h-4" />
-                    <span className="font-medium">{config.label}</span>
-                  </div>
-                </SelectItem>
-              );
-            })}
-          </SelectContent>
-        </Select>
 
-        {domain !== 'general' && (
-          <Badge className={`${selectedDomain.color} text-white flex items-center gap-1`}>
-            <IconComponent className="w-3 h-3" />
-            {selectedDomain.label} Active
-          </Badge>
-        )}
+        {/* Analysis Mode Container */}
+        <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
+          <div className="flex items-center gap-2">
+            {analysisMode === 'comprehensive' ? (
+              <Target className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+            ) : (
+              <Zap className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+            )}
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Analysis Mode:
+            </label>
+          </div>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-help" />
-          </TooltipTrigger>
-          <TooltipContent className="bg-gray-900 dark:bg-gray-700 text-white">
-            <p>LLM applies {selectedDomain.label.toLowerCase()} domain context during analysis</p>
-          </TooltipContent>
-        </Tooltip>
+          <div className="flex items-center gap-3">
+            <span className={`text-sm ${analysisMode === 'simple' ? 'text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
+              Simple
+            </span>
+            <Switch
+              checked={analysisMode === 'comprehensive'}
+              onCheckedChange={(checked) => onAnalysisModeChange(checked ? 'comprehensive' : 'simple')}
+            />
+            <span className={`text-sm ${analysisMode === 'comprehensive' ? 'text-purple-600 dark:text-purple-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
+              Comprehensive
+            </span>
+          </div>
+
+          {analysisMode === 'comprehensive' && (
+            <Badge className="bg-purple-500 text-white flex items-center gap-1">
+              <Target className="w-3 h-3" />
+              Full Analysis
+            </Badge>
+          )}
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent className="bg-gray-900 dark:bg-gray-700 text-white max-w-xs">
+              <p>
+                {analysisMode === 'comprehensive' 
+                  ? 'Includes risk assessment, high-risk tokens, and detailed highlighting'
+                  : 'Basic highlighting only, no risk assessment or high-risk token analysis'
+                }
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
       </div>
     </TooltipProvider>
   );

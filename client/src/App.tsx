@@ -13,8 +13,9 @@ import type { ChatMessage, PromptAnalysis, RiskAssessment } from "./types";
 import Sidebar from "./components/Sidebar";
 import AnalysisSection from "./components/AnalysisSection";
 import ChatPanel from "./components/ChatPanel";
+import { Toaster } from 'react-hot-toast';
 import ExpandableEditor from "./components/ExpandableEditor";
-import Settings, { type Domain, DOMAIN_CONFIG } from "./components/Settings";
+import Settings, { type Domain, type AnalysisMode, DOMAIN_CONFIG } from "./components/Settings";
 
 // Render the annotated prompt by converting <r>/<y> tags to styled spans
 const renderAnnotated = (text: string) => {
@@ -100,6 +101,7 @@ function App() {
   const [tokensExpanded, setTokensExpanded] = useState(false);
   const [analysisResultsExpanded, setAnalysisResultsExpanded] = useState(false);
   const [domain, setDomain] = useState<Domain>('general');
+  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('comprehensive');
 
   const eventSourceRef = useRef<EventSource | null>(null);
 
@@ -152,20 +154,26 @@ function App() {
         });
       }, 200);
 
-      // Perform analysis
+      // Perform analysis with mode-specific context
       const domainContext = DOMAIN_CONFIG[domain].context;
+      const analysisInstructions = analysisMode === 'simple' 
+        ? '\n\nANALYSIS MODE: SIMPLE - Provide only text highlighting for potential issues. Do not include risk assessment scores or high-risk token analysis. Focus only on identifying and highlighting problematic segments in the text.'
+        : '\n\nANALYSIS MODE: COMPREHENSIVE - Provide full analysis including risk assessment, high-risk tokens, and detailed highlighting with explanations.';
+      
       const promptWithContext = domainContext 
-        ? `${domainContext}\n\nUSER PROMPT TO ANALYZE:\n${currentPrompt}`
-        : currentPrompt;
+        ? `${domainContext}${analysisInstructions}\n\nUSER PROMPT TO ANALYZE:\n${currentPrompt}`
+        : `${analysisInstructions}\n\nUSER PROMPT TO ANALYZE:\n${currentPrompt}`;
       
       const result = await analyzePrompt(promptWithContext);
       
       clearInterval(progressInterval);
       setAnalysisProgress(100);
 
-      // Set risk assessment if available
-      if (result.risk_assessment) {
+      // Set risk assessment only for comprehensive mode
+      if (analysisMode === 'comprehensive' && result.risk_assessment) {
         setRiskAssessment(result.risk_assessment);
+      } else {
+        setRiskAssessment(null); // Clear risk assessment for simple mode
       }
 
       // Map to PromptAnalysis format
@@ -421,24 +429,28 @@ function App() {
                         </div>
                       </ScrollArea>
                     </div>
-                    {/* Hallucination Risk Section */}
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                          <Target className="w-4 h-4 text-blue-500" />
-                          Hallucination Risk Score
-                        </h4>
-                        <button 
-                          className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm flex items-center gap-1"
-                          onClick={() => setRiskDetailsExpanded(!riskDetailsExpanded)}
-                        >
-                          {riskDetailsExpanded ? (
-                            <>Collapse Details <ChevronUp className="w-4 h-4" /></>
-                          ) : (
-                            <>Expand Details <ChevronDown className="w-4 h-4" /></>
-                          )}
-                        </button>
-                      </div>
+                    
+                    {/* Comprehensive Analysis Only - Risk Assessment and High Risk Tokens */}
+                    {analysisMode === 'comprehensive' && (
+                      <>
+                        {/* Hallucination Risk Section */}
+                        <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                              <Target className="w-4 h-4 text-blue-500" />
+                              Hallucination Risk Score
+                            </h4>
+                            <button 
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm flex items-center gap-1"
+                              onClick={() => setRiskDetailsExpanded(!riskDetailsExpanded)}
+                            >
+                              {riskDetailsExpanded ? (
+                                <>Collapse Details <ChevronUp className="w-4 h-4" /></>
+                              ) : (
+                                <>Expand Details <ChevronDown className="w-4 h-4" /></>
+                              )}
+                            </button>
+                          </div>
                       <div className="bg-gray-100/50 dark:bg-gray-700/20 rounded-lg p-4">
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-gray-700 dark:text-gray-300">
@@ -747,6 +759,8 @@ function App() {
                         </div>
                       )}
                     </div>
+                    </>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-12 text-gray-500">
@@ -780,6 +794,8 @@ function App() {
                   <Settings
                     domain={domain}
                     onDomainChange={setDomain}
+                    analysisMode={analysisMode}
+                    onAnalysisModeChange={setAnalysisMode}
                   />
                   
                   <div className="flex items-center justify-end">
@@ -876,6 +892,7 @@ function App() {
           )}
         </div>
       </div>
+      <Toaster />
     </div>
   );
 }
