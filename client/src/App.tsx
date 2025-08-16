@@ -8,11 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Progress } from "./components/ui/progress";
 import { Badge } from "./components/ui/badge";
 import { Separator } from "./components/ui/separator";
-import { Loader2, Brain, MessageSquare, Sparkles, ChevronDown, ChevronUp, AlertTriangle, Tag, Lightbulb, FileText, Search, Zap, Target } from "lucide-react";
+import { Loader2, Brain, MessageSquare, Sparkles, ChevronDown, ChevronUp, AlertTriangle, Tag, Lightbulb, FileText, Search, Zap, Target, Shield, ShieldAlert, ShieldX } from "lucide-react";
 import type { ChatMessage, PromptAnalysis, RiskAssessment } from "./types";
 import Sidebar from "./components/Sidebar";
 import AnalysisSection from "./components/AnalysisSection";
 import ChatPanel from "./components/ChatPanel";
+import ExpandableEditor from "./components/ExpandableEditor";
+import Settings, { type Domain, DOMAIN_CONFIG } from "./components/Settings";
 
 // Render the annotated prompt by converting <r>/<y> tags to styled spans
 const renderAnnotated = (text: string) => {
@@ -97,10 +99,35 @@ function App() {
   const [riskDetailsExpanded, setRiskDetailsExpanded] = useState(false);
   const [tokensExpanded, setTokensExpanded] = useState(false);
   const [analysisResultsExpanded, setAnalysisResultsExpanded] = useState(false);
+  const [domain, setDomain] = useState<Domain>('general');
 
   const eventSourceRef = useRef<EventSource | null>(null);
 
   const canAnalyze = useMemo(() => currentPrompt.trim().length > 10, [currentPrompt]);
+
+  // Function to get risk color based on percentage
+  const getRiskColor = (percentage: number) => {
+    if (percentage < 50) {
+      return "text-green-500"; // Low risk - Green (0-49)
+    } else if (percentage < 70) {
+      return "text-yellow-500"; // Medium risk - Yellow (50-69)
+    } else {
+      return "text-red-500"; // High risk - Red (70-100)
+    }
+  };
+
+  // Function to get risk icon based on percentage
+  const getRiskIcon = (percentage: number) => {
+    if (percentage < 50) {
+      return <Shield className="w-4 h-4 text-green-500" />; // Low risk
+    } else if (percentage < 70) {
+      return <ShieldAlert className="w-4 h-4 text-yellow-500" />; // Medium risk
+    } else {
+      return <ShieldX className="w-4 h-4 text-red-500" />; // High risk
+    }
+  };
+
+  const currentRiskPercentage = riskAssessment?.overall_assessment?.percentage || 65;
 
   const handleAnalyze = useCallback(async () => {
     if (!canAnalyze) return;
@@ -126,7 +153,12 @@ function App() {
       }, 200);
 
       // Perform analysis
-      const result = await analyzePrompt(currentPrompt);
+      const domainContext = DOMAIN_CONFIG[domain].context;
+      const promptWithContext = domainContext 
+        ? `${domainContext}\n\nUSER PROMPT TO ANALYZE:\n${currentPrompt}`
+        : currentPrompt;
+      
+      const result = await analyzePrompt(promptWithContext);
       
       clearInterval(progressInterval);
       setAnalysisProgress(100);
@@ -249,17 +281,45 @@ function App() {
   };
 
   const handleFileUpload = async (file: File) => {
-    if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
-      try {
-        const text = await file.text();
-        setCurrentPrompt(text);
-      } catch (error) {
-        console.error('Error reading file:', error);
-        // You could add a toast notification here
+    console.log('📁 File upload initiated:', file.name, file.type);
+    
+    // Check file type and size
+    const isTextFile = file.type === 'text/plain' || 
+                       file.name.endsWith('.txt') || 
+                       file.name.endsWith('.md') ||
+                       file.name.endsWith('.prompt');
+    
+    if (!isTextFile) {
+      console.error('❌ Unsupported file type:', file.type);
+      alert('Please upload a text file (.txt, .md, or .prompt)');
+      return;
+    }
+
+    if (file.size > 1024 * 1024) { // 1MB limit
+      console.error('❌ File too large:', file.size);
+      alert('File size must be less than 1MB');
+      return;
+    }
+
+    try {
+      console.log('📖 Reading file contents...');
+      const text = await file.text();
+      console.log('✅ File read successfully, length:', text.length);
+      
+      if (text.trim().length === 0) {
+        alert('The file appears to be empty');
+        return;
       }
-    } else {
-      console.error('Only .txt files are supported');
+      
+      setCurrentPrompt(text);
+      console.log('✅ Prompt updated in editor');
+      
+      // Optional: show success message
       // You could add a toast notification here
+      
+    } catch (error) {
+      console.error('❌ Error reading file:', error);
+      alert('Error reading file. Please try again.');
     }
   };
 
@@ -276,7 +336,12 @@ function App() {
       <Sidebar 
         messages={chatMessages}
         onNewAnalysis={handleNewAnalysis} 
-        onUploadFile={handleFileUpload} 
+        onUploadFile={handleFileUpload}
+        isAnalyzing={isAnalyzing}
+        analysis={analysis}
+        riskAssessment={riskAssessment}
+        originalPrompt={currentPrompt}
+        improvedPrompt={chatMessages.find(msg => msg.role === 'assistant')?.content || ''}
       />
 
       {/* Main Content */}
@@ -331,9 +396,9 @@ function App() {
                         <h4 className="font-medium flex items-center gap-2">
                           <FileText className="w-4 h-4" />
                           Annotated Prompt
-                          <div className="w-3 h-3 bg-red-500 rounded-full ml-4"></div>
+                          <ShieldX className="w-4 h-4 text-red-500 ml-4" />
                           High Risk
-                          <div className="w-3 h-3 bg-yellow-500 rounded-full ml-2"></div>
+                          <ShieldAlert className="w-4 h-4 text-yellow-500 ml-2" />
                           Medium Risk
                         </h4>
                         <button 
@@ -360,7 +425,7 @@ function App() {
                     <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                          <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                          <Target className="w-4 h-4 text-blue-500" />
                           Hallucination Risk Score
                         </h4>
                         <button 
@@ -399,14 +464,14 @@ function App() {
                                   strokeWidth="8"
                                   fill="transparent"
                                   strokeDasharray={`${2 * Math.PI * 40}`}
-                                  strokeDashoffset={`${2 * Math.PI * 40 * (1 - (riskAssessment?.overall_assessment?.percentage || 65) / 100)}`}
-                                  className="text-blue-500 transition-all duration-1000"
+                                  strokeDashoffset={`${2 * Math.PI * 40 * (1 - currentRiskPercentage / 100)}`}
+                                  className={`${getRiskColor(currentRiskPercentage)} transition-all duration-1000`}
                                   strokeLinecap="round"
                                 />
                               </svg>
                               <div className="absolute inset-0 flex items-center justify-center">
                                 <span className="text-lg font-bold text-gray-800 dark:text-gray-200">
-                                  {riskAssessment?.overall_assessment?.percentage || 65}%
+                                  {currentRiskPercentage}%
                                 </span>
                               </div>
                             </div>
@@ -421,26 +486,48 @@ function App() {
                           
                           <div className="space-y-3">
                             {riskAssessment?.criteria?.length ? (
-                              riskAssessment.criteria.map((criterion, index) => (
-                                <div key={index} className="flex items-center justify-between p-3 bg-white dark:bg-gray-900/50 rounded-lg">
-                                  <div>
-                                    <div className="font-medium text-sm text-gray-800 dark:text-gray-200">{criterion.name}</div>
-                                    <div className="text-xs text-gray-600 dark:text-gray-400">{criterion.description}</div>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className={`text-sm font-bold ${
-                                      criterion.risk === 'high' ? 'text-red-600 dark:text-red-400' :
-                                      criterion.risk === 'medium' ? 'text-yellow-600 dark:text-yellow-400' :
-                                      'text-green-600 dark:text-green-400'
-                                    }`}>
-                                      {criterion.risk === 'high' ? 'High Risk' :
-                                       criterion.risk === 'medium' ? 'Medium Risk' :
-                                       'Low Risk'}
+                              riskAssessment.criteria.map((criterion, index) => {
+                                return (
+                                  <div key={index} className="flex items-center justify-between p-3 bg-white dark:bg-gray-900/50 rounded-lg">
+                                    <div className="flex-1 pr-4">
+                                      <div className="font-medium text-sm text-gray-800 dark:text-gray-200">{criterion.name}</div>
+                                      <div className="text-xs text-gray-600 dark:text-gray-400">{criterion.description}</div>
                                     </div>
-                                    <div className="text-xs text-gray-500">{criterion.percentage}%</div>
+                                    <div className="flex-shrink-0">
+                                      <div className="relative w-12 h-12">
+                                        <svg className="w-12 h-12 transform -rotate-90" viewBox="0 0 100 100">
+                                          <circle
+                                            cx="50"
+                                            cy="50"
+                                            r="40"
+                                            stroke="currentColor"
+                                            strokeWidth="8"
+                                            fill="transparent"
+                                            className="text-gray-200 dark:text-gray-600"
+                                          />
+                                          <circle
+                                            cx="50"
+                                            cy="50"
+                                            r="40"
+                                            stroke="currentColor"
+                                            strokeWidth="8"
+                                            fill="transparent"
+                                            strokeDasharray={`${2 * Math.PI * 40}`}
+                                            strokeDashoffset={`${2 * Math.PI * 40 * (1 - criterion.percentage / 100)}`}
+                                            className={`${getRiskColor(criterion.percentage)} transition-all duration-1000`}
+                                            strokeLinecap="round"
+                                          />
+                                        </svg>
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                          <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
+                                            {criterion.percentage}%
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
                                   </div>
-                                </div>
-                              ))
+                                );
+                              })
                             ) : (
                               <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-900/50 rounded-lg">
                                 <div>
@@ -466,7 +553,7 @@ function App() {
                     <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                          <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                          <AlertTriangle className="w-4 h-4 text-orange-500" />
                           High Risk Tokens (3)
                         </h4>
                         <button 
@@ -672,114 +759,120 @@ function App() {
 
           {/* Prompt Editor - Only shown when analysis section is not visible */}
           {!showAnalysisSection && (
-            <Card className="lg:col-span-2 flex flex-col overflow-hidden">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5" />
-                  Prompt Editor
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 flex-1 overflow-auto">
-                <Textarea
-                  value={currentPrompt}
-                  onChange={(e) => setCurrentPrompt(e.target.value)}
-                  placeholder="Enter your prompt here for hallucination analysis..."
-                  className="min-h-[300px] font-mono text-sm"
-                />
-                
-                <div className="flex items-center justify-between">
-                  <div className="text-xs text-gray-500">
-                    {currentPrompt.length} characters • {currentPrompt.split(/\s+/).filter(w => w.length > 0).length} words
-                  </div>
-                  <Button
-                    onClick={handleAnalyze}
-                    disabled={!canAnalyze || isAnalyzing}
-                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500"
-                  >
-                    {isAnalyzing ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Analyzing...
-                      </>
-                    ) : (
-                      <>
-                        <Brain className="w-4 h-4 mr-2" />
-                        Analyze
-                      </>
-                    )}
-                  </Button>
-                </div>
+            <>
+              <Card className="lg:col-span-2 flex flex-col overflow-hidden">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5" />
+                    Prompt Editor
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 flex-1 overflow-auto">
+                  <ExpandableEditor
+                    prompt={currentPrompt}
+                    onChange={setCurrentPrompt}
+                    placeholder="Enter your prompt here for hallucination analysis..."
+                    disabled={isAnalyzing}
+                    className="flex-1"
+                  />
 
-                {/* Analysis Progress in Prompt Editor */}
-                {isAnalyzing && (
-                  <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <Loader2 className="w-6 h-6 text-blue-600 dark:text-blue-400 animate-spin" />
-                        <div className="absolute inset-0 w-6 h-6 border-2 border-blue-200 dark:border-blue-800 rounded-full animate-pulse"></div>
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium text-blue-900 dark:text-blue-100">
-                          AI Analysis in Progress
-                        </div>
-                        <div className="text-sm text-blue-700 dark:text-blue-300">
-                          {analysisProgress < 30 ? (
-                            <span className="flex items-center gap-1">
-                              <Search className="w-3 h-3" />
-                              Scanning for ambiguous references...
-                            </span>
-                          ) : analysisProgress < 60 ? (
-                            <span className="flex items-center gap-1">
-                              <Target className="w-3 h-3" />
-                              Identifying vague quantifiers...
-                            </span>
-                          ) : analysisProgress < 90 ? (
-                            <span className="flex items-center gap-1">
-                              <Zap className="w-3 h-3" />
-                              Calculating hallucination risk...
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-1">
-                              <Brain className="w-3 h-3" />
-                              {isInitialRewrite ? "Generating improvements..." : "Finalizing analysis..."}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                          {Math.round(analysisProgress)}%
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Progress value={analysisProgress} className="h-3 bg-blue-100 dark:bg-blue-900/50" />
-                      
-                      {/* Analysis Steps */}
-                      <div className="flex justify-between text-xs text-blue-600 dark:text-blue-400 mt-2">
-                        <div className={`flex items-center gap-1 ${analysisProgress >= 25 ? 'opacity-100' : 'opacity-50'}`}>
-                          <div className={`w-2 h-2 rounded-full ${analysisProgress >= 25 ? 'bg-blue-500' : 'bg-blue-200 dark:bg-blue-800'}`}></div>
-                          <span>Scan</span>
-                        </div>
-                        <div className={`flex items-center gap-1 ${analysisProgress >= 50 ? 'opacity-100' : 'opacity-50'}`}>
-                          <div className={`w-2 h-2 rounded-full ${analysisProgress >= 50 ? 'bg-blue-500' : 'bg-blue-200 dark:bg-blue-800'}`}></div>
-                          <span>Analyze</span>
-                        </div>
-                        <div className={`flex items-center gap-1 ${analysisProgress >= 75 ? 'opacity-100' : 'opacity-50'}`}>
-                          <div className={`w-2 h-2 rounded-full ${analysisProgress >= 75 ? 'bg-blue-500' : 'bg-blue-200 dark:bg-blue-800'}`}></div>
-                          <span>Calculate</span>
-                        </div>
-                        <div className={`flex items-center gap-1 ${analysisProgress >= 100 ? 'opacity-100' : 'opacity-50'}`}>
-                          <div className={`w-2 h-2 rounded-full ${analysisProgress >= 100 ? 'bg-green-500' : 'bg-blue-200 dark:bg-blue-800'}`}></div>
-                          <span>Complete</span>
-                        </div>
-                      </div>
-                    </div>
+                  {/* Settings Panel - Compact version below editor */}
+                  <Settings
+                    domain={domain}
+                    onDomainChange={setDomain}
+                  />
+                  
+                  <div className="flex items-center justify-end">
+                    <Button
+                      onClick={handleAnalyze}
+                      disabled={!canAnalyze || isAnalyzing}
+                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500"
+                    >
+                      {isAnalyzing ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Analyzing...
+                        </>
+                      ) : (
+                        <>
+                          <Brain className="w-4 h-4 mr-2" />
+                          Analyze
+                        </>
+                      )}
+                    </Button>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+
+                  {/* Analysis Progress in Prompt Editor */}
+                  {isAnalyzing && (
+                    <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          <Loader2 className="w-6 h-6 text-blue-600 dark:text-blue-400 animate-spin" />
+                          <div className="absolute inset-0 w-6 h-6 border-2 border-blue-200 dark:border-blue-800 rounded-full animate-pulse"></div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium text-blue-900 dark:text-blue-100">
+                            AI Analysis in Progress
+                          </div>
+                          <div className="text-sm text-blue-700 dark:text-blue-300">
+                            {analysisProgress < 30 ? (
+                              <span className="flex items-center gap-1">
+                                <Search className="w-3 h-3" />
+                                Scanning for ambiguous references...
+                              </span>
+                            ) : analysisProgress < 60 ? (
+                              <span className="flex items-center gap-1">
+                                <Target className="w-3 h-3" />
+                                Identifying vague quantifiers...
+                              </span>
+                            ) : analysisProgress < 90 ? (
+                              <span className="flex items-center gap-1">
+                                <Zap className="w-3 h-3" />
+                                Calculating hallucination risk...
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1">
+                                <Brain className="w-3 h-3" />
+                                {isInitialRewrite ? "Generating improvements..." : "Finalizing analysis..."}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                            {Math.round(analysisProgress)}%
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Progress value={analysisProgress} className="h-3 bg-blue-100 dark:bg-blue-900/50" />
+                        
+                        {/* Analysis Steps */}
+                        <div className="flex justify-between text-xs text-blue-600 dark:text-blue-400 mt-2">
+                          <div className={`flex items-center gap-1 ${analysisProgress >= 25 ? 'opacity-100' : 'opacity-50'}`}>
+                            <div className={`w-2 h-2 rounded-full ${analysisProgress >= 25 ? 'bg-blue-500' : 'bg-blue-200 dark:bg-blue-800'}`}></div>
+                            <span>Scan</span>
+                          </div>
+                          <div className={`flex items-center gap-1 ${analysisProgress >= 50 ? 'opacity-100' : 'opacity-50'}`}>
+                            <div className={`w-2 h-2 rounded-full ${analysisProgress >= 50 ? 'bg-blue-500' : 'bg-blue-200 dark:bg-blue-800'}`}></div>
+                            <span>Analyze</span>
+                          </div>
+                          <div className={`flex items-center gap-1 ${analysisProgress >= 75 ? 'opacity-100' : 'opacity-50'}`}>
+                            <div className={`w-2 h-2 rounded-full ${analysisProgress >= 75 ? 'bg-blue-500' : 'bg-blue-200 dark:bg-blue-800'}`}></div>
+                            <span>Calculate</span>
+                          </div>
+                          <div className={`flex items-center gap-1 ${analysisProgress >= 100 ? 'opacity-100' : 'opacity-50'}`}>
+                            <div className={`w-2 h-2 rounded-full ${analysisProgress >= 100 ? 'bg-green-500' : 'bg-blue-200 dark:bg-blue-800'}`}></div>
+                            <span>Complete</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </>
           )}
         </div>
       </div>

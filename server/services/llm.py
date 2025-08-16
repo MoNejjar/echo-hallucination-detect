@@ -13,9 +13,11 @@ class OpenAILLM:
         self.client = openai.AsyncOpenAI(
             api_key=os.getenv("OPENAI_API_KEY")
         )
-        self.model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        # Force the model to gpt-5-mini, ignoring environment variable
+        self.model = "gpt-5-mini"
+        print(f"🤖 LLM initialized with model: {self.model}")
         self.max_tokens = int(os.getenv("MAX_TOKENS", "4000"))
-        self.temperature = float(os.getenv("TEMPERATURE", "0.7"))
+        self.temperature = float(os.getenv("TEMPERATURE", "0.3"))
         self.timeout = int(os.getenv("LLM_REQUEST_TIMEOUT", "60"))
         
     def _parse_risk_assessment(self, content: str) -> Dict[str, Any]:
@@ -90,14 +92,14 @@ ANALYZE THIS PROMPT:
 RESPONSE FORMAT:
 1. First, return the prompt with appropriate <r></r> and <y></y> tags around risky sections
 2. Then provide a brief analysis summary
-3. Finally, include a structured risk assessment in the following XML format (this will be parsed separately):
+3. Finally, include a structured risk assessment in the following XML format by using your own judgment (this will be parsed separately):
 
 <RISK_ASSESSMENT>
 <CRITERIA>
-<CRITERION name="Ambiguous References" risk="high|medium" percentage="85">Description of why this is risky</CRITERION>
-<CRITERION name="Vague Quantifiers" risk="medium" percentage="60">Description of vague terms found</CRITERION>
-<CRITERION name="Context Completeness" risk="low" percentage="25">Assessment of context provided</CRITERION>
-<CRITERION name="Instruction Clarity" risk="medium" percentage="45">How clear the instructions are</CRITERION>
+<CRITERION name="Ambiguous References" risk="high|medium|low" percentage="0-100">Description of why this is risky</CRITERION>
+<CRITERION name="Vague Quantifiers" risk="high|medium|low" percentage="0-100">Description of vague terms found</CRITERION>
+<CRITERION name="Context Completeness" risk="high|medium|low" percentage="0-100">Assessment of context provided</CRITERION>
+<CRITERION name="Instruction Clarity" risk="high|medium|low" percentage="0-100">How clear the instructions are</CRITERION>
 </CRITERIA>
 <OVERALL_ASSESSMENT percentage="65">Overall explanation of the risk level and main concerns</OVERALL_ASSESSMENT>
 </RISK_ASSESSMENT>"""

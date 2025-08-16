@@ -14,8 +14,7 @@ import {
   MessageSquare,
   Loader2,
   Copy,
-  ThumbsUp,
-  ThumbsDown
+  Check
 } from 'lucide-react';
 import { ChatMessage } from '../types';
 
@@ -28,6 +27,7 @@ interface ChatPanelProps {
 const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, isLoading }) => {
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -58,8 +58,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, isLoadin
     }
   };
 
-  const copyToClipboard = (text: string) => {
+  const copyToClipboard = (text: string, messageIndex: number) => {
     navigator.clipboard.writeText(text);
+    setCopiedMessageIndex(messageIndex);
+    // Reset the copied state after 2 seconds
+    setTimeout(() => {
+      setCopiedMessageIndex(null);
+    }, 2000);
   };
 
   const formatMessage = (content: string) => {
@@ -74,7 +79,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, isLoadin
       // Handle blockquotes
       .replace(/^> (.+)$/gm, '<blockquote class="border-l-4 border-gray-300 dark:border-gray-600 pl-4 py-2 my-2 bg-gray-50 dark:bg-gray-800/50 italic">$1</blockquote>')
       
-      // Handle headers
+      // Handle special purple headers for key sections
+      .replace(/^(Improved Prompt:)$/gm, '<h2 class="text-xl font-bold mt-4 mb-2 text-purple-600 dark:text-purple-400">$1</h2>')
+      .replace(/^(Explanations:)$/gm, '<h2 class="text-xl font-bold mt-4 mb-2 text-purple-600 dark:text-purple-400">$1</h2>')
+      
+      // Handle regular headers
       .replace(/^### (.*$)/gm, '<h3 class="text-lg font-semibold mt-4 mb-2 text-gray-900 dark:text-gray-100">$1</h3>')
       .replace(/^## (.*$)/gm, '<h2 class="text-xl font-semibold mt-4 mb-2 text-gray-900 dark:text-gray-100">$1</h2>')
       .replace(/^# (.*$)/gm, '<h1 class="text-2xl font-bold mt-4 mb-2 text-gray-900 dark:text-gray-100">$1</h1>')
@@ -85,15 +94,85 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, isLoadin
       
       // Handle italic text (both *text* and _text_, but not inside other formatting)
       .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em class="italic">$1</em>')
-      .replace(/(?<!_)_([^_\n]+)_(?!_)/g, '<em class="italic">$1</em>')
-      
-      // Handle unordered lists
-      .replace(/^[\s]*[-*+]\s(.+)$/gm, '<li class="ml-6 mb-1">$1</li>')
-      
-      // Handle ordered lists
-      .replace(/^[\s]*\d+\.\s(.+)$/gm, '<li class="ml-6 mb-1">$1</li>')
-      
-      // Handle line breaks (double newlines become paragraphs, single newlines become <br>)
+      .replace(/(?<!_)_([^_\n]+)_(?!_)/g, '<em class="italic">$1</em>');
+
+    // Process lists and sections properly by working with lines
+    const lines = formatted.split('\n');
+    const processedLines: string[] = [];
+    let inUnorderedList = false;
+    let inOrderedList = false;
+    let orderedListCounter = 1;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const isUnorderedItem = /^[\s]*[-*+]\s(.+)$/.test(line);
+      const isOrderedItem = /^[\s]*\d+\.\s(.+)$/.test(line);
+      const isNumberedSection = /^[\s]*\d+\.\s([^:]*:)/.test(line); // Section headers ending with ':'
+
+      if (isNumberedSection) {
+        // Close any open lists first
+        if (inUnorderedList) {
+          processedLines.push('</ul>');
+          inUnorderedList = false;
+        }
+        if (inOrderedList) {
+          processedLines.push('</ol>');
+          inOrderedList = false;
+        }
+        
+        // Convert numbered sections to styled headers with consistent numbering
+        const content = line.replace(/^[\s]*\d+\.\s(.+)$/, '$1');
+        processedLines.push(`<div class="font-semibold text-gray-900 dark:text-gray-100 mt-3 mb-1">${orderedListCounter}. ${content}</div>`);
+        orderedListCounter++;
+      } else if (isUnorderedItem) {
+        if (!inUnorderedList) {
+          if (inOrderedList) {
+            processedLines.push('</ol>');
+            inOrderedList = false;
+          }
+          processedLines.push('<ul class="list-disc ml-4 mb-1 space-y-0">');
+          inUnorderedList = true;
+        }
+        const content = line.replace(/^[\s]*[-*+]\s(.+)$/, '$1');
+        processedLines.push(`<li class="ml-2">${content}</li>`);
+      } else if (isOrderedItem && !isNumberedSection) {
+        // Regular ordered list items (not section headers)
+        if (!inOrderedList) {
+          if (inUnorderedList) {
+            processedLines.push('</ul>');
+            inUnorderedList = false;
+          }
+          processedLines.push('<ol class="list-decimal ml-4 mb-2 space-y-0.5">');
+          inOrderedList = true;
+        }
+        const content = line.replace(/^[\s]*\d+\.\s(.+)$/, '$1');
+        processedLines.push(`<li class="ml-2">${content}</li>`);
+      } else {
+        // Regular content - close any open lists
+        if (inUnorderedList) {
+          processedLines.push('</ul>');
+          inUnorderedList = false;
+        }
+        if (inOrderedList) {
+          processedLines.push('</ol>');
+          inOrderedList = false;
+        }
+        processedLines.push(line);
+      }
+    }
+
+    // Close any remaining open lists
+    if (inUnorderedList) {
+      processedLines.push('</ul>');
+    }
+    if (inOrderedList) {
+      processedLines.push('</ol>');
+    }
+
+    formatted = processedLines.join('\n');
+
+    // Handle line breaks (double newlines become paragraphs, single newlines become <br>)
+    formatted = formatted
       .split('\n\n').map(paragraph => {
         if (paragraph.trim()) {
           // Don't wrap if it's already a block element
@@ -107,20 +186,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, isLoadin
       
       // Handle links (basic URL detection)
       .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>');
-    
-    // Wrap orphaned <li> elements in appropriate lists
-    formatted = formatted
-      .replace(/(<li class="ml-6[^>]*>.*?<\/li>)/g, (match) => {
-        // Check if this is part of an ordered list (contains numbers)
-        const prevContent = formatted.substring(0, formatted.indexOf(match));
-        const hasNumberedItems = /\d+\.\s/.test(prevContent.split('\n').pop() || '');
-        
-        if (hasNumberedItems) {
-          return `<ol class="list-decimal ml-4 mb-3">${match}</ol>`;
-        } else {
-          return `<ul class="list-disc ml-4 mb-3">${match}</ul>`;
-        }
-      });
     
     return { __html: formatted };
   };
@@ -145,7 +210,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, isLoadin
                 <div className="w-16 h-16 mx-auto mb-4 relative">
                   <div className="absolute inset-0 bg-purple-500/20 rounded-full blur-xl"></div>
                   <div className="relative w-full h-full bg-white dark:bg-gray-800 rounded-full flex items-center justify-center shadow-lg border border-purple-200 dark:border-purple-800">
-                    <img src="/logo.png" alt="Echo Logo" className="w-10 h-10" />
+                    <img src="/logo.png" alt="Echo Logo" className="w-10 h-10 dark:invert-0 invert" />
                   </div>
                 </div>
                 <h3 className="text-lg font-semibold mb-2">Welcome to <span className="text-purple-600 dark:text-purple-400">Echo AI</span>!</h3>
@@ -178,7 +243,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, isLoadin
               >
                 {message.role === 'assistant' && (
                   <Avatar className="h-8 w-8 border border-gray-200 dark:border-gray-700">
-                    <AvatarImage src="/logo.png" alt="Echo" />
+                    <AvatarImage src="/logo.png" alt="Echo" className="dark:invert-0 invert" />
                     <AvatarFallback className="bg-gradient-to-br from-purple-500 to-blue-600 text-white text-sm">
                       <Bot className="h-4 w-4" />
                     </AvatarFallback>
@@ -214,17 +279,24 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, isLoadin
                             <Button 
                               variant="ghost" 
                               size="sm" 
-                              className="h-6 px-2 text-xs"
-                              onClick={() => copyToClipboard(message.content)}
+                              className={`h-6 px-2 text-xs transition-all duration-200 ${
+                                copiedMessageIndex === index 
+                                  ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950' 
+                                  : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                              }`}
+                              onClick={() => copyToClipboard(message.content, index)}
                             >
-                              <Copy className="w-3 h-3 mr-1" />
-                              Copy
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
-                              <ThumbsUp className="w-3 h-3" />
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
-                              <ThumbsDown className="w-3 h-3" />
+                              {copiedMessageIndex === index ? (
+                                <>
+                                  <Check className="w-3 h-3 mr-1" />
+                                  Copied!
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3 mr-1" />
+                                  Copy
+                                </>
+                              )}
                             </Button>
                           </div>
                         )}
@@ -307,6 +379,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, isLoadin
             >
               <Send className="w-4 h-4" />
             </Button>
+          </div>
+          
+          {/* Subtle AI Disclaimer */}
+          <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-2">
+            <span className="font-medium">Echo Hallucination Detector</span> - AI responses may contain inaccuracies
           </div>
         </div>
       </CardContent>
