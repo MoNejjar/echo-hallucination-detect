@@ -16,6 +16,14 @@ class RiskAssessment(BaseModel):
     criteria: List[RiskCriterion]
     overall_assessment: OverallAssessment
 
+class RiskToken(BaseModel):
+    id: str
+    text: str
+    reasoning: str
+    classification: str
+    mitigation: str
+    risk_level: Optional[str] = None
+
 class ChatMessage(BaseModel):
     role: str  # "user" or "assistant"
     content: str

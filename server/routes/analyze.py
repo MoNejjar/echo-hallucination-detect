@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from ..services.llm import OpenAILLM
-from ..models.response import RiskAssessment
+from ..models.response import RiskAssessment, RiskToken
 
 router = APIRouter()
 
@@ -13,6 +13,7 @@ class AnalyzeResponse(BaseModel):
     annotated_prompt: str
     analysis_summary: str
     risk_assessment: Optional[RiskAssessment] = None
+    risk_tokens: Optional[List[RiskToken]] = None
 
 # Initialize LLM service
 llm_service = OpenAILLM()
@@ -36,10 +37,16 @@ async def analyze_prompt(request: AnalyzeRequest):
             risk_data = result["risk_assessment"]
             risk_assessment = RiskAssessment(**risk_data)
         
+        # Convert risk tokens to Pydantic models if present
+        risk_tokens = None
+        if "risk_tokens" in result and result["risk_tokens"]:
+            risk_tokens = [RiskToken(**token) for token in result["risk_tokens"]]
+        
         return AnalyzeResponse(
             annotated_prompt=result["annotated_prompt"],
             analysis_summary=result["analysis_summary"],
-            risk_assessment=risk_assessment
+            risk_assessment=risk_assessment,
+            risk_tokens=risk_tokens
         )
         
     except Exception as e:

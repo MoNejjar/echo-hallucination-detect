@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
 import { Brain, AlertTriangle, CheckCircle } from 'lucide-react';
+import RiskTokensSection from './RiskTokensSection';
 import type { PromptAnalysis } from '../types'; // Changed from "../App"
 
 interface AnalysisViewProps {
@@ -51,41 +52,89 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ analysis, isLoading = false
     );
   }
 
+  // Function to render annotated prompt with risk token highlighting
+  const renderAnnotatedPrompt = (annotatedPrompt: string) => {
+    if (!annotatedPrompt) return null;
+
+    // First, decode HTML entities
+    const decodedPrompt = annotatedPrompt
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
+
+    // Replace RISK_ID tags with highlighted spans
+    const parts = decodedPrompt.split(/(<RISK_\d+>.*?<\/RISK_\d+>)/g);
+    
+    return (
+      <div className="whitespace-pre-wrap text-sm">
+        {parts.map((part, index) => {
+          const riskMatch = part.match(/<RISK_(\d+)>(.*?)<\/RISK_\d+>/);
+          if (riskMatch) {
+            const [, riskId, text] = riskMatch;
+            return (
+              <span
+                key={index}
+                className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 px-1 py-0.5 rounded border border-red-200 dark:border-red-700 font-medium"
+                title={`Risk Token ${riskId}`}
+              >
+                {text}
+              </span>
+            );
+          }
+          return <span key={index}>{part}</span>;
+        })}
+      </div>
+    );
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Brain className="w-5 h-5" />
-          Analysis Results
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {analysis.analysisSummary && (
-          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <p className="text-sm">{analysis.analysisSummary}</p>
-          </div>
-        )}
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Brain className="w-5 h-5" />
+            Analysis Results
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {analysis.analysisSummary && (
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <p className="text-sm">{analysis.analysisSummary}</p>
+            </div>
+          )}
 
-        <div className="flex gap-2">
-          <Badge variant="outline">
-            Confidence: {Math.round(analysis.overallConfidence * 100)}%
-          </Badge>
-          <Badge variant="secondary">
-            Issues: {analysis.totalFlagged}
-          </Badge>
-        </div>
-
-        {analysis.annotated_prompt && (
-          <div className="border rounded-lg p-4 bg-muted/20">
-            <ScrollArea className="h-[200px]">
-              <div className="whitespace-pre-wrap text-sm">
-                {analysis.annotated_prompt}
-              </div>
-            </ScrollArea>
+          <div className="flex gap-2">
+            <Badge variant="outline">
+              Confidence: {Math.round(analysis.overallConfidence * 100)}%
+            </Badge>
+            <Badge variant="secondary">
+              Issues: {analysis.totalFlagged}
+            </Badge>
+            {analysis.risk_tokens && (
+              <Badge variant="destructive">
+                Risk Tokens: {analysis.risk_tokens.length}
+              </Badge>
+            )}
           </div>
-        )}
-      </CardContent>
-    </Card>
+
+          {analysis.annotated_prompt && (
+            <div className="border rounded-lg p-4 bg-muted/20">
+              <h3 className="text-sm font-medium mb-2">Highlighted Prompt:</h3>
+              <ScrollArea className="h-[200px]">
+                {renderAnnotatedPrompt(analysis.annotated_prompt)}
+              </ScrollArea>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Risk Tokens Section */}
+      {analysis.risk_tokens && analysis.risk_tokens.length > 0 && (
+        <RiskTokensSection riskTokens={analysis.risk_tokens} />
+      )}
+    </div>
   );
 };
 

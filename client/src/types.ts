@@ -22,6 +22,8 @@ export interface PromptAnalysis {
   total_flagged?: number;
   analysis_summary?: string;
   annotated_prompt?: string;
+  risk_tokens?: RiskToken[];
+  risk_assessment?: RiskAssessment;
 }
 
 export interface ChatMessage {
@@ -50,11 +52,22 @@ export interface RiskAssessment {
   overall_assessment: OverallAssessment;
 }
 
+// Risk Token types for detailed token analysis
+export interface RiskToken {
+  id: string;
+  text: string;
+  reasoning: string;
+  classification: 'Ambiguous References' | 'Vague Quantifiers' | 'Context Completeness' | 'Instruction Clarity' | 'Other';
+  mitigation: string;
+  risk_level?: 'high' | 'medium' | 'low';
+}
+
 // Backend API response types
 export interface AnalyzePromptResponse {
   annotated_prompt: string;
   analysis_summary: string;
   risk_assessment?: RiskAssessment;
+  risk_tokens?: RiskToken[];
 }
 
 export interface RefineOnceResponse {

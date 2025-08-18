@@ -17,75 +17,45 @@ import { Toaster } from 'react-hot-toast';
 import ExpandableEditor from "./components/ExpandableEditor";
 import Settings, { type Domain, type AnalysisMode, DOMAIN_CONFIG } from "./components/Settings";
 
-// Render the annotated prompt by converting <r>/<y> tags to styled spans
+// Render the annotated prompt by converting RISK_ID tags to styled spans
 const renderAnnotated = (text: string) => {
-  const safe = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const parts = safe
-    .replace(/&lt;r&gt;/gi, "%%RSTART%%")
-    .replace(/&lt;\/r&gt;/gi, "%%REND%%")
-    .replace(/&lt;y&gt;/gi, "%%YSTART%%")
-    .replace(/&lt;\/y&gt;/gi, "%%YEND%%")
-    .split(/(%%RSTART%%|%%REND%%|%%YSTART%%|%%YEND%%)/);
+  if (!text) return null;
 
-  const out: React.ReactNode[] = [];
-  let buf = "";
-  let mode: "none" | "red" | "yellow" = "none";
+  // First, decode HTML entities
+  const decodedText = text
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
 
-  const flush = () => {
-    if (!buf) return;
-    if (mode === "red") {
-      out.push(
-        <span
-          key={out.length}
-          className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-1 rounded font-medium"
-        >
-          {buf}
-        </span>
-      );
-    } else if (mode === "yellow") {
-      out.push(
-        <span
-          key={out.length}
-          className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 px-1 rounded"
-        >
-          {buf}
-        </span>
-      );
-    } else {
-      out.push(<span key={out.length}>{buf}</span>);
-    }
-    buf = "";
-  };
-
-  for (const p of parts) {
-    if (p === "%%RSTART%%") {
-      flush();
-      mode = "red";
-      continue;
-    }
-    if (p === "%%REND%%") {
-      flush();
-      mode = "none";
-      continue;
-    }
-    if (p === "%%YSTART%%") {
-      flush();
-      mode = "yellow";
-      continue;
-    }
-    if (p === "%%YEND%%") {
-      flush();
-      mode = "none";
-      continue;
-    }
-    buf += p;
-  }
-  flush();
-  return <div className="whitespace-pre-wrap text-sm leading-relaxed font-mono">{out}</div>;
+  // Split by RISK_ID tags and render with highlighting
+  const parts = decodedText.split(/(<RISK_\d+>.*?<\/RISK_\d+>)/g);
+  
+  return (
+    <div className="whitespace-pre-wrap text-sm leading-relaxed font-mono">
+      {parts.map((part, index) => {
+        const riskMatch = part.match(/<RISK_(\d+)>(.*?)<\/RISK_\d+>/);
+        if (riskMatch) {
+          const [, riskId, riskText] = riskMatch;
+          return (
+            <span
+              key={index}
+              className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 px-1 py-0.5 rounded border border-red-200 dark:border-red-700 font-medium"
+              title={`Risk Token ${riskId}`}
+            >
+              {riskText}
+            </span>
+          );
+        }
+        return <span key={index}>{part}</span>;
+      })}
+    </div>
+  );
 };
 
 // Strip tags helper for clean text
-const stripTags = (text: string) => text.replace(/<\/?(?:r|y)>/gi, "");
+const stripTags = (text: string) => text.replace(/<\/?(?:r|y|RISK_\d+)>/gi, "");
 
 function App() {
   const [currentPrompt, setCurrentPrompt] = useState("");
@@ -129,7 +99,17 @@ function App() {
     }
   };
 
-  const currentRiskPercentage = riskAssessment?.overall_assessment?.percentage || 65;
+  const currentRiskPercentage = riskAssessment?.overall_assessment?.percentage || 0;
+
+  // Debug: Log riskAssessment whenever it changes
+  React.useEffect(() => {
+    console.log("=== RISK ASSESSMENT STATE CHANGED ===");
+    console.log("riskAssessment:", riskAssessment);
+    if (riskAssessment?.criteria) {
+      console.log("Criteria percentages:", riskAssessment.criteria.map(c => `${c.name}: ${c.percentage}%`));
+    }
+    console.log("=====================================");
+  }, [riskAssessment]);
 
   const handleAnalyze = useCallback(async () => {
     if (!canAnalyze) return;
@@ -166,13 +146,29 @@ function App() {
       
       const result = await analyzePrompt(promptWithContext);
       
+      // Debug: Log the actual API response
+      console.log("=== API RESPONSE DEBUG ===");
+      console.log("Full result:", result);
+      console.log("Risk assessment:", result.risk_assessment);
+      console.log("Risk tokens:", result.risk_tokens);
+      console.log("=========================");
+      
       clearInterval(progressInterval);
       setAnalysisProgress(100);
 
       // Set risk assessment only for comprehensive mode
       if (analysisMode === 'comprehensive' && result.risk_assessment) {
+        console.log("=== SETTING RISK ASSESSMENT ===");
+        console.log("Analysis mode:", analysisMode);
+        console.log("Result has risk_assessment:", !!result.risk_assessment);
+        console.log("Risk assessment data:", JSON.stringify(result.risk_assessment, null, 2));
+        console.log("Setting riskAssessment to:", result.risk_assessment);
         setRiskAssessment(result.risk_assessment);
       } else {
+        console.log("=== NOT SETTING RISK ASSESSMENT ===");
+        console.log("Analysis mode:", analysisMode);
+        console.log("Result has risk_assessment:", !!result.risk_assessment);
+        console.log("Clearing riskAssessment (simple mode or no data)");
         setRiskAssessment(null); // Clear risk assessment for simple mode
       }
 
@@ -181,10 +177,12 @@ function App() {
         promptText: stripTags(result.annotated_prompt || currentPrompt),
         highlightedSegments: [],
         overallConfidence: 0.0,
-        totalFlagged: 0,
+        totalFlagged: result.risk_tokens?.length || 0,
         categories: {},
         analysisSummary: result.analysis_summary,
         annotated_prompt: result.annotated_prompt,
+        risk_tokens: result.risk_tokens,
+        risk_assessment: result.risk_assessment,
       };
       setAnalysis(mapped);
 
@@ -562,203 +560,145 @@ function App() {
                     </div>
 
                     {/* High Risk Tokens Section */}
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                          <AlertTriangle className="w-4 h-4 text-orange-500" />
-                          High Risk Tokens (3)
-                        </h4>
-                        <button 
-                          className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm flex items-center gap-1"
-                          onClick={() => setTokensExpanded(!tokensExpanded)}
-                        >
-                          {tokensExpanded ? (
-                            <>Collapse Analysis <ChevronUp className="w-4 h-4" /></>
-                          ) : (
-                            <>Expand Analysis <ChevronDown className="w-4 h-4" /></>
-                          )}
-                        </button>
+                    {analysis.risk_tokens && analysis.risk_tokens.length > 0 ? (
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-orange-500" />
+                            High Risk Tokens ({analysis.risk_tokens.length})
+                          </h4>
+                          <button 
+                            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm flex items-center gap-1"
+                            onClick={() => setTokensExpanded(!tokensExpanded)}
+                          >
+                            {tokensExpanded ? (
+                              <>Collapse Analysis <ChevronUp className="w-4 h-4" /></>
+                            ) : (
+                              <>Expand Analysis <ChevronDown className="w-4 h-4" /></>
+                            )}
+                          </button>
+                        </div>
+                        
+                        {!tokensExpanded ? (
+                          <div className="space-y-2">
+                            {analysis.risk_tokens.slice(0, 3).map((token, index) => (
+                              <div key={token.id} className="flex items-center gap-2 text-sm">
+                                <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 rounded font-mono">
+                                  "{token.text}"
+                                </span>
+                                <span className="text-gray-700 dark:text-gray-300">
+                                  {token.classification}
+                                </span>
+                              </div>
+                            ))}
+                            {analysis.risk_tokens.length > 3 && (
+                              <div className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                                ... and {analysis.risk_tokens.length - 3} more tokens
+                              </div>
+                            )}
+                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                              Click expand to see detailed analysis and suggestions
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            {analysis.risk_tokens.map((token) => {
+                              const getRiskBadgeVariant = (riskLevel?: string) => {
+                                switch (riskLevel) {
+                                  case 'high':
+                                    return 'destructive' as const;
+                                  case 'medium':
+                                    return 'secondary' as const;
+                                  case 'low':
+                                    return 'outline' as const;
+                                  default:
+                                    return 'secondary' as const;
+                                }
+                              };
+
+                              const getRiskColors = (riskLevel?: string) => {
+                                switch (riskLevel) {
+                                  case 'high':
+                                    return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300';
+                                  case 'medium':
+                                    return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300';
+                                  case 'low':
+                                    return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300';
+                                  default:
+                                    return 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300';
+                                }
+                              };
+
+                              return (
+                                <div key={token.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                                  <div className="flex items-center gap-3 mb-4">
+                                    <span className={`px-3 py-1 ${getRiskColors(token.risk_level)} rounded font-mono text-lg`}>
+                                      "{token.text}"
+                                    </span>
+                                    {token.risk_level && (
+                                      <Badge variant={getRiskBadgeVariant(token.risk_level)} className="text-xs">
+                                        {token.risk_level.charAt(0).toUpperCase() + token.risk_level.slice(1)} Risk
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  
+                                  <div className="space-y-4">
+                                    {/* Reasoning Section */}
+                                    <div className="flex gap-3">
+                                      <div className="flex-shrink-0 mt-0.5">
+                                        <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                                      </div>
+                                      <div>
+                                        <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">Reasoning</div>
+                                        <div className="text-sm text-gray-700 dark:text-gray-300">
+                                          {token.reasoning}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Classification Section */}
+                                    <div className="flex gap-3">
+                                      <div className="flex-shrink-0 mt-0.5">
+                                        <Tag className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                      </div>
+                                      <div>
+                                        <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">Classification</div>
+                                        <div className="text-sm text-gray-700 dark:text-gray-300">
+                                          {token.classification}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Mitigation Section */}
+                                    <div className="flex gap-3">
+                                      <div className="flex-shrink-0 mt-0.5">
+                                        <Lightbulb className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                      </div>
+                                      <div>
+                                        <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">Mitigation</div>
+                                        <div className="text-sm text-gray-700 dark:text-gray-300">
+                                          {token.mitigation}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                      
-                      {!tokensExpanded ? (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-sm">
-                            <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 rounded font-mono">
-                              "this"
-                            </span>
-                            <span className="text-gray-700 dark:text-gray-300">
-                              Ambiguous reference
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm">
-                            <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 rounded font-mono">
-                              "many"
-                            </span>
-                            <span className="text-gray-700 dark:text-gray-300">
-                              Vague quantifier
-                            </span>
-                          </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400 mt-2">
-                            Click expand to see detailed analysis and suggestions
-                          </div>
+                    ) : analysisMode === 'comprehensive' ? (
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center gap-2 mb-3">
+                          <AlertTriangle className="w-4 h-4 text-gray-400" />
+                          <h4 className="font-medium text-gray-600 dark:text-gray-400">High Risk Tokens</h4>
                         </div>
-                      ) : (
-                        <div className="space-y-4">
-                          {/* Token 1: "this" */}
-                          <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
-                            <div className="flex items-center gap-3 mb-4">
-                              <span className="px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded font-mono text-lg">
-                                "this"
-                              </span>
-                              <Badge variant="destructive" className="text-xs">High Risk</Badge>
-                            </div>
-                            
-                            <div className="space-y-4">
-                              {/* Reasoning Section */}
-                              <div className="flex gap-3">
-                                <div className="flex-shrink-0 mt-0.5">
-                                  <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                                </div>
-                                <div>
-                                  <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">Reasoning</div>
-                                  <div className="text-sm text-gray-700 dark:text-gray-300">
-                                    Ambiguous pronoun that lacks clear antecedent, making it unclear what specific object or concept is being referenced.
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              {/* Classification Section */}
-                              <div className="flex gap-3">
-                                <div className="flex-shrink-0 mt-0.5">
-                                  <Tag className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                                </div>
-                                <div>
-                                  <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">Classification</div>
-                                  <div className="text-sm text-gray-700 dark:text-gray-300">
-                                    Ambiguous Reference
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              {/* Mitigation Section */}
-                              <div className="flex gap-3">
-                                <div className="flex-shrink-0 mt-0.5">
-                                  <Lightbulb className="w-4 h-4 text-green-600 dark:text-green-400" />
-                                </div>
-                                <div>
-                                  <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">Mitigation</div>
-                                  <div className="text-sm text-gray-700 dark:text-gray-300">
-                                    Replace "this" with the specific noun or concept being referenced. For example: "this algorithm" to "the sorting algorithm" or "this approach" to "the machine learning approach"
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Token 2: "many" */}
-                          <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
-                            <div className="flex items-center gap-3 mb-4">
-                              <span className="px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded font-mono text-lg">
-                                "many"
-                              </span>
-                              <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">Medium Risk</Badge>
-                            </div>
-                            
-                            <div className="space-y-4">
-                              {/* Reasoning Section */}
-                              <div className="flex gap-3">
-                                <div className="flex-shrink-0 mt-0.5">
-                                  <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                                </div>
-                                <div>
-                                  <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">Reasoning</div>
-                                  <div className="text-sm text-gray-700 dark:text-gray-300">
-                                    Vague quantifier that provides no specific numerical information, leading to subjective interpretation.
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              {/* Classification Section */}
-                              <div className="flex gap-3">
-                                <div className="flex-shrink-0 mt-0.5">
-                                  <Tag className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                                </div>
-                                <div>
-                                  <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">Classification</div>
-                                  <div className="text-sm text-gray-700 dark:text-gray-300">
-                                    Vague Quantifier
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              {/* Mitigation Section */}
-                              <div className="flex gap-3">
-                                <div className="flex-shrink-0 mt-0.5">
-                                  <Lightbulb className="w-4 h-4 text-green-600 dark:text-green-400" />
-                                </div>
-                                <div>
-                                  <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">Mitigation</div>
-                                  <div className="text-sm text-gray-700 dark:text-gray-300">
-                                    Specify exact numbers or ranges. For example: "many users" to "over 1,000 users" or "many options" to "5-10 different options"
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Token 3: "significant" */}
-                          <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
-                            <div className="flex items-center gap-3 mb-4">
-                              <span className="px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded font-mono text-lg">
-                                "significant"
-                              </span>
-                              <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">Medium Risk</Badge>
-                            </div>
-                            
-                            <div className="space-y-4">
-                              {/* Reasoning Section */}
-                              <div className="flex gap-3">
-                                <div className="flex-shrink-0 mt-0.5">
-                                  <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                                </div>
-                                <div>
-                                  <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">Reasoning</div>
-                                  <div className="text-sm text-gray-700 dark:text-gray-300">
-                                    Subjective adjective that can be interpreted differently depending on context and perspective.
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              {/* Classification Section */}
-                              <div className="flex gap-3">
-                                <div className="flex-shrink-0 mt-0.5">
-                                  <Tag className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                                </div>
-                                <div>
-                                  <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">Classification</div>
-                                  <div className="text-sm text-gray-700 dark:text-gray-300">
-                                    Subjective Qualifier
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              {/* Mitigation Section */}
-                              <div className="flex gap-3">
-                                <div className="flex-shrink-0 mt-0.5">
-                                  <Lightbulb className="w-4 h-4 text-green-600 dark:text-green-400" />
-                                </div>
-                                <div>
-                                  <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">Mitigation</div>
-                                  <div className="text-sm text-gray-700 dark:text-gray-300">
-                                    Define what constitutes "significant" with measurable criteria. For example: "significant improvement" to "20% performance improvement" or "statistically significant with p less than 0.05"
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          No high-risk tokens identified in this prompt.
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    ) : null}
                     </>
                     )}
                   </div>
