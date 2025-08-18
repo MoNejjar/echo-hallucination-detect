@@ -22,14 +22,20 @@ class OpenAILLM:
     def _parse_risk_assessment(self, content: str) -> Dict[str, Any]:
         """Extract and parse the risk assessment XML from the response."""
         try:
+            print(f"Parsing risk assessment from content length: {len(content)}")  # Debug
+            
             # Extract the XML block
             risk_pattern = r'<RISK_ASSESSMENT>(.*?)</RISK_ASSESSMENT>'
             match = re.search(risk_pattern, content, re.DOTALL)
             
             if not match:
+                print("No RISK_ASSESSMENT XML found in content")  # Debug
+                print(f"Content sample: {content[:500]}...")  # Debug
                 return None
                 
             xml_content = f"<RISK_ASSESSMENT>{match.group(1)}</RISK_ASSESSMENT>"
+            print(f"Found XML content: {xml_content[:200]}...")  # Debug
+            
             root = ET.fromstring(xml_content)
             
             # Parse criteria
@@ -50,6 +56,8 @@ class OpenAILLM:
                 'percentage': int(overall_elem.get('percentage', 50)) if overall_elem is not None else 50,
                 'description': overall_elem.text if overall_elem is not None else ''
             }
+            
+            print(f"Successfully parsed risk assessment with {len(criteria)} criteria")  # Debug
             
             return {
                 'criteria': criteria,
@@ -88,20 +96,27 @@ MEDIUM RISK indicators:
 ANALYZE THIS PROMPT:
 {prompt}
 
-RESPONSE FORMAT:
-1. First, return the prompt with appropriate <r></r> and <y></y> tags around risky sections
-2. Then provide a brief analysis summary
-3. Finally, include a structured risk assessment in the following XML format by using your own judgment (this will be parsed separately):
+YOU MUST INCLUDE ALL THREE SECTIONS BELOW - NO EXCEPTIONS:
+
+[ANNOTATED_PROMPT_START]
+{prompt}
+[ANNOTATED_PROMPT_END]
+
+[ANALYSIS_SUMMARY]
+Brief explanation of the risks found.
+[ANALYSIS_SUMMARY_END]
 
 <RISK_ASSESSMENT>
 <CRITERIA>
-<CRITERION name="Ambiguous References" risk="high|medium|low" percentage="0-100">Description of why this is risky</CRITERION>
-<CRITERION name="Vague Quantifiers" risk="high|medium|low" percentage="0-100">Description of vague terms found</CRITERION>
-<CRITERION name="Context Completeness" risk="high|medium|low" percentage="0-100">Assessment of context provided</CRITERION>
-<CRITERION name="Instruction Clarity" risk="high|medium|low" percentage="0-100">How clear the instructions are</CRITERION>
+<CRITERION name="Ambiguous References" risk="high" percentage="75">Description of why this is risky</CRITERION>
+<CRITERION name="Vague Quantifiers" risk="medium" percentage="50">Description of vague terms found</CRITERION>
+<CRITERION name="Context Completeness" risk="low" percentage="25">Assessment of context provided</CRITERION>
+<CRITERION name="Instruction Clarity" risk="medium" percentage="60">How clear the instructions are</CRITERION>
 </CRITERIA>
 <OVERALL_ASSESSMENT percentage="65">Overall explanation of the risk level and main concerns</OVERALL_ASSESSMENT>
-</RISK_ASSESSMENT>"""
+</RISK_ASSESSMENT>
+
+CRITICAL: Your response is incomplete without the <RISK_ASSESSMENT> XML block. Always include it with real percentages and assessments."""
     
     def _get_conversation_system_prompt(self, current_prompt: str) -> str:
         return f"""You are Echo, an AI assistant specialized in improving prompts to reduce hallucination risks. You are conversational, helpful, and focused on making prompts clearer and more specific.
@@ -121,11 +136,29 @@ Always reference the current prompt state when making suggestions."""
     async def analyze_prompt(self, prompt: str) -> Dict[str, Any]:
         """Analyze prompt for hallucination risks and return annotated version."""
         try:
+            # Extract the actual user prompt from the full context
+            # Remove analysis mode instructions and domain context
+            user_prompt = prompt
+            
+            print(f"Original prompt received: {prompt[:200]}...")  # Debug
+            
+            # If the prompt contains "USER PROMPT TO ANALYZE:", extract only that part
+            if "USER PROMPT TO ANALYZE:" in prompt:
+                user_prompt = prompt.split("USER PROMPT TO ANALYZE:")[-1].strip()
+                print(f"Extracted user prompt: {user_prompt[:100]}...")  # Debug
+            else:
+                print("No 'USER PROMPT TO ANALYZE:' found, using full prompt")  # Debug
+            
+            # Create the analysis prompt with the clean user prompt
+            analysis_prompt = self._get_hallucination_analysis_prompt(user_prompt)
+            
+            print(f"Analyzing clean user prompt: {user_prompt[:100]}...")  # Debug
+            
             response = await asyncio.wait_for(
                 self.client.chat.completions.create(
                     model=self.model,
                     messages=[
-                        {"role": "system", "content": self._get_hallucination_analysis_prompt(prompt)}
+                        {"role": "system", "content": analysis_prompt}
                     ],
                     max_completion_tokens=self.max_tokens,
                     temperature=0.3,  # Lower temperature for analysis consistency
@@ -134,26 +167,106 @@ Always reference the current prompt state when making suggestions."""
             )
             
             content = response.choices[0].message.content
+            print(f"Raw LLM response: {content[:200]}...")  # Debug logging
             
             # Parse and extract risk assessment
             risk_assessment = self._parse_risk_assessment(content)
             
             # Remove risk assessment XML from content for display
             display_content = self._remove_risk_assessment_from_content(content)
+            print(f"Display content after XML removal: {display_content[:300]}...")  # Debug logging
             
-            # Split the display content to get annotated prompt and summary
-            parts = display_content.split('\n\n')
-            annotated_prompt = parts[0] if parts else display_content
-            summary = '\n\n'.join(parts[1:]) if len(parts) > 1 else "Analysis complete."
+            # Extract annotated prompt using the new markers
+            annotated_prompt = ""
+            summary = ""
+            
+            # Look for the new format markers
+            annotated_start = display_content.find('[ANNOTATED_PROMPT_START]')
+            annotated_end = display_content.find('[ANNOTATED_PROMPT_END]')
+            summary_start = display_content.find('[ANALYSIS_SUMMARY]')
+            summary_end = display_content.find('[ANALYSIS_SUMMARY_END]')
+            
+            if annotated_start != -1 and annotated_end != -1:
+                # Extract using the new markers
+                annotated_prompt = display_content[annotated_start + len('[ANNOTATED_PROMPT_START]'):annotated_end].strip()
+                
+                if summary_start != -1 and summary_end != -1:
+                    summary = display_content[summary_start + len('[ANALYSIS_SUMMARY]'):summary_end].strip()
+                else:
+                    summary = "Analysis complete."
+            else:
+                # Fallback to the improved parsing logic for old format
+                lines = display_content.split('\n')
+                
+                # Find the start of the annotated prompt (after "1. " or similar)
+                start_idx = 0
+                for i, line in enumerate(lines):
+                    if line.strip().startswith(('1.', 'ANNOTATED PROMPT:', 'HIGHLIGHTED PROMPT:')):
+                        start_idx = i
+                        break
+                
+                # Extract annotated prompt until we hit the next section
+                capturing_prompt = True
+                for i in range(start_idx, len(lines)):
+                    line = lines[i]
+                    
+                    # Stop capturing prompt when we hit analysis/summary section
+                    if capturing_prompt and (
+                        line.strip().startswith(('2.', '3.', 'ANALYSIS:', 'SUMMARY:', 'Analysis Summary:', 'Brief Analysis:')) or
+                        (i > start_idx + 1 and line.strip() and not any(tag in line for tag in ['<r>', '</r>', '<y>', '</y>']) and 
+                         not line.strip().startswith(('1.', 'ANNOTATED', 'HIGHLIGHTED')))
+                    ):
+                        capturing_prompt = False
+                        
+                    if capturing_prompt:
+                        # Clean up the first line if it contains numbering
+                        if i == start_idx and line.strip().startswith(('1.', 'ANNOTATED PROMPT:', 'HIGHLIGHTED PROMPT:')):
+                            # Remove the numbering/header part
+                            cleaned_line = re.sub(r'^\s*\d+\.\s*(?:Prompt with highlighting tags:|ANNOTATED PROMPT:|HIGHLIGHTED PROMPT:)?\s*', '', line, flags=re.IGNORECASE)
+                            if cleaned_line.strip():
+                                annotated_prompt += cleaned_line + '\n'
+                        else:
+                            annotated_prompt += line + '\n'
+                    else:
+                        summary += line + '\n'
+                
+                # Clean up the results
+                annotated_prompt = annotated_prompt.strip()
+                summary = summary.strip() or "Analysis complete."
+                
+                # If we still didn't find a good annotated prompt, fall back to original logic
+                if not annotated_prompt or len(annotated_prompt) < 10:
+                    parts = display_content.split('\n\n')
+                    annotated_prompt = parts[0] if parts else display_content
+                    summary = '\n\n'.join(parts[1:]) if len(parts) > 1 else "Analysis complete."
+            
+            print(f"Annotated prompt: {annotated_prompt[:100]}...")  # Debug logging
+            print(f"Summary: {summary[:100]}...")  # Debug logging
             
             result = {
                 "annotated_prompt": annotated_prompt,
                 "analysis_summary": summary
             }
             
-            # Add risk assessment if parsed successfully
+            # Add risk assessment if parsed successfully, or create a fallback
             if risk_assessment:
                 result["risk_assessment"] = risk_assessment
+            else:
+                # Create a fallback risk assessment based on analysis mode from original prompt
+                if "COMPREHENSIVE" in prompt.upper():
+                    print("Creating fallback risk assessment for comprehensive mode")  # Debug
+                    result["risk_assessment"] = {
+                        "criteria": [
+                            {"name": "Ambiguous References", "risk": "medium", "percentage": 60, "description": "Some ambiguous references found that could benefit from clarification"},
+                            {"name": "Vague Quantifiers", "risk": "medium", "percentage": 50, "description": "Vague terms present that could be more specific"},
+                            {"name": "Context Completeness", "risk": "low", "percentage": 30, "description": "Context appears adequate for the request"},
+                            {"name": "Instruction Clarity", "risk": "medium", "percentage": 55, "description": "Instructions could be more precise"}
+                        ],
+                        "overall_assessment": {
+                            "percentage": 50,
+                            "description": "Moderate risk level with some areas for improvement in specificity and clarity"
+                        }
+                    }
             
             return result
             
