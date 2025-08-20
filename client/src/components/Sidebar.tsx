@@ -378,7 +378,7 @@ An Echo AI User`;
             <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 to-blue-600/20 rounded-full blur-lg scale-110 animate-pulse"></div>
             {/* Logo */}
             <div className="relative w-12 h-12 bg-gradient-to-r from-purple-600 via-purple-500 to-blue-600 rounded-full flex items-center justify-center shadow-2xl ring-2 ring-purple-200/50 dark:ring-purple-800/50 group-hover:shadow-purple-500/25 transition-all duration-300">
-              <img src="/logo.png" alt="Echo Logo" className="w-7 h-7 drop-shadow-lg dark:invert-0 invert" />
+              <img src="/logo.png" alt="Echo Logo" className="w-7 h-7 drop-shadow-lg" />
             </div>
           </div>
           
