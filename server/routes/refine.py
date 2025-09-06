@@ -3,8 +3,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Dict
 import json
-import os
-from openai import AsyncOpenAI
+from ..services.llm import OpenAILLM
 
 router = APIRouter()
 
@@ -16,32 +15,42 @@ class RefineRequest(BaseModel):
 class RefineResponse(BaseModel):
     assistant_message: str
 
-client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Initialize LLM service
+llm_service = OpenAILLM()
 
 @router.post("/", response_model=RefineResponse)
 async def refine_prompt(request: RefineRequest):
+    """Refine a prompt through conversation with the user."""
     try:
-        system_prompt = f"""You are Echo, an AI assistant specialized in improving prompts to reduce hallucination risks.
-
-CURRENT PROMPT: {request.prompt}
-
-Help the user improve their prompt through conversation."""
-
-        messages = [{"role": "system", "content": system_prompt}]
+        print(f"DEBUG: Refining prompt: {request.prompt[:50]}...")
+        print(f"DEBUG: User message: {request.user_message}")
+        print(f"DEBUG: Conversation history length: {len(request.conversation_history)}")
         
-        for msg in request.conversation_history:
-            messages.append({"role": msg["role"], "content": msg["content"]})
+        # Check if prompt is provided
+        if not request.prompt or not request.prompt.strip():
+            raise HTTPException(status_code=400, detail="Prompt is required")
         
-        messages.append({"role": "user", "content": request.user_message})
+        # Use LLM service for refinement with conversation
+        if request.conversation_history:
+            print("DEBUG: Using chat_stream with conversation history")
+            # If there's conversation history, collect the streamed response
+            assistant_message = ""
+            async for chunk in llm_service.chat_stream(
+                current_prompt=request.prompt,
+                conversation_history=request.conversation_history,
+                user_message=request.user_message
+            ):
+                assistant_message += chunk
+        else:
+            print("DEBUG: Using chat_once without conversation history")
+            # No conversation history, use chat_once
+            assistant_message = await llm_service.chat_once(
+                current_prompt=request.prompt,
+                user_message=request.user_message
+            )
         
-        response = await client.chat.completions.create(
-            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-            messages=messages,
-            max_tokens=int(os.getenv("MAX_TOKENS", "4000")),
-            temperature=float(os.getenv("TEMPERATURE", "0.7")),
-        )
-        
-        return RefineResponse(assistant_message=response.choices[0].message.content)
+        print(f"DEBUG: Response length: {len(assistant_message)}")
+        return RefineResponse(assistant_message=assistant_message)
         
     except Exception as e:
         print(f"Refinement error: {str(e)}")
@@ -49,34 +58,31 @@ Help the user improve their prompt through conversation."""
 
 @router.get("/stream")
 async def refine_stream(prompt: str, user_message: str, history_json: str = "[]"):
+    """Stream refinement suggestions for a prompt."""
     try:
+        print("=== REFINE STREAM CALLED ===")
+        print(f"STREAM DEBUG: Prompt: {prompt[:50]}...")
+        print(f"STREAM DEBUG: User message: {user_message}")
+        print(f"STREAM DEBUG: History JSON: {history_json[:100]}...")
+        
         conversation_history = json.loads(history_json)
-        
-        system_prompt = f"You are Echo, helping improve this prompt: {prompt}"
-        messages = [{"role": "system", "content": system_prompt}]
-        
-        for msg in conversation_history:
-            messages.append({"role": msg["role"], "content": msg["content"]})
-        
-        messages.append({"role": "user", "content": user_message})
+        print(f"STREAM DEBUG: Parsed history length: {len(conversation_history)}")
         
         async def generate():
             try:
-                stream = await client.chat.completions.create(
-                    model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-                    messages=messages,
-                    max_tokens=int(os.getenv("MAX_TOKENS", "4000")),
-                    temperature=float(os.getenv("TEMPERATURE", "0.7")),
-                    stream=True
-                )
-                
-                async for chunk in stream:
-                    if chunk.choices[0].delta.content is not None:
-                        yield f"data: {chunk.choices[0].delta.content}\n\n"
+                print("STREAM DEBUG: Starting llm_service.chat_stream")
+                # Use the llm service for streaming
+                async for chunk in llm_service.chat_stream(
+                    current_prompt=prompt,
+                    conversation_history=conversation_history,
+                    user_message=user_message
+                ):
+                    yield f"data: {chunk}\n\n"
                         
                 yield "event: done\ndata: \n\n"
                 
             except Exception as e:
+                print(f"STREAM DEBUG ERROR: {str(e)}")
                 yield f"event: error\ndata: {str(e)}\n\n"
         
         return StreamingResponse(
