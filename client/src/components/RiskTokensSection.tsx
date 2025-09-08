@@ -41,14 +41,16 @@ const RiskTokensSection: React.FC<RiskTokensSectionProps> = ({ riskTokens }) => 
 
   const getClassificationColor = (classification: string) => {
     switch (classification) {
-      case 'Ambiguous References':
+      case 'Referential Ambiguity & Quantification':
         return 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300';
-      case 'Vague Quantifiers':
+      case 'Context Sufficiency & Integrity':
         return 'bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300';
-      case 'Context Completeness':
+      case 'Instruction Structure & Delimitation':
         return 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-300';
-      case 'Instruction Clarity':
+      case 'Verifiability & Factuality':
         return 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300';
+      case 'Reasoning & Uncertainty Handling':
+        return 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300';
       default:
         return 'bg-gray-50 text-gray-700 dark:bg-gray-900/20 dark:text-gray-300';
     }

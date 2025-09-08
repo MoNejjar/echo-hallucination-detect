@@ -57,7 +57,7 @@ export interface RiskToken {
   id: string;
   text: string;
   reasoning: string;
-  classification: 'Ambiguous References' | 'Vague Quantifiers' | 'Context Completeness' | 'Instruction Clarity' | 'Other';
+  classification: 'Referential Ambiguity & Quantification' | 'Context Sufficiency & Integrity' | 'Instruction Structure & Delimitation' | 'Verifiability & Factuality' | 'Reasoning & Uncertainty Handling' | 'Other';
   mitigation: string;
   risk_level?: 'high' | 'medium' | 'low';
 }

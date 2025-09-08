@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { analyzePrompt, refineOnce, openRefineSSE } from "./lib/api";
+import { analyzePrompt, refineOnce, refineStream } from "./lib/api";
 import { Button } from "./components/ui/button";
 import { Textarea } from "./components/ui/textarea";
 import { Input } from "./components/ui/input";
@@ -18,8 +18,37 @@ import ExpandableEditor from "./components/ExpandableEditor";
 import Settings, { type Domain, type AnalysisMode, DOMAIN_CONFIG } from "./components/Settings";
 
 // Render the annotated prompt by converting RISK_ID tags to styled spans
-const renderAnnotated = (text: string) => {
+const renderAnnotated = (text: string, analysisData?: PromptAnalysis | null) => {
+  console.log('🎬 [App.tsx renderAnnotated] FUNCTION CALLED with text:', text ? text.substring(0, 100) + '...' : 'null');
+  console.log('🎬 [App.tsx renderAnnotated] FUNCTION CALLED with analysisData:', analysisData);
+  
   if (!text) return null;
+
+  // Get risk level colors helper function
+  const getRiskColors = (riskLevel: string) => {
+    console.log('🎨 Getting colors for risk level:', riskLevel);
+    
+    switch (riskLevel.toLowerCase()) {
+      case 'high':
+        return {
+          bg: 'bg-red-100 dark:bg-red-900/30',
+          text: 'text-red-800 dark:text-red-200',
+          border: 'border-red-200 dark:border-red-700'
+        };
+      case 'medium':
+        return {
+          bg: 'bg-yellow-100 dark:bg-yellow-900/30',
+          text: 'text-yellow-800 dark:text-yellow-200',
+          border: 'border-yellow-200 dark:border-yellow-700'
+        };
+      default:
+        return null; // No highlighting for low/unknown risk
+    }
+  };
+
+  console.log('🔍 [App.tsx renderAnnotated] Starting render with text:', text.substring(0, 100) + '...');
+  console.log('🔍 [App.tsx renderAnnotated] Analysis data:', analysisData);
+  console.log('🔍 [App.tsx renderAnnotated] Risk tokens:', analysisData?.risk_tokens);
 
   // First, decode HTML entities
   const decodedText = text
@@ -38,11 +67,42 @@ const renderAnnotated = (text: string) => {
         const riskMatch = part.match(/<RISK_(\d+)>(.*?)<\/RISK_\d+>/);
         if (riskMatch) {
           const [, riskId, riskText] = riskMatch;
+          
+          console.log('🏷️ [App.tsx renderAnnotated] Processing risk token:', { riskId, riskText: riskText.substring(0, 50) });
+          console.log('🔍 [App.tsx renderAnnotated] Available risk tokens:');
+          analysisData?.risk_tokens?.forEach((token, index) => {
+            console.log(`  Token ${index}:`, {
+              id: token.id, 
+              idType: typeof token.id,
+              text: token.text?.substring(0, 30) || 'no text', 
+              risk_level: token.risk_level,
+              classification: token.classification
+            });
+          });
+          
+          // Find the corresponding risk token in the analysis
+          const riskToken = analysisData?.risk_tokens?.find(token => token.id === `RISK_${riskId}`);
+          console.log('🔍 [App.tsx renderAnnotated] Searching for riskId:', `RISK_${riskId}`, 'type:', typeof `RISK_${riskId}`);
+          console.log('📊 [App.tsx renderAnnotated] Found risk token:', riskToken);
+          const riskLevel = riskToken?.risk_level || 'high';
+          
+          console.log('🎯 [App.tsx renderAnnotated] Using risk level:', riskLevel);
+          
+          const colors = getRiskColors(riskLevel);
+          
+          if (!colors) {
+            console.log('⚪ [App.tsx renderAnnotated] No highlighting for risk level:', riskLevel);
+            // Return unstyled text for low/unknown risk
+            return <span key={index}>{riskText}</span>;
+          }
+          
+          console.log('🎨 [App.tsx renderAnnotated] Applying colors:', colors);
+          
           return (
             <span
               key={index}
-              className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 px-1 py-0.5 rounded border border-red-200 dark:border-red-700 font-medium"
-              title={`Risk Token ${riskId}`}
+              className={`${colors.bg} ${colors.text} ${colors.border} px-1 py-0.5 rounded border font-medium`}
+              title={`Risk Token ${riskId} (${riskLevel.toUpperCase()} RISK)`}
             >
               {riskText}
             </span>
@@ -58,6 +118,8 @@ const renderAnnotated = (text: string) => {
 const stripTags = (text: string) => text.replace(/<\/?(?:r|y|RISK_\d+)>/gi, "");
 
 function App() {
+  console.log('🟢 APP COMPONENT LOADED - This log should always appear');
+  
   const [currentPrompt, setCurrentPrompt] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
@@ -72,8 +134,6 @@ function App() {
   const [analysisResultsExpanded, setAnalysisResultsExpanded] = useState(false);
   const [domain, setDomain] = useState<Domain>('general');
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('comprehensive');
-
-  const eventSourceRef = useRef<EventSource | null>(null);
 
   const canAnalyze = useMemo(() => currentPrompt.trim().length > 10, [currentPrompt]);
 
@@ -214,63 +274,51 @@ function App() {
     }
   }, [canAnalyze, currentPrompt]);
 
-  const startStream = useCallback(
-    (userMessage: string) => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
-
+  const sendMessage = useCallback(
+    async (userMessage: string) => {
       const userChat: ChatMessage = {
         role: "user",
         content: userMessage,
-        timestamp: new Date(), // Changed from string to Date object
+        timestamp: new Date(),
       };
       setChatMessages((prev) => [...prev, userChat]);
 
       const id = String(Date.now());
       const placeholder: ChatMessage = {
         role: "assistant",
-        content: "",
-        timestamp: new Date(), // Changed from string to Date object
+        content: "Thinking...",
+        timestamp: new Date(),
         id,
       };
       setChatMessages((prev) => [...prev, placeholder]);
 
-      const historyCompact = [...chatMessages, userChat].map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
+      try {
+        const historyCompact = [...chatMessages, userChat].map((m) => ({
+          role: m.role,
+          content: m.content,
+        }));
 
-      const es = openRefineSSE(currentPrompt, userMessage, historyCompact);
-      eventSourceRef.current = es;
-
-      let acc = "";
-      es.onmessage = (e) => {
-        acc += e.data;
-        setChatMessages((prev) => prev.map((m) => (m.id === id ? { ...m, content: acc } : m)));
-      };
-      es.addEventListener("done", () => {
-        es.close();
-        eventSourceRef.current = null;
-      });
-      es.onerror = () => {
-        es.close();
-        eventSourceRef.current = null;
-      };
+        const response = await refineStream(currentPrompt, userMessage, historyCompact);
+        
+        setChatMessages((prev) => 
+          prev.map((m) => 
+            m.id === id ? { ...m, content: response.assistant_message } : m
+          )
+        );
+      } catch (error) {
+        setChatMessages((prev) => 
+          prev.map((m) => 
+            m.id === id ? { ...m, content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}` } : m
+          )
+        );
+      }
     },
     [chatMessages, currentPrompt]
   );
 
-  useEffect(() => {
-    return () => {
-      if (eventSourceRef.current) eventSourceRef.current.close();
-    };
-  }, []);
-
   const onSendMessage = (message: string) => {
     if (!message.trim()) return;
-    startStream(message);
+    sendMessage(message);
   };
 
   const handleNewAnalysis = () => {
@@ -333,7 +381,7 @@ function App() {
     const msg = chatInput.trim();
     if (!msg) return;
     setChatInput("");
-    startStream(msg);
+    sendMessage(msg);
   };
 
   return (
@@ -420,7 +468,7 @@ function App() {
                       </div>
                       <ScrollArea className={analysisResultsExpanded ? "h-auto max-h-[600px]" : "h-[150px]"}>
                         <div className={`${!analysisResultsExpanded ? 'relative' : ''}`}>
-                          {renderAnnotated(analysis.annotated_prompt)}
+                          {renderAnnotated(analysis.annotated_prompt, analysis)}
                           {!analysisResultsExpanded && (
                             <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-gray-50 dark:from-gray-800/50 to-transparent pointer-events-none" />
                           )}
@@ -771,20 +819,30 @@ function App() {
                             AI Analysis in Progress
                           </div>
                           <div className="text-sm text-blue-700 dark:text-blue-300">
-                            {analysisProgress < 30 ? (
+                            {analysisProgress < 20 ? (
                               <span className="flex items-center gap-1">
                                 <Search className="w-3 h-3" />
-                                Scanning for ambiguous references...
+                                Analyzing referential ambiguity...
+                              </span>
+                            ) : analysisProgress < 40 ? (
+                              <span className="flex items-center gap-1">
+                                <Target className="w-3 h-3" />
+                                Checking context sufficiency...
                               </span>
                             ) : analysisProgress < 60 ? (
                               <span className="flex items-center gap-1">
-                                <Target className="w-3 h-3" />
-                                Identifying vague quantifiers...
+                                <FileText className="w-3 h-3" />
+                                Evaluating instruction structure...
+                              </span>
+                            ) : analysisProgress < 80 ? (
+                              <span className="flex items-center gap-1">
+                                <Shield className="w-3 h-3" />
+                                Verifying factual claims...
                               </span>
                             ) : analysisProgress < 90 ? (
                               <span className="flex items-center gap-1">
                                 <Zap className="w-3 h-3" />
-                                Calculating hallucination risk...
+                                Assessing reasoning patterns...
                               </span>
                             ) : (
                               <span className="flex items-center gap-1">
