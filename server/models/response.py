@@ -1,7 +1,35 @@
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from datetime import datetime
 
+# New PRD-based models
+class PromptViolation(BaseModel):
+    rule_id: str
+    pillar: str
+    severity: str  # "critical", "high", "medium"
+    span: str
+
+class MetaViolation(BaseModel):
+    rule_id: str
+    pillar: str
+    severity: str  # "critical", "high", "medium"
+    explanation: str
+
+class PromptRiskAssessment(BaseModel):
+    prompt_PRD: Union[float, str]  # Can be number or empty string from LLM
+    prompt_violations: List[PromptViolation]
+    prompt_overview: str
+
+class MetaRiskAssessment(BaseModel):
+    meta_PRD: Union[float, str]  # Can be number or empty string from LLM
+    meta_violations: List[MetaViolation]
+    meta_overview: str
+
+class RiskAssessment(BaseModel):
+    prompt: PromptRiskAssessment
+    meta: MetaRiskAssessment
+
+# Legacy models (kept for backward compatibility, marked as deprecated)
 class RiskCriterion(BaseModel):
     name: str
     risk: str  # "high", "medium", "low"
@@ -11,10 +39,6 @@ class RiskCriterion(BaseModel):
 class OverallAssessment(BaseModel):
     percentage: int
     description: str
-
-class RiskAssessment(BaseModel):
-    criteria: List[RiskCriterion]
-    overall_assessment: OverallAssessment
 
 class RiskToken(BaseModel):
     id: str

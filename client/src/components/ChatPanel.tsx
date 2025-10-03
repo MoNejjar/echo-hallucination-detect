@@ -19,7 +19,10 @@ import {
   Star,
   Zap,
   Brain,
-  ArrowRight
+  ArrowRight,
+  BotMessageSquare,
+  Radar,
+  UserRound
 } from 'lucide-react';
 import { ChatMessage } from '../types';
 import toast from 'react-hot-toast';
@@ -214,9 +217,52 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, isLoadin
   };
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 overflow-hidden">
+    <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 overflow-hidden rounded-3xl relative">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-3xl">
+        <motion.div
+          className="absolute top-0 right-0 w-96 h-96 bg-purple-500/5 dark:bg-purple-500/10 rounded-full blur-3xl"
+          animate={{
+            x: [0, 30, 0],
+            y: [0, 50, 0],
+            scale: [1, 1.1, 1],
+          }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+        <motion.div
+          className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/5 dark:bg-blue-500/10 rounded-full blur-3xl"
+          animate={{
+            x: [0, -30, 0],
+            y: [0, -50, 0],
+            scale: [1, 1.2, 1],
+          }}
+          transition={{
+            duration: 25,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+        <motion.div
+          className="absolute top-1/2 left-1/2 w-96 h-96 bg-cyan-500/5 dark:bg-cyan-500/10 rounded-full blur-3xl"
+          animate={{
+            x: [-48, 48, -48],
+            y: [-48, 48, -48],
+            scale: [1, 1.15, 1],
+          }}
+          transition={{
+            duration: 30,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+      </div>
+      
       {/* Messages Area with enhanced styling */}
-      <ScrollArea className="flex-1 p-6 min-h-0 overflow-y-auto bg-gradient-to-b from-transparent to-gray-50/50 dark:to-gray-900/50">
+      <ScrollArea className="flex-1 p-6 min-h-0 overflow-y-auto bg-gradient-to-b from-transparent to-gray-50/50 dark:to-gray-900/50 relative z-10">
         <div className={`${messages.length === 0 && !isLoading ? 'min-h-[400px] flex items-center justify-center' : 'space-y-6'}`}>
           {messages.length === 0 && !isLoading && (
             <motion.div 
@@ -265,19 +311,23 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, isLoadin
                 After analyzing your prompt, I'll provide an improved version and help you refine it through intelligent conversation.
               </motion.p>
               
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.6 }}
                 className="flex justify-center gap-4 mt-8"
               >
                 <div className="flex items-center gap-2 px-4 py-2 bg-purple-50 dark:bg-purple-900/20 rounded-full">
-                  <Star className="w-4 h-4 text-purple-600" />
-                  <span className="text-sm text-purple-700 dark:text-purple-300 font-medium">Smart Detection</span>
+                  <Radar className="w-4 h-4 text-purple-600" />
+                  <span className="text-sm text-purple-700 dark:text-purple-300 font-medium">Risk Detection</span>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-full">
-                  <Brain className="w-4 h-4 text-blue-600" />
+                  <BotMessageSquare className="w-4 h-4 text-blue-600" />
                   <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">AI Refinement</span>
+                </div>
+                <div className="flex items-center gap-2 px-4 py-2 bg-cyan-50 dark:bg-cyan-900/20 rounded-full">
+                  <UserRound className="w-4 h-4 text-cyan-600" />
+                  <span className="text-sm text-cyan-700 dark:text-cyan-300 font-medium">User Friendliness</span>
                 </div>
               </motion.div>
             </motion.div>
@@ -433,41 +483,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, isLoadin
         transition={{ delay: 0.3 }}
         className="flex-shrink-0 p-6 border-t border-gray-200/60 dark:border-gray-700/60 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl"
       >
-        {messages.length > 0 && (
-          <motion.div 
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            className="mb-4"
-          >
-            <div className="flex flex-wrap gap-2">
-              {[
-                { text: "Make this more specific", icon: Star },
-                { text: "Reduce ambiguity", icon: MessageSquare },
-                { text: "Explain the changes", icon: Sparkles }
-              ].map(({ text, icon: Icon }, index) => (
-                <motion.div
-                  key={text}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setInputMessage(text)}
-                    className="h-8 px-3 rounded-full bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border-gray-200/60 dark:border-gray-700/60 hover:bg-white dark:hover:bg-gray-800 transition-all duration-200 text-xs"
-                  >
-                    <Icon className="w-3 h-3 mr-1.5" />
-                    {text.replace("Make this more specific", "Make more specific").replace("Explain the changes", "Explain changes")}
-                  </Button>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
         <div className="flex gap-3 items-center">
           <div className="flex-1 relative">
             <Textarea

@@ -8,6 +8,7 @@ router = APIRouter()
 
 class AnalyzeRequest(BaseModel):
     prompt: str
+    analysis_mode: Optional[str] = "both"  # Options: "faithfulness", "factuality", "both"
 
 class AnalyzeResponse(BaseModel):
     annotated_prompt: str
@@ -28,8 +29,14 @@ async def analyze_prompt(request: AnalyzeRequest):
         if not request.prompt or not request.prompt.strip():
             raise HTTPException(status_code=400, detail="Prompt is required")
         
+        # Validate analysis_mode
+        valid_modes = ["faithfulness", "factuality", "both"]
+        analysis_mode = request.analysis_mode or "both"
+        if analysis_mode not in valid_modes:
+            raise HTTPException(status_code=400, detail=f"Invalid analysis_mode. Must be one of: {', '.join(valid_modes)}")
+        
         # Use LLM service for analysis
-        result = await llm_service.analyze_prompt(request.prompt)
+        result = await llm_service.analyze_prompt(request.prompt, analysis_mode)
         
         # Convert risk assessment to Pydantic model if present
         risk_assessment = None

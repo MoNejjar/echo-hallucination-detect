@@ -2,25 +2,28 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { analyzePrompt, refineOnce, refineStream } from "./lib/api";
 import { Button } from "./components/ui/button";
 import { Textarea } from "./components/ui/textarea";
-import { Input } from "./components/ui/input";
 import { ScrollArea } from "./components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Progress } from "./components/ui/progress";
 import { Badge } from "./components/ui/badge";
 import { Separator } from "./components/ui/separator";
-import { Loader2, Brain, MessageSquare, Sparkles, ChevronDown, ChevronUp, AlertTriangle, Tag, Lightbulb, FileText, Search, Zap, Target, Shield, ShieldAlert, ShieldX } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
+import { Loader2, Brain, MessageSquare, Sparkles, ChevronDown, ChevronUp, AlertTriangle, Tag, Lightbulb, FileText, Search, Zap, Target, Shield, ShieldAlert, ShieldX, Highlighter, MessageSquareWarning, Atom, Filter, ChartSpline, HelpCircle, X, WholeWord, ScrollText } from "lucide-react";
 import type { ChatMessage, PromptAnalysis, RiskAssessment } from "./types";
 import Sidebar from "./components/Sidebar";
 import AnalysisSection from "./components/AnalysisSection";
 import ChatPanel from "./components/ChatPanel";
+import Toolbar from "./components/Toolbar";
+import AnalysisModeToggle, { type AnalysisMode } from "./components/AnalysisModeToggle";
 import { Toaster } from 'react-hot-toast';
 import ExpandableEditor from "./components/ExpandableEditor";
-import Settings, { type Domain, type AnalysisMode, DOMAIN_CONFIG } from "./components/Settings";
+import { motion, AnimatePresence } from "framer-motion";
 
 // Render the annotated prompt by converting RISK_ID tags to styled spans
-const renderAnnotated = (text: string, analysisData?: PromptAnalysis | null) => {
+const renderAnnotated = (text: string, analysisData?: PromptAnalysis | null, filter: Set<'medium' | 'high' | 'critical'> = new Set(['medium', 'high', 'critical'])) => {
   console.log('🎬 [App.tsx renderAnnotated] FUNCTION CALLED with text:', text ? text.substring(0, 100) + '...' : 'null');
   console.log('🎬 [App.tsx renderAnnotated] FUNCTION CALLED with analysisData:', analysisData);
+  console.log('🔍 [App.tsx renderAnnotated] Filter:', Array.from(filter));
   
   if (!text) return null;
 
@@ -29,11 +32,17 @@ const renderAnnotated = (text: string, analysisData?: PromptAnalysis | null) => 
     console.log('🎨 Getting colors for risk level:', riskLevel);
     
     switch (riskLevel.toLowerCase()) {
-      case 'high':
+      case 'critical':
         return {
           bg: 'bg-red-100 dark:bg-red-900/30',
           text: 'text-red-800 dark:text-red-200',
           border: 'border-red-200 dark:border-red-700'
+        };
+      case 'high':
+        return {
+          bg: 'bg-orange-100 dark:bg-orange-900/30',
+          text: 'text-orange-800 dark:text-orange-200',
+          border: 'border-orange-200 dark:border-orange-700'
         };
       case 'medium':
         return {
@@ -88,6 +97,12 @@ const renderAnnotated = (text: string, analysisData?: PromptAnalysis | null) => 
           
           console.log('🎯 [App.tsx renderAnnotated] Using risk level:', riskLevel);
           
+          // Apply filter: only highlight tokens matching the active filters
+          if (!filter.has(riskLevel.toLowerCase() as 'medium' | 'high' | 'critical')) {
+            console.log('🚫 [App.tsx renderAnnotated] Filtered out - not in active filters:', Array.from(filter));
+            return <span key={index}>{riskText}</span>;
+          }
+          
           const colors = getRiskColors(riskLevel);
           
           if (!colors) {
@@ -130,10 +145,13 @@ function App() {
   const [isInitialRewrite, setIsInitialRewrite] = useState(false);
   const [showAnalysisSection, setShowAnalysisSection] = useState(false);
   const [riskDetailsExpanded, setRiskDetailsExpanded] = useState(false);
+  const [metaDetailsExpanded, setMetaDetailsExpanded] = useState(false);
   const [tokensExpanded, setTokensExpanded] = useState(false);
   const [analysisResultsExpanded, setAnalysisResultsExpanded] = useState(false);
-  const [domain, setDomain] = useState<Domain>('general');
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('comprehensive');
+  const [riskLevelFilter, setRiskLevelFilter] = useState<Set<'medium' | 'high' | 'critical'>>(new Set(['medium', 'high', 'critical']));
+  const [currentHallucinationMode, setCurrentHallucinationMode] = useState<'faithfulness' | 'factuality' | 'both'>('both');
+  const [showHelpGuide, setShowHelpGuide] = useState(false);
 
   const canAnalyze = useMemo(() => currentPrompt.trim().length > 10, [currentPrompt]);
 
@@ -159,20 +177,26 @@ function App() {
     }
   };
 
-  const currentRiskPercentage = riskAssessment?.overall_assessment?.percentage || 0;
-
   // Debug: Log riskAssessment whenever it changes
   React.useEffect(() => {
-    console.log("=== RISK ASSESSMENT STATE CHANGED ===");
+    console.log("=== RISK ASSESSMENT STATE CHANGED (PRD) ===");
     console.log("riskAssessment:", riskAssessment);
-    if (riskAssessment?.criteria) {
-      console.log("Criteria percentages:", riskAssessment.criteria.map(c => `${c.name}: ${c.percentage}%`));
+    if (riskAssessment?.prompt) {
+      console.log("Prompt PRD:", riskAssessment.prompt.prompt_PRD);
+      console.log("Prompt violations:", riskAssessment.prompt.prompt_violations?.length || 0);
+    }
+    if (riskAssessment?.meta) {
+      console.log("Meta PRD:", riskAssessment.meta.meta_PRD);
+      console.log("Meta violations:", riskAssessment.meta.meta_violations?.length || 0);
     }
     console.log("=====================================");
   }, [riskAssessment]);
 
-  const handleAnalyze = useCallback(async () => {
+  const handleAnalyze = useCallback(async (hallucinationMode: 'faithfulness' | 'factuality' | 'both' = 'both') => {
     if (!canAnalyze) return;
+
+    // Track the current hallucination mode
+    setCurrentHallucinationMode(hallucinationMode);
 
     // Reset session
     setIsAnalyzing(true);
@@ -194,17 +218,14 @@ function App() {
         });
       }, 200);
 
-      // Perform analysis with mode-specific context
-      const domainContext = DOMAIN_CONFIG[domain].context;
+      // Perform analysis with mode-specific instructions
       const analysisInstructions = analysisMode === 'simple' 
         ? '\n\nANALYSIS MODE: SIMPLE - Provide only text highlighting for potential issues. Do not include risk assessment scores or high-risk token analysis. Focus only on identifying and highlighting problematic segments in the text.'
         : '\n\nANALYSIS MODE: COMPREHENSIVE - Provide full analysis including risk assessment, high-risk tokens, and detailed highlighting with explanations.';
       
-      const promptWithContext = domainContext 
-        ? `${domainContext}${analysisInstructions}\n\nUSER PROMPT TO ANALYZE:\n${currentPrompt}`
-        : `${analysisInstructions}\n\nUSER PROMPT TO ANALYZE:\n${currentPrompt}`;
+      const promptWithContext = `${analysisInstructions}\n\nUSER PROMPT TO ANALYZE:\n${currentPrompt}`;
       
-      const result = await analyzePrompt(promptWithContext);
+      const result = await analyzePrompt(promptWithContext, hallucinationMode);
       
       // Debug: Log the actual API response
       console.log("=== API RESPONSE DEBUG ===");
@@ -330,6 +351,7 @@ function App() {
     setAnalysisProgress(0);
     setIsInitialRewrite(false);
     setRiskDetailsExpanded(false);
+    setMetaDetailsExpanded(false);
     setTokensExpanded(false);
     setAnalysisResultsExpanded(false);
   };
@@ -401,29 +423,285 @@ function App() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="flex-shrink-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 p-4">
+        <header className="flex-shrink-0 bg-transparent backdrop-blur-md border-b border-transparent p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                  Echo - Hallucination Detector
+                <h1 className="text-2xl font-extrabold tracking-tight text-purple-800 dark:text-purple-500 drop-shadow-sm">
+                  Echo — Hallucination Detector
                 </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-gray-600 dark:text-gray-400 font-medium tracking-wide">
                   AI-powered prompt analysis and refinement
                 </p>
               </div>
             </div>
             {analysis && (
-              <Badge variant="outline" className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
-                <Sparkles className="w-3 h-3 mr-1" />
-                Analysis Complete
-              </Badge>
+              <motion.button
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowHelpGuide(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-transparent backdrop-blur-md border border-purple-300 dark:border-purple-700 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-300"
+              >
+                <motion.div
+                  animate={{ rotate: [0, 15, -15, 0] }}
+                  transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
+                >
+                  <HelpCircle className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                </motion.div>
+                <span className="font-medium text-sm text-purple-600 dark:text-purple-400">Guide</span>
+              </motion.button>
             )}
           </div>
         </header>
 
+        {/* Interactive Help Guide Overlay */}
+        <AnimatePresence>
+          {showHelpGuide && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-6"
+              onClick={() => setShowHelpGuide(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0, y: 50 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.8, opacity: 0, y: 50 }}
+                transition={{ type: "spring", damping: 20, stiffness: 300 }}
+                className="bg-gray-900 dark:bg-gray-950 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header */}
+                <div className="bg-gray-800 dark:bg-gray-900 p-6 border-b border-gray-700 dark:border-gray-800">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                      >
+                        <HelpCircle className="w-8 h-8 text-purple-400" />
+                      </motion.div>
+                      <div>
+                        <h2 className="text-2xl font-bold text-white">Interactive Guide</h2>
+                        <p className="text-gray-400 text-sm">Learn how to use Echo effectively</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowHelpGuide(false)}
+                      className="p-2 hover:bg-gray-700 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-400 hover:text-white"
+                    >
+                      <X className="w-6 h-6" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto">
+                  <div className="p-6 space-y-6">
+                    {/* Section 1: Conversational Agent */}
+                    <motion.div
+                      initial={{ x: -50, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      transition={{ delay: 0.1 }}
+                      className="group"
+                    >
+                      <div className="flex items-start gap-4 p-4 rounded-xl border border-gray-700 bg-gray-800/50 hover:border-teal-600 transition-all duration-300">
+                        <motion.div
+                          whileHover={{ scale: 1.1, rotate: 15 }}
+                          className="flex-shrink-0 p-3 bg-teal-600/80 rounded-xl text-white"
+                        >
+                          <MessageSquare className="w-6 h-6" />
+                        </motion.div>
+                        <div className="flex-1">
+                          <h3 className="text-lg font-bold text-teal-400 mb-2">
+                            1. Conversational Agent
+                          </h3>
+                          <p className="text-gray-300 mb-3">
+                            Chat with the AI assistant to refine and improve your prompts. The agent provides intelligent suggestions and iterative improvements.
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <Badge className="bg-gray-700 text-teal-300 border-teal-600">
+                              Real-time chat
+                            </Badge>
+                            <Badge className="bg-gray-700 text-teal-300 border-teal-600">
+                              Iterative refinement
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+
+                    {/* Section 2: Annotated Prompt */}
+                    <motion.div
+                      initial={{ x: -50, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      transition={{ delay: 0.2 }}
+                      className="group"
+                    >
+                      <div className="flex items-start gap-4 p-4 rounded-xl border border-gray-700 bg-gray-800/50 hover:border-blue-600 transition-all duration-300">
+                        <motion.div
+                          whileHover={{ scale: 1.1, rotate: -15 }}
+                          className="flex-shrink-0 p-3 bg-blue-600/80 rounded-xl text-white"
+                        >
+                          <Highlighter className="w-6 h-6" />
+                        </motion.div>
+                        <div className="flex-1">
+                          <h3 className="text-lg font-bold text-blue-400 mb-2">
+                            2. Annotated Prompt
+                          </h3>
+                          <p className="text-gray-300 mb-3">
+                            View your prompt with highlighted risk areas. Color-coded annotations show critical, high, and medium risk tokens you can filter interactively.
+                          </p>
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            <Badge className="bg-red-900/40 text-red-300 border-red-600">
+                              Critical Risk
+                            </Badge>
+                            <Badge className="bg-orange-900/40 text-orange-300 border-orange-600">
+                              High Risk
+                            </Badge>
+                            <Badge className="bg-yellow-900/40 text-yellow-300 border-yellow-600">
+                              Medium Risk
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-gray-400">
+                            💡 Use the filter icons to toggle visibility of different risk levels
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+
+                    {/* Section 3: Hallucination Risk Score */}
+                    <motion.div
+                      initial={{ x: -50, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      transition={{ delay: 0.3 }}
+                      className="group"
+                    >
+                      <div className="flex items-start gap-4 p-4 rounded-xl border border-gray-700 bg-gray-800/50 hover:border-green-600 transition-all duration-300">
+                        <motion.div
+                          whileHover={{ scale: 1.1, rotate: 360 }}
+                          transition={{ duration: 0.6 }}
+                          className="flex-shrink-0 p-3 bg-green-600/80 rounded-xl text-white"
+                        >
+                          <MessageSquareWarning className="w-6 h-6" />
+                        </motion.div>
+                        <div className="flex-1">
+                          <h3 className="text-lg font-bold text-green-400 mb-2">
+                            3. Hallucination Risk Score
+                          </h3>
+                          <p className="text-gray-300 mb-3">
+                            Get a comprehensive risk assessment with percentage scores for Faithfulness, Factuality, and Overall hallucination likelihood.
+                          </p>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="text-center p-2 bg-gray-700/50 rounded-lg border border-gray-600">
+                              <div className="text-xs text-gray-400">Faithfulness</div>
+                              <div className="text-lg font-bold text-orange-400">85%</div>
+                            </div>
+                            <div className="text-center p-2 bg-gray-700/50 rounded-lg border border-gray-600">
+                              <div className="text-xs text-gray-400">Factuality</div>
+                              <div className="text-lg font-bold text-green-400">65%</div>
+                            </div>
+                            <div className="text-center p-2 bg-gray-700/50 rounded-lg border border-gray-600">
+                              <div className="text-xs text-gray-400">Overall</div>
+                              <div className="text-lg font-bold text-blue-400">75%</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+
+                    {/* Section 4: High Risk Tokens */}
+                    <motion.div
+                      initial={{ x: -50, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      transition={{ delay: 0.4 }}
+                      className="group"
+                    >
+                      <div className="flex items-start gap-4 p-4 rounded-xl border border-gray-700 bg-gray-800/50 hover:border-pink-600 transition-all duration-300">
+                        <motion.div
+                          whileHover={{ scale: 1.1 }}
+                          animate={{ rotate: [0, 5, -5, 0] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                          className="flex-shrink-0 p-3 bg-pink-600/80 rounded-xl text-white"
+                        >
+                          <Atom className="w-6 h-6" />
+                        </motion.div>
+                        <div className="flex-1">
+                          <h3 className="text-lg font-bold text-pink-400 mb-2">
+                            4. High Risk Tokens
+                          </h3>
+                          <p className="text-gray-300 mb-3">
+                            Detailed analysis of each risky token with reasoning, classification, and mitigation strategies.
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <Badge className="bg-gray-700 text-pink-300 border-pink-600">
+                              Detailed reasoning
+                            </Badge>
+                            <Badge className="bg-gray-700 text-pink-300 border-pink-600">
+                              Mitigation tips
+                            </Badge>
+                            <Badge className="bg-gray-700 text-pink-300 border-pink-600">
+                              Rule classification
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+
+                    {/* Quick Tips */}
+                    <motion.div
+                      initial={{ y: 50, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.5 }}
+                      className="bg-gray-800/30 p-4 rounded-xl border border-dashed border-purple-600/50"
+                    >
+                      <h3 className="font-bold text-purple-400 mb-3 flex items-center gap-2">
+                        <Sparkles className="w-5 h-5" />
+                        Quick Tips
+                      </h3>
+                      <ul className="space-y-2 text-sm text-gray-300">
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-400">•</span>
+                          <span>Choose between <strong className="text-white">Comprehensive</strong>, <strong className="text-white">Faithfulness</strong>, or <strong className="text-white">Factuality</strong> analysis modes</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-400">•</span>
+                          <span>Click the filter icons to show/hide specific risk levels</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-400">•</span>
+                          <span>Expand sections to see detailed analysis and suggestions</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-400">•</span>
+                          <span>Use the chat agent to iteratively improve your prompts</span>
+                        </li>
+                      </ul>
+                    </motion.div>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="border-t border-gray-700 dark:border-gray-800 p-4 bg-gray-800 dark:bg-gray-900">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setShowHelpGuide(false)}
+                    className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-semibold transition-all duration-300"
+                  >
+                    Got it! Let's get started
+                  </motion.button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Main Interface */}
-        <div className="flex-1 p-6 gap-6 grid grid-cols-1 lg:grid-cols-5 min-h-0 overflow-hidden">
+        <div className="flex-1 pt-3 px-6 pb-6 gap-6 grid grid-cols-1 lg:grid-cols-5 min-h-0 overflow-hidden">
           {/* Chat Panel */}
           <div className={showAnalysisSection ? "lg:col-span-3 min-h-0 overflow-hidden" : "lg:col-span-3 min-h-0 overflow-hidden"}>
             <ChatPanel 
@@ -438,8 +716,31 @@ function App() {
             <Card className="lg:col-span-2 flex flex-col overflow-hidden">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Brain className="w-5 h-5" />
+                  <ChartSpline className="w-5 h-5" />
                   Analysis Results
+                  {/* Hallucination Type Indicator */}
+                  <div className="flex items-center gap-1 ml-2">
+                    {currentHallucinationMode === 'faithfulness' && (
+                      <Badge className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 border-orange-300 dark:border-orange-700 text-xs">
+                        Faithfulness
+                      </Badge>
+                    )}
+                    {currentHallucinationMode === 'factuality' && (
+                      <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-300 dark:border-green-700 text-xs">
+                        Factuality
+                      </Badge>
+                    )}
+                    {currentHallucinationMode === 'both' && (
+                      <>
+                        <Badge className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 border-orange-300 dark:border-orange-700 text-xs">
+                          Faithfulness
+                        </Badge>
+                        <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-300 dark:border-green-700 text-xs">
+                          Factuality
+                        </Badge>
+                      </>
+                    )}
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 overflow-auto">
@@ -448,13 +749,99 @@ function App() {
                     <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border">
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="font-medium flex items-center gap-2">
-                          <FileText className="w-4 h-4" />
+                          <Highlighter className="w-4 h-4" />
                           Annotated Prompt
-                          <ShieldX className="w-4 h-4 text-red-500 ml-4" />
-                          High Risk
-                          <ShieldAlert className="w-4 h-4 text-yellow-500 ml-2" />
-                          Medium Risk
                         </h4>
+                        <div className="flex items-center gap-3">
+                          {/* Risk Level Filter - Clickable Icons */}
+                          <TooltipProvider>
+                            <div className="flex items-center gap-1 px-2 py-1 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded">
+                              <Filter className="w-3 h-3 text-gray-500 mr-1" />
+                              {/* Medium Risk Filter */}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={() => setRiskLevelFilter(prev => {
+                                      const newSet = new Set(prev);
+                                      if (newSet.has('medium')) {
+                                        newSet.delete('medium');
+                                      } else {
+                                        newSet.add('medium');
+                                      }
+                                      return newSet;
+                                    })}
+                                    className={`p-1 rounded transition-all ${
+                                      riskLevelFilter.has('medium')
+                                        ? 'text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'
+                                        : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                                    }`}
+                                  >
+                                    <ShieldAlert className="w-4 h-4" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{riskLevelFilter.has('medium') ? 'Medium Risk (On)' : 'Medium Risk (Off)'}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              
+                              {/* High Risk Filter */}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={() => setRiskLevelFilter(prev => {
+                                      const newSet = new Set(prev);
+                                      if (newSet.has('high')) {
+                                        newSet.delete('high');
+                                      } else {
+                                        newSet.add('high');
+                                      }
+                                      return newSet;
+                                    })}
+                                    className={`p-1 rounded transition-all ${
+                                      riskLevelFilter.has('high')
+                                        ? 'text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20'
+                                        : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                                    }`}
+                                  >
+                                    <ShieldX className="w-4 h-4" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{riskLevelFilter.has('high') ? 'High Risk (On)' : 'High Risk (Off)'}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              
+                              {/* Critical Risk Filter */}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={() => setRiskLevelFilter(prev => {
+                                      const newSet = new Set(prev);
+                                      if (newSet.has('critical')) {
+                                        newSet.delete('critical');
+                                      } else {
+                                        newSet.add('critical');
+                                      }
+                                      return newSet;
+                                    })}
+                                    className={`p-1 rounded transition-all ${
+                                      riskLevelFilter.has('critical')
+                                        ? 'text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'
+                                        : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                                    }`}
+                                  >
+                                    <Shield className="w-4 h-4" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{riskLevelFilter.has('critical') ? 'Critical Risk (On)' : 'Critical Risk (Off)'}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </TooltipProvider>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-end mb-2">
                         <button 
                           className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm flex items-center gap-1"
                           onClick={() => setAnalysisResultsExpanded(!analysisResultsExpanded)}
@@ -467,8 +854,8 @@ function App() {
                         </button>
                       </div>
                       <ScrollArea className={analysisResultsExpanded ? "h-auto max-h-[600px]" : "h-[150px]"}>
-                        <div className={`${!analysisResultsExpanded ? 'relative' : ''}`}>
-                          {renderAnnotated(analysis.annotated_prompt, analysis)}
+                        <div className={`${!analysisResultsExpanded ? 'relative' : ''} pt-2`}>
+                          {renderAnnotated(analysis.annotated_prompt, analysis, riskLevelFilter)}
                           {!analysisResultsExpanded && (
                             <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-gray-50 dark:from-gray-800/50 to-transparent pointer-events-none" />
                           )}
@@ -479,140 +866,447 @@ function App() {
                     {/* Comprehensive Analysis Only - Risk Assessment and High Risk Tokens */}
                     {analysisMode === 'comprehensive' && (
                       <>
-                        {/* Hallucination Risk Section */}
+                        {/* Hallucination Risk Section - PRD Based */}
                         <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
-                          <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center justify-between mb-4">
                             <h4 className="font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                              <Target className="w-4 h-4 text-blue-500" />
-                              Hallucination Risk Score
+                              <MessageSquareWarning className="w-4 h-4 text-gray-800 dark:text-gray-200" />
+                              Prompt Risk Density (PRD)
                             </h4>
-                            <button 
-                              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm flex items-center gap-1"
-                              onClick={() => setRiskDetailsExpanded(!riskDetailsExpanded)}
-                            >
-                              {riskDetailsExpanded ? (
-                                <>Collapse Details <ChevronUp className="w-4 h-4" /></>
-                              ) : (
-                                <>Expand Details <ChevronDown className="w-4 h-4" /></>
-                              )}
-                            </button>
                           </div>
-                      <div className="bg-gray-100/50 dark:bg-gray-700/20 rounded-lg p-4">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-700 dark:text-gray-300">
-                            Overall Risk Assessment
-                          </span>
-                          <div className="flex items-center gap-3">
-                            <div className="relative w-16 h-16">
-                              <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 100 100">
-                                <circle
-                                  cx="50"
-                                  cy="50"
-                                  r="40"
-                                  stroke="currentColor"
-                                  strokeWidth="8"
-                                  fill="transparent"
-                                  className="text-gray-200 dark:text-gray-600"
-                                />
-                                <circle
-                                  cx="50"
-                                  cy="50"
-                                  r="40"
-                                  stroke="currentColor"
-                                  strokeWidth="8"
-                                  fill="transparent"
-                                  strokeDasharray={`${2 * Math.PI * 40}`}
-                                  strokeDashoffset={`${2 * Math.PI * 40 * (1 - currentRiskPercentage / 100)}`}
-                                  className={`${getRiskColor(currentRiskPercentage)} transition-all duration-1000`}
-                                  strokeLinecap="round"
-                                />
-                              </svg>
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <span className="text-lg font-bold text-gray-800 dark:text-gray-200">
-                                  {currentRiskPercentage}%
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Expanded Risk Details */}
-                      {riskDetailsExpanded && (
-                        <div className="mt-4 space-y-4 border-t border-gray-200 dark:border-gray-600 pt-4">
-                          <h5 className="font-semibold text-gray-800 dark:text-gray-200">Risk Assessment Criteria</h5>
-                          
-                          <div className="space-y-3">
-                            {riskAssessment?.criteria?.length ? (
-                              riskAssessment.criteria.map((criterion, index) => {
-                                return (
-                                  <div key={index} className="flex items-center justify-between p-3 bg-white dark:bg-gray-900/50 rounded-lg">
-                                    <div className="flex-1 pr-4">
-                                      <div className="font-medium text-sm text-gray-800 dark:text-gray-200">{criterion.name}</div>
-                                      <div className="text-xs text-gray-600 dark:text-gray-400">{criterion.description}</div>
-                                    </div>
-                                    <div className="flex-shrink-0">
-                                      <div className="relative w-12 h-12">
-                                        <svg className="w-12 h-12 transform -rotate-90" viewBox="0 0 100 100">
-                                          <circle
-                                            cx="50"
-                                            cy="50"
-                                            r="40"
-                                            stroke="currentColor"
-                                            strokeWidth="8"
-                                            fill="transparent"
-                                            className="text-gray-200 dark:text-gray-600"
-                                          />
-                                          <circle
-                                            cx="50"
-                                            cy="50"
-                                            r="40"
-                                            stroke="currentColor"
-                                            strokeWidth="8"
-                                            fill="transparent"
-                                            strokeDasharray={`${2 * Math.PI * 40}`}
-                                            strokeDashoffset={`${2 * Math.PI * 40 * (1 - criterion.percentage / 100)}`}
-                                            className={`${getRiskColor(criterion.percentage)} transition-all duration-1000`}
-                                            strokeLinecap="round"
-                                          />
-                                        </svg>
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                          <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
-                                            {criterion.percentage}%
-                                          </span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              })
-                            ) : (
-                              <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-900/50 rounded-lg">
-                                <div>
-                                  <div className="font-medium text-sm text-gray-800 dark:text-gray-200">No risk criteria available</div>
-                                  <div className="text-xs text-gray-600 dark:text-gray-400">Run analysis to see detailed risk assessment</div>
+
+                          {/* PRD Explanation */}
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.4 }}
+                            className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700"
+                          >
+                            <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed mb-3">
+                              <strong className="text-blue-700 dark:text-blue-300">Prompt Risk Density (PRD)</strong> quantifies the concentration of hallucination-inducing patterns in your prompt. 
+                              It's calculated as the sum of severity-weighted violations divided by total tokens:
+                            </p>
+                            <div className="flex items-center justify-center gap-3 py-3 px-4 bg-white dark:bg-gray-800/50 rounded border border-blue-300 dark:border-blue-600 mb-3">
+                              <span className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                                PRD =
+                              </span>
+                              <div className="flex flex-col items-center">
+                                <div className="flex items-baseline gap-0.5 mb-1">
+                                  <span className="text-3xl font-normal text-gray-800 dark:text-gray-200">Σ</span>
+                                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">(severity_weights)</span>
+                                </div>
+                                <div className="w-full border-t-2 border-gray-800 dark:border-gray-200 mb-1" style={{ minWidth: '160px' }}></div>
+                                <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                                  total_tokens
                                 </div>
                               </div>
-                            )}
-                          </div>
-                          
-                          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                            <div className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">Overall Assessment</div>
-                            <div className="text-xs text-blue-700 dark:text-blue-400">
-                              {riskAssessment?.overall_assessment?.description || 
-                               "Run analysis to see detailed assessment of hallucination risks."}
                             </div>
-                          </div>
+                            <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">
+                              Lower values indicate safer prompts, while higher values suggest increased risk of model hallucination.
+                            </p>
+                          </motion.div>
+
+                          {/* Unified PRD Gauge */}
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.5, delay: 0.2 }}
+                            className="mb-4 p-4 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900/50 dark:to-gray-800/50 rounded-lg border border-gray-300 dark:border-gray-600"
+                          >
+                            <div className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-4 text-center">
+                              Risk Assessment Gauge
+                            </div>
+                            
+                            {(() => {
+                              const promptPRD = typeof riskAssessment?.prompt?.prompt_PRD === 'number' ? riskAssessment.prompt.prompt_PRD : 0;
+                              const metaPRD = typeof riskAssessment?.meta?.meta_PRD === 'number' ? riskAssessment.meta.meta_PRD : 0;
+                              const maxDisplay = 0.30;
+                              const promptPercentage = Math.min((promptPRD / maxDisplay) * 100, 100);
+                              const metaPercentage = Math.min((metaPRD / maxDisplay) * 100, 100);
+                              
+                              return (
+                                <div className="space-y-4">
+                                  <div className="relative">
+                                    {/* Gradient Bar */}
+                                    <div className="h-12 rounded-full overflow-hidden shadow-inner relative" style={{
+                                      background: 'linear-gradient(to right, #4ade80 0%, #facc15 16.7%, #fb923c 50%, #ef4444 100%)'
+                                    }}>
+                                      <div className="absolute inset-0 flex items-center justify-between px-3 text-[11px] font-bold text-white/90">
+                                        <span className="drop-shadow">0.00</span>
+                                        <span className="drop-shadow">0.05</span>
+                                        <span className="drop-shadow">0.15</span>
+                                        <span className="drop-shadow">0.30+</span>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Prompt-Level Indicator (Rose/Pink) */}
+                                    <motion.div
+                                      initial={{ left: '0%', opacity: 0 }}
+                                      animate={{ left: `${promptPercentage}%`, opacity: 1 }}
+                                      transition={{ delay: 0.4, duration: 1, type: "spring", stiffness: 100 }}
+                                      className="absolute top-0 bottom-0 transform -translate-x-1/2"
+                                      style={{ left: `${promptPercentage}%` }}
+                                    >
+                                      <div className="relative h-full">
+                                        <div className="absolute inset-y-0 w-1.5 bg-rose-600 dark:bg-rose-400" style={{ 
+                                          boxShadow: '0 0 12px rgba(225, 29, 72, 0.6)' 
+                                        }}></div>
+                                        <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 px-1.5 py-0.5 bg-rose-600 dark:bg-rose-500 text-white text-[10px] font-bold rounded shadow-lg whitespace-nowrap">
+                                          {promptPRD.toFixed(4)}
+                                        </div>
+                                      </div>
+                                    </motion.div>
+                                    
+                                    {/* Meta-Level Indicator (Teal) */}
+                                    <motion.div
+                                      initial={{ left: '0%', opacity: 0 }}
+                                      animate={{ left: `${metaPercentage}%`, opacity: 1 }}
+                                      transition={{ delay: 0.6, duration: 1, type: "spring", stiffness: 100 }}
+                                      className="absolute top-0 bottom-0 transform -translate-x-1/2"
+                                      style={{ left: `${metaPercentage}%` }}
+                                    >
+                                      <div className="relative h-full">
+                                        <div className="absolute inset-y-0 w-1.5 bg-teal-600 dark:bg-teal-400" style={{ 
+                                          boxShadow: '0 0 12px rgba(13, 148, 136, 0.6)' 
+                                        }}></div>
+                                        <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 px-1.5 py-0.5 bg-teal-600 dark:bg-teal-500 text-white text-[10px] font-bold rounded shadow-lg whitespace-nowrap">
+                                          {metaPRD.toFixed(4)}
+                                        </div>
+                                      </div>
+                                    </motion.div>
+                                  </div>
+                                  
+                                  {/* Legend */}
+                                  <div className="flex items-center justify-center gap-4 pt-8 text-xs">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-3 h-3 bg-rose-600 dark:bg-rose-400 rounded-sm shadow-sm"></div>
+                                      <span className="text-gray-700 dark:text-gray-300">
+                                        Prompt-Level ({riskAssessment?.prompt?.prompt_violations?.length || 0} violations)
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-3 h-3 bg-teal-600 dark:bg-teal-400 rounded-sm shadow-sm"></div>
+                                      <span className="text-gray-700 dark:text-gray-300">
+                                        Meta-Level ({riskAssessment?.meta?.meta_violations?.length || 0} violations)
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </motion.div>
+
+                          {/* Prompt-Level Violations Section */}
+                          {riskAssessment?.prompt && (
+                            <div className="mb-3">
+                              <button
+                                onClick={() => setRiskDetailsExpanded(!riskDetailsExpanded)}
+                                className="w-full flex items-center justify-between p-3 bg-white dark:bg-gray-900/50 rounded-lg border border-rose-200 dark:border-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <ScrollText className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                                  <span className="font-medium text-sm text-gray-800 dark:text-gray-200">
+                                    Prompt-Level Risks
+                                  </span>
+                                </div>
+                                <motion.div
+                                  animate={{ rotate: riskDetailsExpanded ? 180 : 0 }}
+                                  transition={{ duration: 0.2 }}
+                                >
+                                  <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                </motion.div>
+                              </button>
+
+                              <AnimatePresence>
+                                {riskDetailsExpanded && (
+                                  <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="overflow-hidden"
+                                  >
+                                    <div className="mt-2 p-3 bg-rose-50/50 dark:bg-rose-900/10 rounded-lg border border-rose-100 dark:border-rose-800">
+                                      <p className="text-xs text-gray-700 dark:text-gray-300 mb-3">
+                                        {riskAssessment.prompt.prompt_overview}
+                                      </p>
+                                      
+                                      {riskAssessment.prompt.prompt_violations && riskAssessment.prompt.prompt_violations.length > 0 ? (
+                                        <>
+                                          {/* Category Distribution */}
+                                          <div className="mb-3 p-3 bg-white dark:bg-gray-900/50 rounded-lg border border-rose-200 dark:border-rose-700">
+                                            <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Violations by Category</div>
+                                            {(() => {
+                                              const SEVERITY_WEIGHTS = { critical: 3, high: 2, medium: 1 };
+                                              const pillarData: Record<string, number> = {};
+                                              
+                                              riskAssessment.prompt.prompt_violations.forEach(v => {
+                                                const pillar = v.pillar;
+                                                const weight = SEVERITY_WEIGHTS[v.severity as keyof typeof SEVERITY_WEIGHTS] || 1;
+                                                pillarData[pillar] = (pillarData[pillar] || 0) + weight;
+                                              });
+                                              
+                                              const maxWeight = Math.max(...Object.values(pillarData), 1);
+                                              const pillars = Object.entries(pillarData);
+                                              
+                                              if (pillars.length === 0) {
+                                                return <div className="text-xs text-gray-500 dark:text-gray-400 italic text-center py-2">No violations detected</div>;
+                                              }
+                                              
+                                              return (
+                                                <div className="grid grid-cols-1 gap-2">
+                                                  {pillars.map(([pillar, weight], idx) => {
+                                                    const percentage = (weight / maxWeight) * 100;
+                                                    const getColorByWeight = (w: number) => {
+                                                      if (w >= 3) return { bg: 'bg-red-500', text: 'text-red-700 dark:text-red-300' };
+                                                      if (w >= 2) return { bg: 'bg-orange-500', text: 'text-orange-700 dark:text-orange-300' };
+                                                      return { bg: 'bg-yellow-500', text: 'text-yellow-700 dark:text-yellow-300' };
+                                                    };
+                                                    const colors = getColorByWeight(weight);
+                                                    
+                                                    return (
+                                                      <motion.div
+                                                        key={pillar}
+                                                        initial={{ opacity: 0, x: -20 }}
+                                                        animate={{ opacity: 1, x: 0 }}
+                                                        transition={{ delay: idx * 0.1, duration: 0.3 }}
+                                                        className="space-y-1"
+                                                      >
+                                                        <div className="flex items-center justify-between text-xs">
+                                                          <span className={`font-medium ${colors.text}`}>
+                                                            {pillar.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                                                          </span>
+                                                          <span className="text-gray-600 dark:text-gray-400 font-mono text-[10px]">
+                                                            Weight: {weight}
+                                                          </span>
+                                                        </div>
+                                                        <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                          <motion.div
+                                                            className={colors.bg}
+                                                            initial={{ width: 0 }}
+                                                            animate={{ width: `${percentage}%` }}
+                                                            transition={{ delay: idx * 0.1 + 0.2, duration: 0.8, ease: "easeOut" }}
+                                                            style={{ height: '100%' }}
+                                                          />
+                                                        </div>
+                                                      </motion.div>
+                                                    );
+                                                  })}
+                                                </div>
+                                              );
+                                            })()}
+                                          </div>
+                                          
+                                          {/* Violation Details */}
+                                          <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Detailed Violations</div>
+                                          <div className="space-y-2">
+                                          {riskAssessment.prompt.prompt_violations.map((violation, index) => {
+                                            const severityColors = {
+                                              critical: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-300 dark:border-red-700',
+                                              high: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 border-orange-300 dark:border-orange-700',
+                                              medium: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700'
+                                            };
+                                            
+                                            return (
+                                              <motion.div
+                                                key={index}
+                                                initial={{ opacity: 0, x: -20 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                transition={{ delay: index * 0.1 }}
+                                                className="p-2 bg-white dark:bg-gray-900/50 rounded border border-gray-200 dark:border-gray-700"
+                                              >
+                                                <div className="flex items-start justify-between gap-2 mb-1">
+                                                  <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-mono text-gray-600 dark:text-gray-400">
+                                                      {violation.rule_id}
+                                                    </span>
+                                                    <span className={`text-xs px-2 py-0.5 rounded border ${severityColors[violation.severity as keyof typeof severityColors]}`}>
+                                                      {violation.severity}
+                                                    </span>
+                                                  </div>
+                                                  <span className="text-xs text-gray-500 dark:text-gray-500">
+                                                    {violation.pillar}
+                                                  </span>
+                                                </div>
+                                                <div className="text-xs font-mono bg-gray-100 dark:bg-gray-800 p-1.5 rounded text-gray-800 dark:text-gray-200">
+                                                  "{violation.span}"
+                                                </div>
+                                              </motion.div>
+                                            );
+                                          })}
+                                        </div>
+                                        </>
+                                      ) : (
+                                        <div className="text-xs text-gray-500 dark:text-gray-400 italic">
+                                          No prompt-level violations detected
+                                        </div>
+                                      )}
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          )}
+
+                          {/* Meta-Level Violations Section */}
+                          {riskAssessment?.meta && (
+                            <div>
+                              <button
+                                onClick={() => setMetaDetailsExpanded(!metaDetailsExpanded)}
+                                className="w-full flex items-center justify-between p-3 bg-white dark:bg-gray-900/50 rounded-lg border border-teal-200 dark:border-teal-700 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Atom className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                                  <span className="font-medium text-sm text-gray-800 dark:text-gray-200">
+                                    Meta-Level Risks
+                                  </span>
+                                </div>
+                                <motion.div
+                                  animate={{ rotate: metaDetailsExpanded ? 180 : 0 }}
+                                  transition={{ duration: 0.2 }}
+                                >
+                                  <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                </motion.div>
+                              </button>
+
+                              <AnimatePresence>
+                                {metaDetailsExpanded && (
+                                  <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="overflow-hidden"
+                                  >
+                                    <div className="mt-2 p-3 bg-teal-50/50 dark:bg-teal-900/10 rounded-lg border border-teal-100 dark:border-teal-800">
+                                      <p className="text-xs text-gray-700 dark:text-gray-300 mb-3">
+                                        {riskAssessment.meta.meta_overview}
+                                      </p>
+                                      
+                                      {riskAssessment.meta.meta_violations && riskAssessment.meta.meta_violations.length > 0 ? (
+                                        <>
+                                          {/* Category Distribution */}
+                                          <div className="mb-3 p-3 bg-white dark:bg-gray-900/50 rounded-lg border border-teal-200 dark:border-teal-700">
+                                            <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Violations by Category</div>
+                                            {(() => {
+                                              const SEVERITY_WEIGHTS = { critical: 3, high: 2, medium: 1 };
+                                              const pillarData: Record<string, number> = {};
+                                              
+                                              riskAssessment.meta.meta_violations.forEach(v => {
+                                                const pillar = v.pillar;
+                                                const weight = SEVERITY_WEIGHTS[v.severity as keyof typeof SEVERITY_WEIGHTS] || 1;
+                                                pillarData[pillar] = (pillarData[pillar] || 0) + weight;
+                                              });
+                                              
+                                              const maxWeight = Math.max(...Object.values(pillarData), 1);
+                                              const pillars = Object.entries(pillarData);
+                                              
+                                              if (pillars.length === 0) {
+                                                return <div className="text-xs text-gray-500 dark:text-gray-400 italic text-center py-2">No violations detected</div>;
+                                              }
+                                              
+                                              return (
+                                                <div className="grid grid-cols-1 gap-2">
+                                                  {pillars.map(([pillar, weight], idx) => {
+                                                    const percentage = (weight / maxWeight) * 100;
+                                                    const getColorByWeight = (w: number) => {
+                                                      if (w >= 3) return { bg: 'bg-red-500', text: 'text-red-700 dark:text-red-300' };
+                                                      if (w >= 2) return { bg: 'bg-orange-500', text: 'text-orange-700 dark:text-orange-300' };
+                                                      return { bg: 'bg-yellow-500', text: 'text-yellow-700 dark:text-yellow-300' };
+                                                    };
+                                                    const colors = getColorByWeight(weight);
+                                                    
+                                                    return (
+                                                      <motion.div
+                                                        key={pillar}
+                                                        initial={{ opacity: 0, x: -20 }}
+                                                        animate={{ opacity: 1, x: 0 }}
+                                                        transition={{ delay: idx * 0.1, duration: 0.3 }}
+                                                        className="space-y-1"
+                                                      >
+                                                        <div className="flex items-center justify-between text-xs">
+                                                          <span className={`font-medium ${colors.text}`}>
+                                                            {pillar.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                                                          </span>
+                                                          <span className="text-gray-600 dark:text-gray-400 font-mono text-[10px]">
+                                                            Weight: {weight}
+                                                          </span>
+                                                        </div>
+                                                        <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                          <motion.div
+                                                            className={colors.bg}
+                                                            initial={{ width: 0 }}
+                                                            animate={{ width: `${percentage}%` }}
+                                                            transition={{ delay: idx * 0.1 + 0.2, duration: 0.8, ease: "easeOut" }}
+                                                            style={{ height: '100%' }}
+                                                          />
+                                                        </div>
+                                                      </motion.div>
+                                                    );
+                                                  })}
+                                                </div>
+                                              );
+                                            })()}
+                                          </div>
+                                          
+                                          {/* Violation Details */}
+                                          <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Detailed Violations</div>
+                                          <div className="space-y-2">
+                                          {riskAssessment.meta.meta_violations.map((violation, index) => {
+                                            const severityColors = {
+                                              critical: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-300 dark:border-red-700',
+                                              high: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 border-orange-300 dark:border-orange-700',
+                                              medium: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700'
+                                            };
+                                            
+                                            return (
+                                              <motion.div
+                                                key={index}
+                                                initial={{ opacity: 0, x: -20 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                transition={{ delay: index * 0.1 }}
+                                                className="p-2 bg-white dark:bg-gray-900/50 rounded border border-gray-200 dark:border-gray-700"
+                                              >
+                                                <div className="flex items-start justify-between gap-2 mb-1">
+                                                  <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-mono text-gray-600 dark:text-gray-400">
+                                                      {violation.rule_id}
+                                                    </span>
+                                                    <span className={`text-xs px-2 py-0.5 rounded border ${severityColors[violation.severity as keyof typeof severityColors]}`}>
+                                                      {violation.severity}
+                                                    </span>
+                                                  </div>
+                                                  <span className="text-xs text-gray-500 dark:text-gray-500">
+                                                    {violation.pillar}
+                                                  </span>
+                                                </div>
+                                                <div className="text-xs text-gray-700 dark:text-gray-300">
+                                                  {violation.explanation}
+                                                </div>
+                                              </motion.div>
+                                            );
+                                          })}
+                                        </div>
+                                        </>
+                                      ) : (
+                                        <div className="text-xs text-gray-500 dark:text-gray-400 italic">
+                                          No meta-level violations detected
+                                        </div>
+                                      )}
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
 
                     {/* High Risk Tokens Section */}
                     {analysis.risk_tokens && analysis.risk_tokens.length > 0 ? (
                       <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
                         <div className="flex items-center justify-between mb-3">
                           <h4 className="font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                            <AlertTriangle className="w-4 h-4 text-orange-500" />
+                            <WholeWord className="w-4 h-4 text-gray-800 dark:text-gray-200" />
                             High Risk Tokens ({analysis.risk_tokens.length})
                           </h4>
                           <button 
@@ -653,12 +1347,14 @@ function App() {
                             {analysis.risk_tokens.map((token) => {
                               const getRiskBadgeVariant = (riskLevel?: string) => {
                                 switch (riskLevel) {
+                                  case 'critical':
+                                    return 'destructive' as const;
                                   case 'high':
                                     return 'destructive' as const;
                                   case 'medium':
                                     return 'secondary' as const;
                                   case 'low':
-                                    return 'outline' as const;
+                                    return 'default' as const;
                                   default:
                                     return 'secondary' as const;
                                 }
@@ -666,14 +1362,16 @@ function App() {
 
                               const getRiskColors = (riskLevel?: string) => {
                                 switch (riskLevel) {
-                                  case 'high':
+                                  case 'critical':
                                     return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300';
+                                  case 'high':
+                                    return 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300';
                                   case 'medium':
                                     return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300';
                                   case 'low':
                                     return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300';
                                   default:
-                                    return 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300';
+                                    return 'bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-300';
                                 }
                               };
 
@@ -762,14 +1460,8 @@ function App() {
           {/* Prompt Editor - Only shown when analysis section is not visible */}
           {!showAnalysisSection && (
             <>
-              <Card className="lg:col-span-2 flex flex-col overflow-hidden">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MessageSquare className="w-5 h-5" />
-                    Prompt Editor
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 flex-1 overflow-auto">
+              <Card className="lg:col-span-2 flex flex-col">
+                <CardContent className="space-y-4 flex-1 p-6">
                   <ExpandableEditor
                     prompt={currentPrompt}
                     onChange={setCurrentPrompt}
@@ -777,33 +1469,14 @@ function App() {
                     disabled={isAnalyzing}
                     className="flex-1"
                   />
-
-                  {/* Settings Panel - Compact version below editor */}
-                  <Settings
-                    domain={domain}
-                    onDomainChange={setDomain}
-                    analysisMode={analysisMode}
-                    onAnalysisModeChange={setAnalysisMode}
-                  />
                   
                   <div className="flex items-center justify-end">
-                    <Button
-                      onClick={handleAnalyze}
-                      disabled={!canAnalyze || isAnalyzing}
-                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500"
-                    >
-                      {isAnalyzing ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Analyzing...
-                        </>
-                      ) : (
-                        <>
-                          <Brain className="w-4 h-4 mr-2" />
-                          Analyze
-                        </>
-                      )}
-                    </Button>
+                    <Toolbar
+                      onAnalyze={handleAnalyze}
+                      onToggleOverview={() => {}}
+                      isAnalyzing={isAnalyzing}
+                      hasAnalysis={!!analysis}
+                    />
                   </div>
 
                   {/* Analysis Progress in Prompt Editor */}

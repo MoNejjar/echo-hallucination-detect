@@ -7,6 +7,7 @@ import xml.etree.ElementTree as ET
 from typing import Dict, Any, List, Optional
 from dotenv import load_dotenv
 from ..config import OPENAI_MODEL
+from pathlib import Path
 
 load_dotenv()
 
@@ -73,8 +74,36 @@ class OpenAILLM:
         """Remove the risk assessment XML block from the content for display."""
         risk_pattern = r'<RISK_ASSESSMENT>.*?</RISK_ASSESSMENT>'
         return re.sub(risk_pattern, '', content, flags=re.DOTALL).strip()
+    
+    def _load_guidelines(self, analysis_mode: str = "both") -> str:
+        """Load guidelines XML from file based on analysis mode."""
+        # Map analysis mode to filename
+        mode_files = {
+            "faithfulness": "faithfulness.xml",
+            "factuality": "factuality.xml",
+            "both": "both.xml"
+        }
         
-    def _get_hallucination_analysis_prompt(self, prompt: str) -> str:
+        filename = mode_files.get(analysis_mode, "both.xml")
+        
+        # Get the path to the data directory
+        current_dir = Path(__file__).parent.parent
+        guidelines_path = current_dir / "data" / filename
+        
+        try:
+            with open(guidelines_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except FileNotFoundError:
+            print(f"Warning: Guidelines file {filename} not found, using default")
+            # Fallback to both.xml if specified file doesn't exist
+            fallback_path = current_dir / "data" / "both.xml"
+            with open(fallback_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        
+    def _get_hallucination_analysis_prompt(self, prompt: str, analysis_mode: str = "both") -> str:
+        # Load guidelines dynamically based on analysis mode
+        guidelines_xml = self._load_guidelines(analysis_mode)
+        
         return f"""<system>
   <role>
     - You are EchoAI-Annotator, a one-shot hallucination DETECTOR.
@@ -97,220 +126,30 @@ class OpenAILLM:
       • Do NOT rewrite the user's prompt and do NOT ask the user questions.
   </policy_source>
 
-  <!-- BEGIN: User-supplied detection guidelines (used as-is) -->
-  <hallucination_detection_guidelines version="1.0">
-  
-  <!-- 1. Ambiguity & Vagueness -->
-  <rule id="1" name="Ambiguity-Vagueness" severity="critical">
-    <detect>
-      <pattern>Relative terms: "short", "simple", "detailed", "interesting"</pattern>
-      <pattern>Ambiguous pronouns without antecedent: "it", "they", "that", "this"</pattern>
-      <pattern>Implicit references: "explain the Smith case" without context</pattern>
-      <pattern>Vague quantifiers: "many", "several", "some", "most"</pattern>
-      <pattern>Temporal ambiguity: "recently", "lately", "soon"</pattern>
-    </detect>
-    <fix>
-      <ask>Disambiguate referents and define target scope or examples.</ask>
-      <rewrite>Replace relative terms with measurable constraints (e.g., "150–200 words", "In the last 2-5 years").</rewrite>
-    </fix>
-  </rule>
-
-  <!-- 2. Structural & Syntactic Flaws -->
-  <rule id="2" name="Syntax-Structure" severity="medium">
-    <detect>
-      <pattern>Incomplete sentences; misleading punctuation; run-ons</pattern>
-      <pattern>Multiple instructions fused without separators</pattern>
-      <pattern>Complex sentence structure</pattern>
-    </detect>
-    <fix>
-      <ask>Confirm task list and order.</ask>
-      <rewrite>Correct typos and punctuation</rewrite>
-      <rewrite>Split into numbered steps with clear delimiters.</rewrite>
-    </fix>
-  </rule>
-
-  <!-- 3. Context Quality -->
-  <rule id="3" name="Context-Integrity" severity="high">
-    <detect>
-      <pattern>Conflicting facts</pattern>
-      <pattern>Insufficient background to perform the task</pattern>
-      <pattern>Context bleeding from earlier turns that no longer applies</pattern>
-    </detect>
-    <fix>
-      <ask>Resolve conflicts; request missing facts essential to correctness.</ask>
-      <action>If unresolved → present branches ("If A… / If B…").</action>
-    </fix>
-  </rule>
-
-  <!-- 4. Prompt Delimitation -->
-  <rule id="4" name="Delimiters" severity="medium">
-    <detect>
-      <pattern>Mixed data/instructions without clear boundaries</pattern>
-    </detect>
-    <fix>
-      <rewrite>Enforce fenced blocks (XML/Markdown) and label each section.</rewrite>
-    </fix>
-  </rule>
-
-  <!-- 5. Instruction Complexity -->
-  <rule id="5" name="Complexity" severity="medium">
-    <detect><pattern>Nested or interdependent steps without explicit order</pattern></detect>
-    <fix><ask>Confirm execution order and dependencies.</ask></fix>
-  </rule>
-
-  <!-- 6. Intent Misalignment -->
-  <rule id="6" name="Intent-Misalignment" severity="high">
-    <detect><pattern>Stated task conflicts with implied goal</pattern></detect>
-    <fix><ask>Restate perceived intent; ask for explanations and confirmation before proceeding.</ask></fix>
-  </rule>
-
-  <!-- 7. Risky Word Choices -->
-  <rule id="7" name="Risky-Modal-Abstract" severity="high">
-    <detect>
-      <pattern>Modals: "might", "could", "should" where precision is needed</pattern>
-      <pattern>Abstract terms requiring subjective interpretation</pattern>
-    </detect>
-    <fix><rewrite>Replace with concrete criteria or numeric thresholds.</rewrite></fix>
-  </rule>
-
-  <!-- 8. Prompt Length Extremes -->
-  <rule id="8" name="Length-TooShort-TooLong" severity="medium">
-    <detect>
-      <pattern>Underspecified or overlong prompts that dilute focus</pattern>
-      <pattern>Redundance of instructions</pattern>
-    </detect>
-    <fix>
-      <ask>If short → request critical fields (who/what/when/source/constraints).</ask>
-      <rewrite>If long → summarize objectives and confirm scope before acting.</rewrite>
-      <rewrite>Eliminate redundancies</rewrite>
-    </fix>
-  </rule>
-
-  <!-- 9. False/Misleading Premises -->
-  <rule id="9" name="False-Premise" severity="critical">
-    <detect>
-      <pattern>Task presumes unverified fact is true</pattern>
-      <pattern>Unsupported absolute claims e.g. "obviously", "clearly", "everyone knows"</pattern>
-    </detect>
-    <fix>
-      <action>Do not proceed as-if true.</action>
-      <ask>Flag the premise and request evidence or reframe conditionally.</ask>
-      <ask>Ask the user to fact-check his information before proceeding with the changes.</ask>
-    </fix>
-  </rule>
-
-  <!-- 10. Unverifiable Demands -->
-  <rule id="10" name="Unverifiable-Request" severity="critical">
-    <detect><pattern>Requests for unknown/private/undocumented facts</pattern></detect>
-    <fix>
-      <action>Refuse to assert; offer method to verify (source, tool, experiment).</action>
-    </fix>
-  </rule>
-
-  <!-- 11. Tone/Style Inflation -->
-  <rule id="11" name="Style-NeutralOverCreative" severity="medium">
-    <detect><pattern>Creative style requested where factual accuracy is primary</pattern></detect>
-    <fix><rewrite>Prefer neutral, evidence-first style; separate flair into an optional pass.</rewrite></fix>
-  </rule>
-
-  <!-- 12. Encourage Reasoning -->
-  <rule id="12" name="Show-Work" severity="medium">
-    <detect>
-      <pattern>Nontrivial claims without reasoning chain</pattern>
-      <pattern>The prompt does not encourage a thinking process or a reasoning chain when asking for a complex reasnoning task</pattern>
-    </detect>
-    <fix>
-      <action>Provide concise reasoning; list assumptions and their impact.</action>
-      <rewrite>Add an encouragement for taking the time to think about an answer in the prompt</rewrite>
-    </fix>
-  </rule>
-
-  <!-- 13. Permission to Not Know -->
-  <rule id="13" name="State-Uncertainty" severity="critical">
-    <detect>
-      <pattern>Knowledge gap detected; high ambiguity</pattern>
-    </detect>
-    <fix>
-      <action>Say "I don’t know" or give confidence bounds; request data.</action>
-    </fix>
-  </rule>
-
-  <!-- 14. Multi-Turn Handling -->
-  <rule id="14" name="Dialogue-Continuity" severity="medium">
-    <detect><pattern>Current turn conflicts with prior commitments/constraints</pattern></detect>
-    <fix><ask>Confirm updates; restate the current contract before proceeding.</ask></fix>
-  </rule>
-
-  <!-- 15. External Tools -->
-  <rule id="15" name="Tools-Use" severity="medium">
-    <detect><pattern>Task requires retrieval, calculation, or external verification without precise specifications on the tool to use</pattern></detect>
-    <fix>
-      <ask>Precise the tools that need to be used.</ask>
-    </fix>
-  </rule>
-
-  <!-- 16. Missing Examples -->
-  <rule id="16" name="Exemplars" severity="medium">
-    <detect><pattern>Abstract task with no examples or only one-shot</pattern></detect>
-    <fix><ask>Request 2–3 representative examples; propose your own if allowed.</ask></fix>
-  </rule>
-
-  <!-- 17. Imprecise Descriptors -->
-  <rule id="17" name="Quantify-Descriptors" severity="critical">
-    <detect><pattern>Phrases like "a few", "some", "briefly"</pattern></detect>
-    <fix><rewrite>Map to explicit ranges (e.g., "3–5 sentences", "≤100 words").</rewrite></fix>
-  </rule>
-
-  <!-- 18. Negative Prompting Traps -->
-  <rule id="18" name="Negation-Risk" severity="medium">
-    <detect><pattern>Instructions framed as "don’t do X" without the positive target</pattern></detect>
-    <fix><ask>Ask for the positive target behavior; confirm acceptance criteria.</ask></fix>
-  </rule>
-
-  <!-- 19. Interchangeable Terms -->
-  <rule id="19" name="Referent-Drift" severity="high">
-    <detect><pattern>Synonyms/aliases used for the same entity without mapping</pattern></detect>
-    <fix><rewrite>Define a canonical term; map all aliases to it before proceeding.</rewrite></fix>
-  </rule>
-
-  <!-- 20. Redundant/Conflicting Instructions -->
-  <rule id="20" name="Instruction-Dedup" severity="medium">
-    <detect><pattern>Repeated or conflicting directives</pattern></detect>
-    <fix><action>List conflicts; ask which to prioritize; confirm a single authoritative list.</action></fix>
-  </rule>
-
-  <!-- 21. Logical Flow & Task Mixing -->
-  <rule id="21" name="Flow-Hierarchy" severity="high">
-    <detect>
-      <pattern>Nested conditionals without hierarchy</pattern>
-      <pattern>Multiple topics without transitions</pattern>
-      <pattern>Hypotheticals mixed with asserted facts</pattern>
-      <pattern>Creative + analytical tasks fused</pattern>
-    </detect>
-    <fix>
-      <rewrite>Impose a hierarchy: (A) facts, (B) assumptions, (C) hypotheticals, (D) tasks.</rewrite>
-      <ask>Split creative and analytical passes or run sequentially with checks.</ask>
-    </fix>
-  </rule>
-
-  <!-- 22. Permission to Not Know inside the prompt -->
-  <rule id="22" name="Allow-Uncertainty" severity="critical">
-    <detect>
-      <pattern>High ambiguity or real world fact check that might lead to knowledge gap</pattern>
-    </detect>
-    <fix>
-      <rewrite>Allow the model to respond with "I don't know" in the prompt</rewrite>
-    </fix>
-  </rule>
-</hallucination_detection_guidelines>
+  <!-- BEGIN: User-supplied detection guidelines (loaded from {analysis_mode}.xml) -->
+  {guidelines_xml}
   <!-- END: User-supplied detection guidelines -->
 
   <risk_model>
-    - HIGH RISK → token/span that triggers any rule with severity "critical" or "high".
-    - MEDIUM RISK → token/span that triggers a rule with severity "medium".
+    - CRITICAL: Use CRITICAL severity level for rules marked with severity="critical" in the XML.
+    - HIGH RISK → token/span that triggers any rule with severity="high" in the XML.
+    - MEDIUM RISK → token/span that triggers a rule with severity="medium" in the XML.
+    - LOW RISK → token/span that triggers a rule with severity="low" in the XML (do NOT highlight these).
     - If multiple rules apply to the same span, choose the highest severity and encode rule IDs inside the classification string.
     - Prefer minimal spans (smallest substring that carries the risk).
   </risk_model>
+
+  <severity_hard_requirements>
+    ⚠️ CRITICAL INSTRUCTION - SEVERITY LEVELS ARE MANDATORY:
+    - The severity attribute (critical/high/medium/low) in each XML rule is a HARD REQUIREMENT, NOT a suggestion.
+    - You MUST use the EXACT severity level specified in the XML guideline for each matched rule.
+    - DO NOT use your training data or judgment to override or adjust the severity levels.
+    - The XML guidelines are the SINGLE SOURCE OF TRUTH for risk severity - ignore any conflicting knowledge from your training.
+    - Example: If rule D1 has severity="low", you MUST ignore it entirely, even if you think it should be higher.
+    - Example: If rule B2 has severity="medium", you MUST output "risk_level": "medium", NOT "high".
+    - Only output risk tokens for rules with severity="critical", "high", or "medium". Skip severity="low" rules entirely.
+    - Violating this requirement breaks the entire detection system. Severity levels are deterministic, not interpretive.
+  </severity_hard_requirements>
 
   <annotation_rules>
     - Preserve the original text and whitespace. Do not rewrite content.
@@ -337,10 +176,16 @@ class OpenAILLM:
   </mitigation_guidance>
 
   <scoring_guidance>
-    - Risk assessment percentages and overall scores will be calculated programmatically.
-    - Focus on accurate risk token identification and classification.
-    - Ensure each risky span is mapped to the correct rule ID(s) in the classification field.
-    - Use placeholder percentages (0) in the JSON output - they will be replaced with deterministic calculations.
+    - PRD (Prompt Risk Density) scores will be calculated programmatically downstream.
+    - Do NOT calculate or fill in "prompt_PRD" or "meta_PRD" - leave them as empty strings "".
+    - Focus on accurate violation detection and classification.
+    - For PROMPT-LEVEL violations (class="prompt" in XML):
+      * Return the exact token(s)/span(s) that triggered the violation
+      * Include rule_id, pillar name, severity, and span
+    - For META-LEVEL violations (class="meta" in XML):
+      * Return a short explanation (≤2 sentences) of the structural/contextual issue
+      * Include rule_id, pillar name, severity, and explanation
+    - Provide concise overviews (≤3 sentences) for both prompt and meta sections.
   </scoring_guidance>
 
   <io_contract>
@@ -348,9 +193,11 @@ class OpenAILLM:
     - OUTPUT: return ONLY valid JSON (no prose), exactly matching the schema below.
     - JSON rules:
       * Double quotes for all keys/strings; no trailing commas; no comments; no extra fields.
-      * "risk_level" must be "high" or "medium" (never "low") in "risk_tokens".
+      * "risk_level" must be "critical", "high", or "medium" (never "low") in "risk_tokens".
+      * The "risk_level" MUST exactly match the severity attribute from the XML rule that triggered it.
       * Every <RISK_n> in "annotated_prompt" must have a corresponding object in "risk_tokens", and vice versa.
-      * Percentages MUST be one of: 0,10,20,30,40,50,60,70,80,90,100.
+      * In risk_assessment, leave "prompt_PRD" and "meta_PRD" as empty strings "" - do NOT calculate scores.
+      * Violations must reference the correct class attribute from XML (prompt vs meta) and include appropriate fields.
   </io_contract>
 
   <output_schema>
@@ -361,51 +208,36 @@ class OpenAILLM:
         {{
           "id": "RISK_#",
           "text": "exact text of the risky token/span",
-          "risk_level": "high or medium",
+          "risk_level": "critical | high | medium (MUST match the XML rule's severity attribute EXACTLY)",
           "reasoning": "One or two concise sentences on why this token/span is risky.",
           "classification": "one of the categories listed above with the corresponding rule_id: [\"R#\",\"R#\"]",
           "mitigation": "One concrete, local fix."
         }}
       ],
       "risk_assessment": {{
-        "criteria": [
-          {{
-            "name": "Referential Ambiguity & Quantification",
-            "risk": "low | medium | high",
-            "percentage": 0,
-            "description": "One or two sentences grounded in the hallucination_detection_guidelines, not boilerplate."
-          }},
-          {{
-            "name": "Context Sufficiency & Integrity",
-            "risk": "low | medium | high",
-            "percentage": 0,
-            "description": "One or two sentences grounded in the hallucination_detection_guidelines, not boilerplate."
-          }},
-          }},
-          {{
-            "name": "Instruction Structure & Delimitation",
-            "risk": "low | medium | high",
-            "percentage": 0,
-            "description": "One or two sentences grounded in the hallucination_detection_guidelines, not boilerplate."
-          }},
-          }},
-          {{
-            "name": "Verifiability & Factuality",
-            "risk": "low | medium | high",
-            "percentage": 0,
-            "description": "One or two sentences grounded in the hallucination_detection_guidelines, not boilerplate."
-          }},
-          }},
-          {{
-            "name": "Reasoning & Uncertainty Handling",
-            "risk": "low | medium | high",
-            "percentage": 0,
-            "description": "One or two sentences grounded in the hallucination_detection_guidelines, not boilerplate."
-          }},
-        ],
-        "overall_assessment": {{
-          "percentage": 0,
-          "description": "One or two sentences summarizing overall risk."
+        "prompt": {{
+          "prompt_PRD": "",
+          "prompt_violations": [
+            {{
+              "rule_id": "A1",
+              "pillar": "Referential-Grounding",
+              "severity": "critical | high | medium",
+              "span": "exact token(s) or substring from prompt"
+            }}
+          ],
+          "prompt_overview": "Concise summary (≤3 sentences) of the prompt-level violations."
+        }},
+        "meta": {{
+          "meta_PRD": "",
+          "meta_violations": [
+            {{
+              "rule_id": "C2",
+              "pillar": "Context-Domain",
+              "severity": "critical | high | medium",
+              "explanation": "Concise (≤2 sentences) summary of missing or conflicting context."
+            }}
+          ],
+          "meta_overview": "Concise summary (≤3 sentences) of the meta-level violations."
         }}
       }}
     }}
@@ -415,14 +247,17 @@ class OpenAILLM:
     - CR1: Respond with ONLY the JSON object. No surrounding text.
     - CR2: Use only <RISK_1>, <RISK_2>, … tags inside "annotated_prompt".
     - CR3: Tags must be sequential (RISK_1..RISK_n), non-overlapping, and unique.
-    - CR4: "risk_level" ∈ {{"high","medium"}} only in "risk_tokens".
+    - CR4: "risk_level" MUST be "critical", "high", or "medium" AND MUST EXACTLY MATCH the severity attribute from the XML rule.
     - CR5: Every tag in "annotated_prompt" must have a corresponding "risk_tokens" entry (and vice versa).
     - CR6: Ensure valid JSON syntax (machine-parseable).
+    - CR7: NEVER override XML severity levels with your own judgment - this is a ZERO-TOLERANCE requirement.
   </critical_rules>
 
   <determinism>
-    - Be strict and conservative: if uncertain on severity, choose "medium" unless a critical/high rule clearly applies.
+    - ALWAYS use the EXACT severity level from the XML rule that matches the token. DO NOT adjust or interpret.
+    - If you identify a rule match, look up its severity attribute in the XML and use that EXACT value for "risk_level".
     - Do not invent content or sources. Do not chat or ask questions. One pass only.
+    - Your training data is IRRELEVANT for severity assessment - use ONLY the XML severity values.
   </determinism>
 
   <run>
@@ -509,226 +344,533 @@ class OpenAILLM:
             - A turn is ‘resolved’ when the refined prompt satisfies all applicable rules (no high or critical rule is triggered and a suggestion for all of the remaining medium rules has been communicated to the user).
         </success>
     </output>
-    <hallucination_mitigation_guidelines version="1.0">
-        <!-- 1. Ambiguity & Vagueness -->
-        <rule id="1" name="Ambiguity-Vagueness" severity="critical">
-             <detect>
-              <pattern>Relative terms: "short", "simple", "detailed", "interesting"</pattern>
-              <pattern>Ambiguous pronouns without antecedent: "it", "they", "that", "this"</pattern>
-              <pattern>Implicit references: "explain the Smith case" without context</pattern>
-              <pattern>Vague quantifiers: "many", "several", "some", "most"</pattern>
-              <pattern>Temporal ambiguity: "recently", "lately", "soon"</pattern>
-            </detect>
-            <fix>
-              <ask>Disambiguate referents and define target scope or examples.</ask>
-              <rewrite>Replace relative terms with measurable constraints (e.g., "150–200 words", "In the last 2-5 years").</rewrite>
-              <rewrite>Use absolute dates (e.g., 2023-05-10) or bounded windows (e.g., last 90 days).</rewrite>
-            </fix>
-          </rule>
-        
-          <!-- 2. Structural & Syntactic Flaws -->
-          <rule id="2" name="Syntax-Structure" severity="medium">
-            <detect>
-              <pattern>Incomplete sentences; misleading punctuation; run-ons</pattern>
-              <pattern>Multiple instructions fused without separators</pattern>
-              <pattern>Complex sentence structure</pattern>
-            </detect>
-            <fix>
-              <ask>Confirm task list and order.</ask>
-              <rewrite>Correct typos and punctuation</rewrite>
-              <rewrite>Split into numbered steps with clear delimiters.</rewrite>
-            </fix>
-          </rule>
-        
-          <!-- 3. Context Quality -->
-          <rule id="3" name="Context-Integrity" severity="high">
-            <detect>
-              <pattern>Conflicting facts</pattern>
-              <pattern>Insufficient background to perform the task</pattern>
-              <pattern>Context bleeding from earlier turns that no longer applies</pattern>
-            </detect>
-            <fix>
-              <ask>Resolve conflicts; request missing facts essential to correctness.</ask>
-              <action>If unresolved → present branches ("If A… / If B…").</action>
-            </fix>
-          </rule>
-        
-          <!-- 4. Prompt Delimitation -->
-          <rule id="4" name="Delimiters" severity="medium">
-            <detect>
-              <pattern>Mixed data/instructions without clear boundaries</pattern>
-            </detect>
-            <fix>
-              <rewrite>Enforce fenced blocks (XML/Markdown) and label each section.</rewrite>
-            </fix>
-          </rule>
-        
-          <!-- 5. Instruction Complexity -->
-          <rule id="5" name="Complexity" severity="medium">
-            <detect><pattern>Nested or interdependent steps without explicit order</pattern></detect>
-            <fix><ask>Confirm execution order and dependencies.</ask></fix>
-          </rule>
-        
-          <!-- 6. Intent Misalignment -->
-          <rule id="6" name="Intent-Misalignment" severity="high">
-            <detect><pattern>Stated task conflicts with implied goal</pattern></detect>
-            <fix><ask>Restate perceived intent; ask for explanations and confirmation before proceeding.</ask></fix>
-          </rule>
-        
-          <!-- 7. Risky Word Choices -->
-          <rule id="7" name="Risky-Modal-Abstract" severity="high">
-            <detect>
-              <pattern>Modals: "might", "could", "should" where precision is needed</pattern>
-              <pattern>Abstract terms requiring subjective interpretation</pattern>
-            </detect>
-            <fix><rewrite>Replace with concrete criteria or numeric thresholds.</rewrite></fix>
-          </rule>
-        
-          <!-- 8. Prompt Length Extremes -->
-          <rule id="8" name="Length-TooShort-TooLong" severity="medium">
-            <detect>
-              <pattern>Underspecified or overlong prompts that dilute focus</pattern>
-              <pattern>Redundancy of instructions</pattern>
-            </detect>
-            <fix>
-              <ask>If short → request critical fields (who/what/when/source/constraints).</ask>
-              <rewrite>If long → summarize objectives and confirm scope before acting.</rewrite>
-              <rewrite>Eliminate redundancies</rewrite>
-            </fix>
-          </rule>
-        
-          <!-- 9. False/Misleading Premises -->
-          <rule id="9" name="False-Premise" severity="critical">
-            <detect>
-              <pattern>Task presumes unverified fact is true</pattern>
-              <pattern>Unsupported absolute claims e.g. "obviously", "clearly", "everyone knows"</pattern>
-              <pattern>Unverifiable entity is mentionned e.g. The capital of the country named "Mohamed"</pattern>
-            </detect>
-            <fix>
-              <action>Do not proceed as-if true.</action>
-              <ask>Flag the premise and request evidence or reframe conditionally.</ask>
-              <ask>Ask the user to fact-check their information before proceeding with the changes.</ask>
-              <rewrite>Replace user fabricated names and entity, as well as unverifiable information with placeholders.</rewrite>
-            </fix>
-          </rule>
-        
-          <!-- 10. Unverifiable Demands -->
-          <rule id="10" name="Unverifiable-Request" severity="critical">
-            <detect><pattern>Requests for unknown/private/undocumented facts</pattern></detect>
-            <fix>
-              <action>Refuse to assert; offer method to verify (source, tool, experiment).</action>
-            </fix>
-          </rule>
-        
-          <!-- 11. Tone/Style Inflation -->
-          <rule id="11" name="Style-NeutralOverCreative" severity="medium">
-            <detect><pattern>Creative style requested where factual accuracy is primary</pattern></detect>
-            <fix><rewrite>Prefer neutral, evidence-first style; separate flair into an optional pass.</rewrite></fix>
-          </rule>
-        
-          <!-- 12. Encourage Reasoning -->
-          <rule id="12" name="Show-Work" severity="medium">
-            <detect>
-              <pattern>Nontrivial claims without reasoning chain</pattern>
-              <pattern>The prompt does not encourage a thinking process or a reasoning chain when asking for a complex reasoning task</pattern>
-            </detect>
-            <fix>
-              <action>Provide concise reasoning; list assumptions and their impact.</action>
-              <rewrite>Add an encouragement for taking the time to think about an answer in the prompt</rewrite>
-            </fix>
-          </rule>
-        
-          <!-- 13. Permission to Not Know -->
-          <rule id="13" name="State-Uncertainty" severity="critical">
-            <detect>
-              <pattern>Knowledge gap detected; high ambiguity</pattern>
-            </detect>
-            <fix>
-              <action>Say "I don’t know" or give confidence bounds; request data.</action>
-            </fix>
-          </rule>
-        
-          <!-- 14. Multi-Turn Handling -->
-          <rule id="14" name="Dialogue-Continuity" severity="medium">
-            <detect><pattern>Current turn conflicts with prior commitments/constraints</pattern></detect>
-            <fix><ask>Confirm updates; restate the current contract before proceeding.</ask></fix>
-          </rule>
-        
-          <!-- 15. External Tools -->
-          <rule id="15" name="Tools-Use" severity="medium">
-          <detect><pattern>Task requires retrieval, calculation, or external verification</pattern></detect>
-          <fix>
-            <ask>If tools are available, specify the exact tool and the verification step.</ask>
-            <action>If tools unavailable, provide a user-executable plan: data needed, where to obtain it, and acceptance criteria.</action>
-          </fix>
-          </rule>
-        
-          <!-- 16. Missing Examples -->
-          <rule id="16" name="Exemplars" severity="medium">
-            <detect><pattern>Abstract task with no examples or only one-shot</pattern></detect>
-            <fix><ask>Request 2–3 representative examples; propose your own if allowed.</ask></fix>
-          </rule>
-        
-          <!-- 17. Imprecise Descriptors -->
-          <rule id="17" name="Quantify-Descriptors" severity="critical">
-            <detect><pattern>Phrases like "a few", "some", "briefly"</pattern></detect>
-            <fix><rewrite>Map to explicit ranges (e.g., "3–5 sentences", "≤100 words").</rewrite></fix>
-          </rule>
-        
-          <!-- 18. Negative Prompting Traps -->
-          <rule id="18" name="Negation-Risk" severity="medium">
-            <detect><pattern>Instructions framed as "don’t do X" without the positive target</pattern></detect>
-            <fix><ask>Ask for the positive target behavior; confirm acceptance criteria.</ask></fix>
-          </rule>
-        
-          <!-- 19. Interchangeable Terms -->
-          <rule id="19" name="Referent-Drift" severity="high">
-            <detect><pattern>Synonyms/aliases used for the same entity without mapping</pattern></detect>
-            <fix><rewrite>Define a canonical term; map all aliases to it before proceeding.</rewrite></fix>
-          </rule>
-        
-          <!-- 20. Redundant/Conflicting Instructions -->
-          <rule id="20" name="Instruction-Dedup" severity="medium">
-            <detect><pattern>Repeated or conflicting directives</pattern></detect>
-            <fix><action>List conflicts; ask which to prioritize; confirm a single authoritative list.</action></fix>
-          </rule>
-        
-          <!-- 21. Logical Flow & Task Mixing -->
-          <rule id="21" name="Flow-Hierarchy" severity="high">
-            <detect>
-              <pattern>Nested conditionals without hierarchy</pattern>
-              <pattern>Multiple topics without transitions</pattern>
-              <pattern>Hypotheticals mixed with asserted facts</pattern>
-              <pattern>Creative + analytical tasks fused</pattern>
-            </detect>
-            <fix>
-              <rewrite>Impose a hierarchy: (A) facts, (B) assumptions, (C) hypotheticals, (D) tasks.</rewrite>
-              <ask>Split creative and analytical passes or run sequentially with checks.</ask>
-            </fix>
-          </rule>
-        
-          <!-- 22. Permission to Not Know inside the prompt -->
-          <rule id="22" name="Allow-Uncertainty" severity="critical">
-            <detect>
-              <pattern>High ambiguity or real world fact check that might lead to knowledge gap</pattern>
-            </detect>
-            <fix>
-              <rewrite>Allow the model to respond with "I don't know" in the prompt</rewrite>
-            </fix>
-          </rule>
-</hallucination_mitigation_guidelines>
+    <hallucination_mitigation_guidelines version="3.0">
+  <!-- TAXONOMY STRUCTURE: 2 classes (prompt/meta), 12 pillars (A-L), ~30 rules -->
+  <!-- Prompt class: token-level issues (highlightable) -->
+  <!-- Meta class: structural issues (non-highlightable) -->
+  
+  <!-- ============================================================ -->
+  <!-- PILLAR A: Referential Grounding (prompt) -->
+  <!-- ============================================================ -->
+  <pillar id="A" name="Referential-Grounding" class="prompt">
+    
+    <rule id="A1" name="Ambiguous-Referents" severity="high">
+      <detect>
+        <pattern>Pronouns without clear antecedents: "it", "they", "this", "that"</pattern>
+        <pattern>Implicit references requiring external context: "the Smith case", "that algorithm"</pattern>
+        <pattern>Undefined acronyms or jargon: "TSP", "ROI" without expansion</pattern>
+      </detect>
+      <example>
+        <bad>"Analyze it and compare them" (unclear what "it" and "them" refer to)</bad>
+        <good>"Analyze the Q3 report and compare the figures to Q2 benchmarks"</good>
+        <note>Always establish clear antecedents before using pronouns.</note>
+      </example>
+      <mitigation>Define all referents explicitly. Expand acronyms on first use. Provide context for domain-specific terms.</mitigation>
+    </rule>
+    
+    <rule id="A2" name="Canonical-Naming-Drift" severity="medium">
+      <detect>
+        <pattern>Interchangeable synonyms without mapping: "user"/"customer"/"client" used inconsistently</pattern>
+        <pattern>Entity aliases creating confusion: "the system"/"the platform"/"the app"</pattern>
+      </detect>
+      <example>
+        <bad>"Users can login. Customers see their dashboard." (Are users and customers the same?)</bad>
+        <good>"Users (both free and premium) can login. Premium users see their dashboard."</good>
+        <note>Establish a canonical term and stick to it throughout.</note>
+      </example>
+      <mitigation>Define canonical terms upfront. Map all aliases explicitly (e.g., "user" = "customer" = "account holder").</mitigation>
+    </rule>
+    
+  </pillar>
+  
+  <!-- ============================================================ -->
+  <!-- PILLAR B: Quantification Constraints (prompt) -->
+  <!-- ============================================================ -->
+  <pillar id="B" name="Quantification-Constraints" class="prompt">
+    
+    <rule id="B1" name="Relative-Descriptors" severity="critical">
+      <detect>
+        <pattern>Vague size terms: "short", "brief", "detailed", "comprehensive"</pattern>
+        <pattern>Relative quantifiers: "many", "several", "some", "most", "a few"</pattern>
+        <pattern>Subjective quality terms: "simple", "complex", "interesting"</pattern>
+      </detect>
+      <example>
+        <bad>"Write a short summary" (How short? 50 words? 200 words?)</bad>
+        <good>"Write a summary between 100-150 words"</good>
+        <note>LLMs have no shared understanding of "short" or "detailed".</note>
+      </example>
+      <mitigation>Replace with explicit ranges: word counts (100-150 words), character limits (≤280 chars), or concrete examples.</mitigation>
+    </rule>
+    
+    <rule id="B2" name="Temporal-Vagueness" severity="high">
+      <detect>
+        <pattern>Relative time references: "recently", "lately", "soon", "in the near future"</pattern>
+        <pattern>Undefined time windows: "this quarter", "last year" without context</pattern>
+      </detect>
+      <example>
+        <bad>"Analyze recent trends in AI" (Recent = last month? last year? last decade?)</bad>
+        <good>"Analyze AI trends from January 2023 to December 2024"</good>
+        <note>Temporal context degrades rapidly; absolute dates are essential.</note>
+      </example>
+      <mitigation>Use absolute dates (YYYY-MM-DD) or bounded windows (last 90 days, 2020-2024).</mitigation>
+    </rule>
+    
+    <rule id="B3" name="Underspecified-Scope" severity="medium">
+      <detect>
+        <pattern>Unbounded requests: "list all", "explain everything about"</pattern>
+        <pattern>Missing constraints on breadth/depth: "analyze X" without focus area</pattern>
+      </detect>
+      <example>
+        <bad>"Explain machine learning" (Too broad, no clear scope)</bad>
+        <good>"Explain supervised learning algorithms (decision trees, SVMs, neural networks) with examples of each"</good>
+        <note>Scope creep leads to superficial or hallucinated content.</note>
+      </example>
+      <mitigation>Add explicit constraints: target audience, depth level, specific subtopics, or example count.</mitigation>
+    </rule>
+    
+  </pillar>
+  
+  <!-- ============================================================ -->
+  <!-- PILLAR C: Context & Domain (meta) -->
+  <!-- ============================================================ -->
+  <pillar id="C" name="Context-Domain" class="meta">
+    
+    <rule id="C1" name="Missing-Essentials" severity="high">
+      <detect>
+        <pattern>Task lacks critical background: who, what, when, where, why</pattern>
+        <pattern>Assumed shared context not provided</pattern>
+      </detect>
+      <example>
+        <bad>"Fix the bug" (What bug? In which system? Reproduce how?)</bad>
+        <good>"Fix the login timeout bug in the authentication service (v2.3). Steps to reproduce: 1) Login as test user, 2) Wait 30 seconds, 3) Click dashboard."</good>
+        <note>Context must be self-contained; LLMs have no external state.</note>
+      </example>
+      <mitigation>Provide 5W1H context. Include reproduction steps, system versions, and relevant constraints.</mitigation>
+    </rule>
+    
+    <rule id="C2" name="Domain-Scoping-Missing" severity="medium">
+      <detect>
+        <pattern>Domain-specific task without expertise level or terminology guidance</pattern>
+        <pattern>Jargon-heavy prompts without glossary</pattern>
+      </detect>
+      <example>
+        <bad>"Analyze the EBITDA impact" (Assumes financial expertise)</bad>
+        <good>"Analyze the EBITDA (Earnings Before Interest, Taxes, Depreciation, Amortization) impact for a non-technical executive audience. Use layman's terms."</good>
+        <note>Domain expertise must be explicitly scoped.</note>
+      </example>
+      <mitigation>Define target audience, specify terminology level, and provide domain glossary if needed.</mitigation>
+    </rule>
+    
+  </pillar>
+  
+  <!-- ============================================================ -->
+  <!-- PILLAR D: Premises & Evidence (prompt) -->
+  <!-- ============================================================ -->
+  <pillar id="D" name="Premises-Evidence" class="prompt">
+    
+    <rule id="D1" name="False-or-Unverified-Premise" severity="critical">
+      <detect>
+        <pattern>Unverified claims stated as fact: "obviously", "clearly", "everyone knows"</pattern>
+        <pattern>Task presumes factual accuracy of unverified input</pattern>
+      </detect>
+      <example>
+        <bad>"Explain why Python is faster than Java" (False premise)</bad>
+        <good>"Compare Python and Java performance for I/O-bound vs CPU-bound tasks. Cite benchmarks."</good>
+        <note>Never proceed as-if unverified premises are true.</note>
+      </example>
+      <mitigation>Flag premise explicitly. Request evidence or reframe conditionally ("If X is true, then..."). Ask user to fact-check.</mitigation>
+    </rule>
+    
+    <rule id="D2" name="Leading-Opinion-Framing" severity="medium">
+      <detect>
+        <pattern>Loaded language biasing response: "the failed policy", "the brilliant solution"</pattern>
+        <pattern>Opinion presented as objective requirement</pattern>
+      </detect>
+      <example>
+        <bad>"Explain why the 2020 election was rigged" (Leading framing)</bad>
+        <good>"Summarize claims and counterclaims about 2020 election integrity, citing sources."</good>
+        <note>Neutral framing prevents confirmation bias in output.</note>
+      </example>
+      <mitigation>Use neutral language. Separate facts from opinions. Request evidence-based analysis.</mitigation>
+    </rule>
+    
+  </pillar>
+  
+  <!-- ============================================================ -->
+  <!-- PILLAR E: Numbers & Units (prompt) -->
+  <!-- ============================================================ -->
+  <pillar id="E" name="Numbers-Units" class="prompt">
+    
+    <rule id="E1" name="Unitless-Number" severity="high">
+      <detect>
+        <pattern>Numeric values without units: "increase by 15", "distance of 200"</pattern>
+      </detect>
+      <example>
+        <bad>"Increase budget by 15" (15 what? Dollars? Percent?)</bad>
+        <good>"Increase budget by 15% (from $100K to $115K)"</good>
+        <note>Numbers without units are meaningless.</note>
+      </example>
+      <mitigation>Always specify units (%, $, kg, miles, etc.). Provide baseline for context.</mitigation>
+    </rule>
+    
+    <rule id="E2" name="Percent-No-Baseline" severity="high">
+      <detect>
+        <pattern>Percentage change without reference point: "grew by 50%"</pattern>
+      </detect>
+      <example>
+        <bad>"Sales grew by 50%" (50% of what?)</bad>
+        <good>"Sales grew by 50% from $200K (2023) to $300K (2024)"</good>
+        <note>Percentages are meaningless without a baseline.</note>
+      </example>
+      <mitigation>Always provide the baseline value and the resulting absolute value.</mitigation>
+    </rule>
+    
+    <rule id="E3" name="Currency-Unspecified" severity="medium">
+      <detect>
+        <pattern>Monetary values without currency: "$100", "100 dollars" (which currency?)</pattern>
+      </detect>
+      <example>
+        <bad>"Price is $100" (USD? CAD? AUD?)</bad>
+        <good>"Price is $100 USD"</good>
+        <note>Currency symbols alone are ambiguous ($ can be USD, CAD, AUD, etc.).</note>
+      </example>
+      <mitigation>Specify currency code (USD, EUR, GBP) explicitly.</mitigation>
+    </rule>
+    
+    <rule id="E4" name="Time-No-Zone" severity="medium">
+      <detect>
+        <pattern>Time references without timezone: "3 PM", "midnight"</pattern>
+      </detect>
+      <example>
+        <bad>"Meeting at 3 PM" (Which timezone?)</bad>
+        <good>"Meeting at 3 PM EST (8 PM UTC)"</good>
+        <note>Timezones are critical for global coordination.</note>
+      </example>
+      <mitigation>Always specify timezone (EST, UTC, PST) and optionally include UTC equivalent.</mitigation>
+    </rule>
+    
+  </pillar>
+  
+  <!-- ============================================================ -->
+  <!-- PILLAR F: Retrieval & Anchoring (prompt) -->
+  <!-- ============================================================ -->
+  <pillar id="F" name="Retrieval-Anchoring" class="prompt">
+    
+    <rule id="F1" name="Source-Class-Unspecified" severity="critical">
+      <detect>
+        <pattern>Requests for unknown/private/undocumented facts without source guidance</pattern>
+        <pattern>Hallucination-prone queries: "What is the CEO's home address?"</pattern>
+      </detect>
+      <example>
+        <bad>"What is the population of Atlantis?" (Fictional city, no valid source)</bad>
+        <good>"If reliable data exists, provide the population of Atlanta, GA (USA) as of 2024. Otherwise, state 'No reliable data available.'"</good>
+        <note>LLMs cannot access real-time or private data.</note>
+      </example>
+      <mitigation>Refuse to assert unknown facts. Offer verification method (cite source, use tool, suggest research strategy).</mitigation>
+    </rule>
+    
+    <rule id="F2" name="Document-Anchor-Missing" severity="high">
+      <detect>
+        <pattern>Retrieval task without document/source specification</pattern>
+        <pattern>Citation requests without source constraints</pattern>
+      </detect>
+      <example>
+        <bad>"Summarize the quarterly report" (Which report? Which quarter?)</bad>
+        <good>"Summarize the Q3 2024 earnings report (attached as Q3_2024_Earnings.pdf). Focus on revenue and profit trends."</good>
+        <note>Retrieval requires explicit document anchoring.</note>
+      </example>
+      <mitigation>Specify document name, section, or search query. Provide source constraints.</mitigation>
+    </rule>
+    
+  </pillar>
+  
+  <!-- ============================================================ -->
+  <!-- PILLAR G: Injection & Layering (meta) -->
+  <!-- ============================================================ -->
+  <pillar id="G" name="Injection-Layering" class="meta">
+    
+    <rule id="G1" name="Continuity" severity="medium">
+      <detect>
+        <pattern>Multi-turn conflicts: current instruction contradicts prior turns</pattern>
+        <pattern>Context bleeding from earlier conversation</pattern>
+      </detect>
+      <example>
+        <bad>Turn 1: "Use formal tone", Turn 2: "Make it casual" (Conflicting style)</bad>
+        <good>Turn 2: "Update previous response to use casual tone instead of formal"</good>
+        <note>Clarify updates explicitly to avoid context confusion.</note>
+      </example>
+      <mitigation>Confirm updates explicitly. Restate current contract before proceeding.</mitigation>
+    </rule>
+    
+    <rule id="G2" name="Instruction-Deduplication" severity="medium">
+      <detect>
+        <pattern>Repeated or conflicting directives: "Be brief. Provide detailed analysis."</pattern>
+      </detect>
+      <example>
+        <bad>"Write concisely. Include comprehensive details." (Contradictory)</bad>
+        <good>"Write a concise summary (100-150 words) with key details only. Detailed analysis can be provided separately if needed."</good>
+        <note>Conflicting instructions confuse priority.</note>
+      </example>
+      <mitigation>List conflicts, ask which to prioritize, confirm single authoritative instruction set.</mitigation>
+    </rule>
+    
+  </pillar>
+  
+  <!-- ============================================================ -->
+  <!-- PILLAR H: Style, Bias & Role (prompt) -->
+  <!-- ============================================================ -->
+  <pillar id="H" name="Style-Bias-Role" class="prompt">
+    
+    <rule id="H1" name="Style-Inflation" severity="medium">
+      <detect>
+        <pattern>Creative style requested where factual accuracy is primary</pattern>
+        <pattern>Flair/polish prioritized over precision</pattern>
+      </detect>
+      <example>
+        <bad>"Write a compelling narrative about quantum computing" (Creative framing for technical content)</bad>
+        <good>"Explain quantum computing principles in clear, neutral language. Save storytelling for the introduction only."</good>
+        <note>Separate factual content from creative embellishment.</note>
+      </example>
+      <mitigation>Prefer neutral, evidence-first style. Separate flair into optional pass.</mitigation>
+    </rule>
+    
+    <rule id="H2" name="Bias-Stereotypes" severity="high">
+      <detect>
+        <pattern>Prompts reinforcing stereotypes or biases</pattern>
+        <pattern>Non-inclusive language or assumptions</pattern>
+      </detect>
+      <example>
+        <bad>"Explain why women are worse at math" (Reinforces false stereotype)</bad>
+        <good>"Review research on gender differences in math performance, noting confounding factors (education access, cultural bias)."</good>
+        <note>Challenge biased framing proactively.</note>
+      </example>
+      <mitigation>Use inclusive, neutral language. Challenge stereotypes explicitly.</mitigation>
+    </rule>
+    
+    <rule id="H3" name="Unsafe-Roleplay" severity="critical">
+      <detect>
+        <pattern>Role-playing scenarios that might leak system instructions or violate safety policies</pattern>
+      </detect>
+      <example>
+        <bad>"Pretend you're a hacker explaining how to bypass security" (Unsafe role)</bad>
+        <good>"Explain common security vulnerabilities from a defensive perspective (for educational purposes only)."</good>
+        <note>Refuse unsafe roles that could lead to policy violations.</note>
+      </example>
+      <mitigation>Refuse unsafe roles. Redirect to educational or defensive framing.</mitigation>
+    </rule>
+    
+  </pillar>
+  
+  <!-- ============================================================ -->
+  <!-- PILLAR I: Reasoning & Uncertainty (prompt) -->
+  <!-- ============================================================ -->
+  <pillar id="I" name="Reasoning-Uncertainty" class="prompt">
+    
+    <rule id="I1" name="Uncertainty-Permission" severity="critical">
+      <detect>
+        <pattern>High-ambiguity task without permission to express uncertainty</pattern>
+        <pattern>Prompt does not allow "I don't know" responses</pattern>
+      </detect>
+      <example>
+        <bad>"What is the exact population of Mars?" (Forces hallucination)</bad>
+        <good>"If known, provide the exact population of Mars. Otherwise, state 'No reliable data available' and explain why."</good>
+        <note>Always allow uncertainty expression to prevent hallucination.</note>
+      </example>
+      <mitigation>Explicitly permit "I don't know" responses. Encourage confidence bounds ("likely", "uncertain").</mitigation>
+    </rule>
+    
+    <rule id="I2" name="Subjective-Framing-Risk" severity="medium">
+      <detect>
+        <pattern>Task requires subjective judgment without criteria</pattern>
+        <pattern>Abstract terms like "good", "better", "best" without definition</pattern>
+      </detect>
+      <example>
+        <bad>"Which programming language is best?" (Subjective without criteria)</bad>
+        <good>"Compare Python, Java, and JavaScript for web backend development, considering: performance, ecosystem, ease of learning."</good>
+        <note>Subjective judgments need explicit criteria.</note>
+      </example>
+      <mitigation>Define evaluation criteria explicitly. Replace subjective terms with measurable attributes.</mitigation>
+    </rule>
+    
+  </pillar>
+  
+  <!-- ============================================================ -->
+  <!-- PILLAR J: Prompt Structure (meta) -->
+  <!-- ============================================================ -->
+  <pillar id="J" name="Prompt-Structure" class="meta">
+    
+    <rule id="J1" name="Length-TooShort-TooLong" severity="medium">
+      <detect>
+        <pattern>Underspecified prompts lacking critical fields</pattern>
+        <pattern>Overlong prompts diluting focus</pattern>
+        <pattern>Redundant instructions</pattern>
+      </detect>
+      <example>
+        <bad>"Analyze" (Too short, no context)</bad>
+        <bad>[5-paragraph prompt repeating same instruction 3 times] (Too long, redundant)</bad>
+        <good>"Analyze Q3 sales data (attached) for trends in customer demographics. Focus on age and region."</good>
+        <note>Balance brevity with completeness.</note>
+      </example>
+      <mitigation>If short: request critical fields (who/what/when/source/constraints). If long: summarize objectives, eliminate redundancies.</mitigation>
+    </rule>
+    
+    <rule id="J2" name="Delimiter-Missing" severity="medium">
+      <detect>
+        <pattern>Mixed data/instructions without clear boundaries</pattern>
+        <pattern>Inline examples without fenced blocks</pattern>
+      </detect>
+      <example>
+        <bad>"Analyze this data: 100 200 300 and summarize trends" (Data and instruction fused)</bad>
+        <good>"Analyze the following data and summarize trends:
+
+```
+100 200 300
+```"</good>
+        <note>Delimiters prevent instruction/data confusion.</note>
+      </example>
+      <mitigation>Use fenced blocks (XML/Markdown). Label each section clearly.</mitigation>
+    </rule>
+    
+    <rule id="J3" name="MultiObjective-Overload" severity="high">
+      <detect>
+        <pattern>Multiple unrelated tasks fused into single prompt</pattern>
+        <pattern>No prioritization or sequencing</pattern>
+      </detect>
+      <example>
+        <bad>"Translate this text, then analyze sentiment, then summarize, then generate keywords" (4 tasks, no clear flow)</bad>
+        <good>"1. Translate text to English
+2. Analyze sentiment (positive/negative/neutral)
+3. Summarize in 2-3 sentences
+4. Extract 5 keywords"</good>
+        <note>Break multi-task prompts into numbered steps.</note>
+      </example>
+      <mitigation>Split into numbered steps with clear delimiters. Specify execution order.</mitigation>
+    </rule>
+    
+  </pillar>
+  
+  <!-- ============================================================ -->
+  <!-- PILLAR K: Instruction Structure & Multi-Step (meta) -->
+  <!-- ============================================================ -->
+  <pillar id="K" name="Instruction-Structure-MultiStep" class="meta">
+    
+    <rule id="K1" name="Task-Delimitation" severity="medium">
+      <detect>
+        <pattern>Incomplete sentences, misleading punctuation, run-ons</pattern>
+        <pattern>Multiple instructions fused without separators</pattern>
+      </detect>
+      <example>
+        <bad>"Analyze data summarize findings explain trends" (Run-on, no punctuation)</bad>
+        <good>"1. Analyze data
+2. Summarize findings
+3. Explain trends"</good>
+        <note>Clear task boundaries prevent instruction bleed.</note>
+      </example>
+      <mitigation>Correct typos and punctuation. Use numbered lists or bullet points.</mitigation>
+    </rule>
+    
+    <rule id="K2" name="Enumerate-MultiSteps" severity="medium">
+      <detect>
+        <pattern>Multi-step tasks without explicit numbering or sequencing</pattern>
+      </detect>
+      <example>
+        <bad>"First do X then Y then Z" (Implied sequence, not explicit)</bad>
+        <good>"Step 1: Do X
+Step 2: Do Y
+Step 3: Do Z"</good>
+        <note>Explicit enumeration prevents order confusion.</note>
+      </example>
+      <mitigation>Number all steps explicitly (1, 2, 3 or Step 1, Step 2, etc.).</mitigation>
+    </rule>
+    
+    <rule id="K3" name="Stepwise-Reasoning-Cue" severity="medium">
+      <detect>
+        <pattern>Complex reasoning task without "show your work" instruction</pattern>
+        <pattern>Nontrivial claims expected without reasoning chain</pattern>
+      </detect>
+      <example>
+        <bad>"Calculate the ROI for this investment" (No reasoning guidance)</bad>
+        <good>"Calculate the ROI for this investment. Show your work: 1) Initial cost, 2) Returns over time, 3) ROI formula application."</good>
+        <note>Encourage reasoning transparency for complex tasks.</note>
+      </example>
+      <mitigation>Add "show your work" or "explain your reasoning" instruction. Encourage step-by-step thinking.</mitigation>
+    </rule>
+    
+    <rule id="K4" name="MultiObjective-Separation" severity="high">
+      <detect>
+        <pattern>Creative + analytical tasks fused without separation</pattern>
+        <pattern>Nested conditionals without hierarchy</pattern>
+      </detect>
+      <example>
+        <bad>"Write a creative story based on data analysis" (Creative + analytical fused)</bad>
+        <good>"1. Analyze data for trends
+2. Write creative story based on findings (separate pass)"</good>
+        <note>Separate analytical and creative tasks to maintain quality.</note>
+      </example>
+      <mitigation>Impose hierarchy: (A) facts, (B) assumptions, (C) hypotheticals, (D) tasks. Run sequentially with checks.</mitigation>
+    </rule>
+    
+  </pillar>
+  
+  <!-- ============================================================ -->
+  <!-- PILLAR L: Contextual Integrity (prompt) -->
+  <!-- ============================================================ -->
+  <pillar id="L" name="Contextual-Integrity" class="prompt">
+    
+    <rule id="L1" name="Conflicting-Instructions" severity="high">
+      <detect>
+        <pattern>Stated task conflicts with implied goal</pattern>
+        <pattern>Contradictory style/tone directives</pattern>
+      </detect>
+      <example>
+        <bad>"Write a formal report in a casual tone" (Contradictory)</bad>
+        <good>"Write a formal report using professional language and neutral tone."</good>
+        <note>Resolve conflicts before proceeding.</note>
+      </example>
+      <mitigation>Restate perceived intent. Ask for confirmation. Resolve conflicts explicitly.</mitigation>
+    </rule>
+    
+    <rule id="L2" name="Negation-Risk" severity="medium">
+      <detect>
+        <pattern>Instructions framed as "don't do X" without positive target</pattern>
+      </detect>
+      <example>
+        <bad>"Don't use jargon" (What should be used instead?)</bad>
+        <good>"Use plain language suitable for non-technical audiences. Avoid jargon."</good>
+        <note>Positive framing is clearer than negative constraints alone.</note>
+      </example>
+      <mitigation>Provide positive target behavior. Confirm acceptance criteria.</mitigation>
+    </rule>
+    
+    <rule id="L3" name="Clarification-Gap" severity="medium">
+      <detect>
+        <pattern>Task requires domain knowledge or context not provided</pattern>
+        <pattern>Missing examples for abstract tasks</pattern>
+      </detect>
+      <example>
+        <bad>"Format the data like last time" (No reference to previous format)</bad>
+        <good>"Format the data as CSV with columns: Name, Email, Date (YYYY-MM-DD). Example:
+John Doe,john@example.com,2024-01-15"</good>
+        <note>Provide 2-3 representative examples for abstract tasks.</note>
+      </example>
+      <mitigation>Request 2-3 examples. Propose your own if allowed. Clarify domain context.</mitigation>
+    </rule>
+    
+  </pillar>
+    </hallucination_mitigation_guidelines>
     <current_prompt_state>
         {current_prompt}
     </current_prompt_state>
 </system>"""
 
-    async def analyze_prompt(self, prompt: str) -> Dict[str, Any]:
+    async def analyze_prompt(self, prompt: str, analysis_mode: str = "both") -> Dict[str, Any]:
         """Analyze prompt for hallucination risks and return structured JSON response."""
         try:
             # Extract the actual user prompt from the full context
             user_prompt = prompt
             
             print(f"Original prompt received: {prompt[:200]}...")  # Debug
+            print(f"Analysis mode: {analysis_mode}")  # Debug
             
             # If the prompt contains "USER PROMPT TO ANALYZE:", extract only that part
             if "USER PROMPT TO ANALYZE:" in prompt:
@@ -737,8 +879,8 @@ class OpenAILLM:
             else:
                 print("No 'USER PROMPT TO ANALYZE:' found, using full prompt")  # Debug
             
-            # Create the analysis prompt with the clean user prompt
-            analysis_prompt = self._get_hallucination_analysis_prompt(user_prompt)
+            # Create the analysis prompt with the clean user prompt and analysis mode
+            analysis_prompt = self._get_hallucination_analysis_prompt(user_prompt, analysis_mode)
             
             print(f"Analyzing clean user prompt: {user_prompt[:100]}...")  # Debug
             
@@ -766,52 +908,24 @@ class OpenAILLM:
                 if not all(key in parsed_response for key in ["annotated_prompt", "analysis_summary", "risk_tokens", "risk_assessment"]):
                     raise ValueError("Missing required fields in JSON response")
                 
-                # Apply deterministic risk score calculation
-                risk_tokens = parsed_response.get("risk_tokens", [])
-                deterministic_scores = self._calculate_deterministic_risk_scores(user_prompt, risk_tokens)
+                # Calculate PRD scores for prompt and meta violations
+                risk_assessment = parsed_response.get("risk_assessment", {})
                 
-                # Replace LLM-generated percentages with deterministic ones
-                if "risk_assessment" in parsed_response and "criteria" in parsed_response["risk_assessment"]:
-                    for criterion in parsed_response["risk_assessment"]["criteria"]:
-                        category_name = criterion.get("name", "")
-                        if category_name in deterministic_scores["category_scores"]:
-                            score_data = deterministic_scores["category_scores"][category_name]
-                            criterion["percentage"] = score_data["percentage"]
-                            criterion["risk"] = score_data["risk"]
-                            # Keep the original LLM-generated description - don't override it
+                # Calculate Prompt PRD
+                if "prompt" in risk_assessment:
+                    prompt_violations = risk_assessment["prompt"].get("prompt_violations", [])
+                    prompt_prd = self._calculate_prd(user_prompt, prompt_violations)
+                    parsed_response["risk_assessment"]["prompt"]["prompt_PRD"] = prompt_prd
+                    print(f"Calculated Prompt PRD: {prompt_prd}")
                 
-                # Replace overall assessment percentage
-                if "risk_assessment" in parsed_response and "overall_assessment" in parsed_response["risk_assessment"]:
-                    parsed_response["risk_assessment"]["overall_assessment"]["percentage"] = deterministic_scores["overall_percentage"]
-                    
-                    # Update description based on critical hits and dominance
-                    desc_parts = []
-                    if deterministic_scores["critical_hits"] > 0:
-                        desc_parts.append(f"{deterministic_scores['critical_hits']} critical faithfulness issues detected")
-                    
-                    c1_info = deterministic_scores["debug_info"]["c1_dominance"]
-                    if c1_info["score"] >= 90:
-                        desc_parts.append("high referential ambiguity dominance")
-                    
-                    if desc_parts:
-                        desc = "Risk elevated due to " + " and ".join(desc_parts) + "."
-                    else:
-                        overall_pct = deterministic_scores["overall_percentage"]
-                        if overall_pct >= 70:
-                            desc = "High risk due to multiple severe issues across categories."
-                        elif overall_pct >= 30:
-                            desc = "Moderate risk with some issues requiring attention."
-                        else:
-                            desc = "Low risk with minimal hallucination potential detected."
-                    
-                    parsed_response["risk_assessment"]["overall_assessment"]["description"] = desc
+                # Calculate Meta PRD  
+                if "meta" in risk_assessment:
+                    meta_violations = risk_assessment["meta"].get("meta_violations", [])
+                    meta_prd = self._calculate_prd(user_prompt, meta_violations)
+                    parsed_response["risk_assessment"]["meta"]["meta_PRD"] = meta_prd
+                    print(f"Calculated Meta PRD: {meta_prd}")
                 
-                print(f"Applied deterministic scoring: overall={deterministic_scores['overall_percentage']}%, critical_hits={deterministic_scores['critical_hits']}")
-                
-                # Debug: Show category breakdown
-                for category, score_data in deterministic_scores["category_scores"].items():
-                    if score_data["span_count"] > 0:
-                        print(f"  {category}: {score_data['percentage']}% ({score_data['span_count']} spans)")
+                print(f"PRD calculation complete: prompt_PRD={prompt_prd if 'prompt' in risk_assessment else 0}, meta_PRD={meta_prd if 'meta' in risk_assessment else 0}")
                 
                 return parsed_response
                 
@@ -830,32 +944,61 @@ class OpenAILLM:
         """Create a fallback response when JSON parsing fails."""
         print("Creating fallback response due to JSON parsing failure")
         
-        # Use deterministic calculation even for fallback (with empty risk_tokens)
-        deterministic_scores = self._calculate_deterministic_risk_scores(user_prompt, [])
-        
         fallback_response = {
             "annotated_prompt": user_prompt,  # Return clean prompt without highlighting
             "analysis_summary": "Analysis completed but response format was invalid. Please try again.",
             "risk_tokens": [],
             "risk_assessment": {
-                "criteria": [],
-                "overall_assessment": {
-                    "percentage": deterministic_scores["overall_percentage"],
-                    "description": "Fallback response - unable to identify specific risks due to parsing error."
+                "prompt": {
+                    "prompt_PRD": 0.0,
+                    "prompt_violations": [],
+                    "prompt_overview": "Unable to analyze prompt-level violations due to parsing error."
+                },
+                "meta": {
+                    "meta_PRD": 0.0,
+                    "meta_violations": [],
+                    "meta_overview": "Unable to analyze meta-level violations due to parsing error."
                 }
             }
         }
         
-        # Add criteria with deterministic scores
-        for category_name, score_data in deterministic_scores["category_scores"].items():
-            fallback_response["risk_assessment"]["criteria"].append({
-                "name": category_name,
-                "risk": score_data["risk"], 
-                "percentage": score_data["percentage"],
-                "description": "Unable to analyze specific risks due to parsing error"
-            })
-        
         return fallback_response
+    
+    def _calculate_prd(self, text: str, violations: List[Dict[str, Any]]) -> float:
+        """
+        Compute Prompt Risk Density (PRD).
+        
+        Args:
+            text (str): The original prompt text.
+            violations (list of dicts): Each violation must include:
+                - severity (str: "medium", "high", "critical")
+                - span (str): token(s) causing the violation (for prompt-level)
+        
+        Returns:
+            float: PRD score normalized by token length, rounded to 4 decimal places.
+        """
+        import re
+        
+        # Define severity weights
+        SEVERITY_WEIGHTS = {
+            "medium": 1,
+            "high": 2,
+            "critical": 3
+        }
+        
+        # Tokenize text (simple whitespace split, keeps punctuation)
+        tokens = re.findall(r"\w+|\S", text)
+        total_tokens = len(tokens)
+        
+        if total_tokens == 0:
+            return 0.0
+        
+        # Sum risk weights from violations
+        total_risk = sum(SEVERITY_WEIGHTS.get(v.get("severity", "medium"), 1) for v in violations)
+        
+        # Normalize by token length
+        prd = total_risk / total_tokens
+        return round(prd, 4)
     
     def _calculate_deterministic_risk_scores(self, prompt: str, risk_tokens: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Calculate deterministic risk scores based on the provided algorithm."""

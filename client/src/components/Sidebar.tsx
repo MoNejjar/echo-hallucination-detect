@@ -35,7 +35,8 @@ import {
   Mail,
   Check,
   Image,
-  FileJson
+  FileJson,
+  Tornado
 } from 'lucide-react';
 import { 
   DropdownMenu,
@@ -44,6 +45,7 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import DarkModeToggle from './DarkModeToggle';
+import { LibraryDialog } from './LibraryDialog';
 import type { ChatMessage, PromptAnalysis, RiskAssessment } from '../types';
 
 interface SidebarProps {
@@ -74,6 +76,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [badFeedback, setBadFeedback] = useState('');
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [hoveredStar, setHoveredStar] = useState(0);
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
   // Reset file input when a new analysis starts (originalPrompt becomes empty)
   useEffect(() => {
@@ -92,7 +95,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleLibrary = () => {
-    alert('Feature coming soon! This will include best practices for prompt writing and hallucination detection patterns.');
+    setLibraryOpen(true);
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -189,8 +192,8 @@ An Echo AI User`;
         // Add other analysis fields you want to export
       },
       riskAssessment: {
-        overall_assessment: riskAssessment.overall_assessment,
-        criteria: riskAssessment.criteria
+        prompt: riskAssessment.prompt,
+        meta: riskAssessment.meta
       }
     };
 
@@ -368,10 +371,10 @@ An Echo AI User`;
 
   return (
     <TooltipProvider>
-      <div className="w-28 bg-gradient-to-b from-white via-gray-50/50 to-white dark:from-gray-900 dark:via-gray-950/50 dark:to-gray-900 border-r border-gray-200/60 dark:border-gray-800/60 flex flex-col shadow-xl backdrop-blur-sm">
+      <div className="w-20 bg-transparent border-r border-transparent flex flex-col backdrop-blur-sm">
         {/* Logo Section */}
-        <div className="p-4 flex flex-col items-center border-b border-gray-200/60 dark:border-gray-800/60 bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg">
-          <div className="relative mb-3 group">
+        <div className="p-3 flex flex-col items-center border-b border-transparent bg-transparent backdrop-blur-lg">
+          <div className="relative mb-3 group ml-4">
             {/* Enhanced purple aura background */}
             <div className="absolute inset-0 bg-gradient-to-r from-purple-400/30 to-blue-400/30 rounded-full blur-2xl scale-150 group-hover:scale-175 transition-transform duration-500"></div>
             <div className="absolute inset-0 bg-gradient-to-r from-purple-500/40 to-blue-500/40 rounded-full blur-xl scale-125 group-hover:scale-150 transition-transform duration-300"></div>
@@ -383,7 +386,9 @@ An Echo AI User`;
           </div>
           
           {/* Dark Mode Toggle */}
-          <DarkModeToggle />
+          <div className="ml-4">
+            <DarkModeToggle />
+          </div>
         </div>
         
         {/* Main Actions */}
@@ -492,9 +497,6 @@ An Echo AI User`;
                   variant="outline"
                   className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-amber-300 dark:hover:border-amber-600 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 dark:hover:from-amber-900/20 dark:hover:to-orange-900/20 transition-all duration-300 transform hover:scale-[1.01] rounded-lg group relative"
                 >
-                  <div className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-amber-500 text-white text-[8px] font-bold rounded-full z-10">
-                    SOON
-                  </div>
                   <div className="flex flex-col items-center justify-center">
                     <div className="p-1.5 rounded-md bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:from-amber-100 group-hover:to-orange-100 dark:group-hover:from-amber-800/50 dark:group-hover:to-orange-800/50 transition-all duration-200 mb-1">
                       <Library className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors duration-200" />
@@ -504,14 +506,14 @@ An Echo AI User`;
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right" className="bg-gray-900 dark:bg-gray-700 text-white">
-                <p>Hallucination detection best practices (Coming Soon)</p>
+                <p>Browse hallucination detection guidelines (v3.0)</p>
               </TooltipContent>
             </Tooltip>
           </div>
         </div>
 
         {/* Bottom Section - Feedback & Help */}
-        <div className="p-3 border-t border-gray-200/30 dark:border-gray-800/30 bg-gradient-to-t from-gray-50/50 to-transparent dark:from-gray-950/50">
+        <div className="pb-6 pt-3 px-3 border-t border-gray-200/30 dark:border-gray-800/30 bg-gradient-to-t from-gray-50/50 to-transparent dark:from-gray-950/50">
           <div className="space-y-2">
             {/* Feedback Button */}
             <Tooltip>
@@ -535,21 +537,21 @@ An Echo AI User`;
               </TooltipContent>
             </Tooltip>
 
-            {/* Help Button */}
+            {/* About Button */}
             <Dialog>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <DialogTrigger asChild>
                     <Button 
                       variant="outline"
-                      className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-green-300 dark:hover:border-green-600 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 dark:hover:from-green-900/20 dark:hover:to-emerald-900/20 transition-all duration-300 transform hover:scale-[1.01] rounded-lg group"
+                      className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-cyan-300 dark:hover:border-cyan-600 hover:bg-gradient-to-r hover:from-cyan-50 hover:to-sky-50 dark:hover:from-cyan-900/20 dark:hover:to-sky-900/20 transition-all duration-300 transform hover:scale-[1.01] rounded-lg group"
                     >
                       <div className="flex flex-col items-center justify-center">
-                        <div className="p-1.5 rounded-md bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:from-green-100 group-hover:to-emerald-100 dark:group-hover:from-green-800/50 dark:group-hover:to-emerald-800/50 transition-all duration-200 mb-1 relative">
-                          <Info className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-200" />
-                          <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-green-500 rounded-full opacity-0 group-hover:opacity-100 animate-ping transition-opacity"></div>
+                        <div className="p-1.5 rounded-md bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:from-cyan-100 group-hover:to-sky-100 dark:group-hover:from-cyan-800/50 dark:group-hover:to-sky-800/50 transition-all duration-200 mb-1 relative">
+                          <Tornado className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors duration-200" />
+                          <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-cyan-500 rounded-full opacity-0 group-hover:opacity-100 animate-ping transition-opacity"></div>
                         </div>
-                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-green-700 dark:group-hover:text-green-300">Help</span>
+                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-cyan-700 dark:group-hover:text-cyan-300">About</span>
                       </div>
                     </Button>
                   </DialogTrigger>
@@ -762,6 +764,8 @@ An Echo AI User`;
           )}
         </DialogContent>
       </Dialog>
+
+      <LibraryDialog open={libraryOpen} onOpenChange={setLibraryOpen} />
     </TooltipProvider>
   );
 };

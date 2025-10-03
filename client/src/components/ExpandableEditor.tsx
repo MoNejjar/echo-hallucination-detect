@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,7 +16,17 @@ import {
   FileText, 
   Hash,
   Type,
-  Zap
+  Zap,
+  PenLine,
+  Bold,
+  Italic,
+  List,
+  ListOrdered,
+  Link,
+  Code,
+  Heading1,
+  Heading2,
+  Quote
 } from 'lucide-react';
 
 // Simple token estimation function (approximates OpenAI's tokenization)
@@ -72,6 +82,71 @@ const ExpandableEditor: React.FC<ExpandableEditorProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const expandedTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Markdown formatting helper
+  const applyMarkdown = (format: string) => {
+    const textarea = expandedTextareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = prompt.substring(start, end);
+    let newText = '';
+    let cursorOffset = 0;
+
+    switch (format) {
+      case 'bold':
+        newText = prompt.substring(0, start) + `**${selectedText || 'bold text'}**` + prompt.substring(end);
+        cursorOffset = selectedText ? 2 : 2;
+        break;
+      case 'italic':
+        newText = prompt.substring(0, start) + `*${selectedText || 'italic text'}*` + prompt.substring(end);
+        cursorOffset = selectedText ? 1 : 1;
+        break;
+      case 'h1':
+        newText = prompt.substring(0, start) + `# ${selectedText || 'Heading 1'}` + prompt.substring(end);
+        cursorOffset = 2;
+        break;
+      case 'h2':
+        newText = prompt.substring(0, start) + `## ${selectedText || 'Heading 2'}` + prompt.substring(end);
+        cursorOffset = 3;
+        break;
+      case 'list':
+        newText = prompt.substring(0, start) + `- ${selectedText || 'List item'}` + prompt.substring(end);
+        cursorOffset = 2;
+        break;
+      case 'orderedList':
+        newText = prompt.substring(0, start) + `1. ${selectedText || 'List item'}` + prompt.substring(end);
+        cursorOffset = 3;
+        break;
+      case 'code':
+        newText = prompt.substring(0, start) + `\`${selectedText || 'code'}\`` + prompt.substring(end);
+        cursorOffset = selectedText ? 1 : 1;
+        break;
+      case 'quote':
+        newText = prompt.substring(0, start) + `> ${selectedText || 'Quote'}` + prompt.substring(end);
+        cursorOffset = 2;
+        break;
+      case 'link':
+        newText = prompt.substring(0, start) + `[${selectedText || 'link text'}](url)` + prompt.substring(end);
+        cursorOffset = selectedText ? selectedText.length + 3 : 11;
+        break;
+      default:
+        return;
+    }
+
+    onChange(newText);
+    
+    // Restore cursor position after update
+    setTimeout(() => {
+      if (textarea) {
+        const newPosition = selectedText ? end + (format === 'bold' ? 4 : format === 'italic' || format === 'code' ? 2 : cursorOffset) : start + cursorOffset;
+        textarea.focus();
+        textarea.setSelectionRange(newPosition, newPosition);
+      }
+    }, 0);
+  };
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -105,6 +180,54 @@ const ExpandableEditor: React.FC<ExpandableEditorProps> = ({
     }
   };
 
+  // Simple markdown renderer for preview
+  const renderMarkdown = (text: string) => {
+    if (!text) return null;
+    
+    return text.split('\n').map((line, i) => {
+      // Headings
+      if (line.startsWith('### ')) {
+        return <h3 key={i} className="text-lg font-bold mt-3 mb-2">{line.substring(4)}</h3>;
+      }
+      if (line.startsWith('## ')) {
+        return <h2 key={i} className="text-xl font-bold mt-4 mb-2">{line.substring(3)}</h2>;
+      }
+      if (line.startsWith('# ')) {
+        return <h1 key={i} className="text-2xl font-bold mt-4 mb-3">{line.substring(2)}</h1>;
+      }
+      
+      // Lists
+      if (line.match(/^\d+\.\s/)) {
+        return <li key={i} className="ml-6 list-decimal">{line.replace(/^\d+\.\s/, '')}</li>;
+      }
+      if (line.startsWith('- ') || line.startsWith('* ')) {
+        return <li key={i} className="ml-6 list-disc">{line.substring(2)}</li>;
+      }
+      
+      // Quote
+      if (line.startsWith('> ')) {
+        return <blockquote key={i} className="border-l-4 border-purple-500 pl-4 italic text-gray-600 dark:text-gray-400 my-2">{line.substring(2)}</blockquote>;
+      }
+      
+      // Process inline markdown
+      let processedLine = line;
+      
+      // Bold
+      processedLine = processedLine.replace(/\*\*(.+?)\*\*/g, '<strong class="font-bold text-purple-700 dark:text-purple-300">$1</strong>');
+      
+      // Italic
+      processedLine = processedLine.replace(/\*(.+?)\*/g, '<em class="italic text-purple-600 dark:text-purple-400">$1</em>');
+      
+      // Inline code
+      processedLine = processedLine.replace(/`(.+?)`/g, '<code class="px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 rounded text-sm font-mono">$1</code>');
+      
+      // Links
+      processedLine = processedLine.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300" target="_blank" rel="noopener noreferrer">$1</a>');
+      
+      return <p key={i} className="leading-relaxed" dangerouslySetInnerHTML={{ __html: processedLine }} />;
+    });
+  };
+
   return (
     <TooltipProvider>
       <motion.div 
@@ -120,18 +243,42 @@ const ExpandableEditor: React.FC<ExpandableEditorProps> = ({
           transition={{ delay: 0.2 }}
           className="space-y-4"
         >
+          {/* Editor Header */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+            className="flex items-center justify-between"
+          >
+            <div className="flex items-center gap-2">
+              <PenLine className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              <h3 className="text-lg font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent tracking-tight">
+                Prompt Editor
+              </h3>
+            </div>
+          </motion.div>
+
           <motion.div 
             whileHover={{ scale: 1.002 }}
             transition={{ type: "spring", stiffness: 300 }}
-            className="relative"
+            className="relative group"
           >
+            {/* Markdown Preview Overlay - only visible when not editing */}
+            {prompt && (
+              <div className="absolute inset-0 pointer-events-none z-10 p-6 overflow-auto rounded-2xl group-focus-within:opacity-0 transition-opacity duration-200">
+                <div className="prose prose-sm prose-purple dark:prose-invert max-w-none text-sm leading-relaxed text-gray-900 dark:text-gray-100">
+                  {renderMarkdown(prompt)}
+                </div>
+              </div>
+            )}
+            
             <Textarea
               value={prompt}
               onChange={(e) => onChange(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
               disabled={disabled}
-              className="min-h-[300px] resize-none pr-16 text-sm leading-relaxed font-mono bg-white/70 dark:bg-gray-900/70 backdrop-blur-lg rounded-2xl border border-gray-200/60 dark:border-gray-700/60 shadow-xl hover:shadow-2xl transition-all duration-500 focus:border-purple-300 dark:focus:border-purple-600 focus:ring-4 focus:ring-purple-100 dark:focus:ring-purple-900/30 p-6"
+              className="min-h-[300px] resize-none pr-16 text-sm leading-relaxed font-mono bg-white/70 dark:bg-gray-900/70 backdrop-blur-lg rounded-2xl border border-gray-200/60 dark:border-gray-700/60 shadow-xl hover:shadow-2xl transition-all duration-500 focus:border-purple-300 dark:focus:border-purple-600 focus:ring-4 focus:ring-purple-100 dark:focus:ring-purple-900/30 p-6 text-transparent focus:text-current selection:bg-purple-200 dark:selection:bg-purple-800"
             />
             
             {/* Enhanced Expand Button */}
@@ -172,8 +319,8 @@ const ExpandableEditor: React.FC<ExpandableEditorProps> = ({
                     whileHover={{ scale: 1.05 }}
                     className="flex items-center gap-2"
                   >
-                    <Type className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                    <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent font-medium">{stats.characters}</span>
+                    <Type className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    <span className="bg-gradient-to-r from-purple-600 to-purple-600 bg-clip-text text-transparent font-medium">{stats.characters}</span>
                   </motion.div>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -187,8 +334,8 @@ const ExpandableEditor: React.FC<ExpandableEditorProps> = ({
                     whileHover={{ scale: 1.05 }}
                     className="flex items-center gap-2"
                   >
-                    <FileText className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    <span className="bg-gradient-to-r from-green-600 to-teal-600 bg-clip-text text-transparent font-medium">{stats.words}</span>
+                    <FileText className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    <span className="bg-gradient-to-r from-purple-600 to-purple-600 bg-clip-text text-transparent font-medium">{stats.words}</span>
                   </motion.div>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -202,12 +349,12 @@ const ExpandableEditor: React.FC<ExpandableEditorProps> = ({
                     whileHover={{ scale: 1.05 }}
                     className="flex items-center gap-2"
                   >
-                    <Hash className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                    <span className="bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent font-medium">{stats.tokens}</span>
+                    <Hash className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    <span className="bg-gradient-to-r from-purple-600 to-purple-600 bg-clip-text text-transparent font-medium">{stats.tokens}</span>
                   </motion.div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Estimated Tokens (GPT-4 compatible)</p>
+                  <p>Estimated Tokens</p>
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -250,8 +397,8 @@ const ExpandableEditor: React.FC<ExpandableEditorProps> = ({
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
                   >
-                    <DialogTitle className="flex items-center gap-3 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent text-xl font-semibold">
-                      <Zap className="w-6 h-6 text-purple-600" />
+                    <DialogTitle className="flex items-center gap-3 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent text-2xl font-bold">
+                      <Zap className="w-7 h-7 text-purple-600" />
                       Prompt Editor
                     </DialogTitle>
                   </motion.div>
@@ -263,40 +410,145 @@ const ExpandableEditor: React.FC<ExpandableEditorProps> = ({
                   transition={{ delay: 0.1, duration: 0.4 }}
                   className="flex-1 flex flex-col space-y-6 min-h-0"
                 >
-                  {/* Enhanced Expanded Stats Bar */}
+                  {/* Markdown Toolbar */}
                   <motion.div 
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.2 }}
-                    className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border"
+                    className="flex items-center justify-between p-3 bg-gradient-to-r from-purple-50 via-blue-50 to-purple-50 dark:from-purple-950/30 dark:via-blue-950/30 dark:to-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800"
                   >
-                    <div className="flex items-center gap-8">
-                      <motion.div 
-                        whileHover={{ scale: 1.05 }}
-                        className="flex items-center gap-2"
-                      >
-                        <Type className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                        <span className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{stats.characters}</span>
-                        <span className="text-sm text-gray-500">characters</span>
-                      </motion.div>
-                      
-                      <motion.div 
-                        whileHover={{ scale: 1.05 }}
-                        className="flex items-center gap-2"
-                      >
-                        <FileText className="w-5 h-5 text-green-600 dark:text-green-400" />
-                        <span className="text-lg font-semibold bg-gradient-to-r from-green-600 to-teal-600 bg-clip-text text-transparent">{stats.words}</span>
-                        <span className="text-sm text-gray-500">words</span>
-                      </motion.div>
-                      
-                      <motion.div 
-                        whileHover={{ scale: 1.05 }}
-                        className="flex items-center gap-2"
-                      >
-                        <Hash className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                        <span className="text-lg font-semibold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">{stats.tokens}</span>
-                        <span className="text-sm text-gray-500">tokens</span>
-                      </motion.div>
+                    <div className="flex items-center gap-1">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 hover:bg-purple-100 dark:hover:bg-purple-900"
+                            onClick={() => applyMarkdown('bold')}
+                          >
+                            <Bold className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Bold</p></TooltipContent>
+                      </Tooltip>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 hover:bg-purple-100 dark:hover:bg-purple-900"
+                            onClick={() => applyMarkdown('italic')}
+                          >
+                            <Italic className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Italic</p></TooltipContent>
+                      </Tooltip>
+
+                      <div className="w-px h-6 bg-purple-300 dark:bg-purple-700 mx-1" />
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 hover:bg-purple-100 dark:hover:bg-purple-900"
+                            onClick={() => applyMarkdown('h1')}
+                          >
+                            <Heading1 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Heading 1</p></TooltipContent>
+                      </Tooltip>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 hover:bg-purple-100 dark:hover:bg-purple-900"
+                            onClick={() => applyMarkdown('h2')}
+                          >
+                            <Heading2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Heading 2</p></TooltipContent>
+                      </Tooltip>
+
+                      <div className="w-px h-6 bg-purple-300 dark:bg-purple-700 mx-1" />
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 hover:bg-purple-100 dark:hover:bg-purple-900"
+                            onClick={() => applyMarkdown('list')}
+                          >
+                            <List className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Bullet List</p></TooltipContent>
+                      </Tooltip>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 hover:bg-purple-100 dark:hover:bg-purple-900"
+                            onClick={() => applyMarkdown('orderedList')}
+                          >
+                            <ListOrdered className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Numbered List</p></TooltipContent>
+                      </Tooltip>
+
+                      <div className="w-px h-6 bg-purple-300 dark:bg-purple-700 mx-1" />
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 hover:bg-purple-100 dark:hover:bg-purple-900"
+                            onClick={() => applyMarkdown('code')}
+                          >
+                            <Code className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Inline Code</p></TooltipContent>
+                      </Tooltip>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 hover:bg-purple-100 dark:hover:bg-purple-900"
+                            onClick={() => applyMarkdown('quote')}
+                          >
+                            <Quote className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Quote</p></TooltipContent>
+                      </Tooltip>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 hover:bg-purple-100 dark:hover:bg-purple-900"
+                            onClick={() => applyMarkdown('link')}
+                          >
+                            <Link className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Link</p></TooltipContent>
+                      </Tooltip>
                     </div>
 
                     <motion.div
@@ -308,11 +560,11 @@ const ExpandableEditor: React.FC<ExpandableEditorProps> = ({
                         variant="ghost"
                         size="sm"
                         disabled={!prompt.trim()}
-                        className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 hover:from-purple-100 hover:to-blue-100 dark:hover:from-purple-800/50 dark:hover:to-blue-800/50 border border-purple-200/60 dark:border-purple-700/60 rounded-lg backdrop-blur-sm transition-all duration-300"
+                        className="h-8 px-3 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300"
                       >
-                        <Copy className="w-4 h-4 text-purple-600 dark:text-purple-400 mr-2" />
-                        <span className="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent font-medium">
-                          {copied ? 'Copied!' : 'Copy All'}
+                        <Copy className="w-4 h-4 mr-2" />
+                        <span className="font-medium text-sm">
+                          {copied ? 'Copied!' : 'Copy'}
                         </span>
                       </Button>
                     </motion.div>
@@ -325,20 +577,15 @@ const ExpandableEditor: React.FC<ExpandableEditorProps> = ({
                     transition={{ delay: 0.3 }}
                     className="flex-1 min-h-0"
                   >
-                    <motion.div
-                      whileHover={{ scale: 1.001 }}
-                      transition={{ type: "spring", stiffness: 300 }}
-                      className="h-full"
-                    >
-                      <Textarea
-                        value={prompt}
-                        onChange={(e) => onChange(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        placeholder={`${placeholder}\n\nTip: Press Escape to minimize this editor.`}
-                        disabled={disabled}
-                        className="w-full h-full min-h-[400px] resize-none text-sm leading-relaxed font-mono"
-                      />
-                    </motion.div>
+                    <Textarea
+                      ref={expandedTextareaRef}
+                      value={prompt}
+                      onChange={(e) => onChange(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder={`${placeholder}\n\nTip: Press Escape to minimize this editor.`}
+                      disabled={disabled}
+                      className="w-full h-full min-h-[400px] resize-none text-sm leading-relaxed font-mono"
+                    />
                   </motion.div>
 
                   {/* Enhanced Footer Actions */}

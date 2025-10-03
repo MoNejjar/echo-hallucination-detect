@@ -1,0 +1,11 @@
+%% Prompt Refinement Loop (Authoritative Source)
+%% Render with: mmdc -i refinement-loop.mmd -o refinement-loop.svg
+
+flowchart LR
+  Write[Write / Paste Prompt] --> Analyze[Run Analysis]
+  Analyze --> Visualize[View Highlights & Scores]
+  Visualize --> Reflect{Accept?}
+  Reflect -- No --> Chat[Ask Assistant]
+  Chat --> Apply[Incorporate Suggestions]
+  Apply --> Analyze
+  Reflect -- Yes --> Export[Refined Prompt Adopted]

@@ -6,7 +6,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Sun, Moon } from 'lucide-react';
+import { Sun, MoonStar } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
 
 const DarkModeToggle: React.FC = () => {
@@ -33,7 +33,7 @@ const DarkModeToggle: React.FC = () => {
               <Sun className={`absolute inset-0 h-4 w-4 rotate-0 scale-100 transition-all duration-300 ${
                 isDark ? 'rotate-90 scale-0' : ''
               }`} />
-              <Moon className={`absolute inset-0 h-4 w-4 rotate-90 scale-0 transition-all duration-300 ${
+              <MoonStar className={`absolute inset-0 h-4 w-4 rotate-90 scale-0 transition-all duration-300 ${
                 isDark ? 'rotate-0 scale-100' : ''
               }`} />
             </div>

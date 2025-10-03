@@ -1,0 +1,25 @@
+%% Processing Pipeline Sequence (Authoritative Source)
+%% Render with: mmdc -i pipeline-sequence.mmd -o pipeline-sequence.svg
+
+sequenceDiagram
+  participant U as User
+  participant FE as Frontend
+  participant BE as FastAPI
+  participant SAN as Sanitizer
+  participant LLM as LLM Service
+  participant MODEL as OpenAI GPT
+  participant SCORE as Deterministic Scorer
+
+  U->>FE: Click "Analyze"
+  FE->>BE: POST /api/analyze { prompt }
+  BE->>SAN: sanitize(prompt)
+  SAN-->>BE: clean_prompt
+  BE->>LLM: build+send analysis prompt
+  LLM->>MODEL: completion request
+  MODEL-->>LLM: raw structured response
+  LLM-->>BE: parsed tokens + XML risk block
+  BE->>SCORE: apply heuristic scoring
+  SCORE-->>BE: normalized risk metrics
+  BE-->>FE: JSON artifacts
+  FE->>FE: Map RISK_n → color classes
+  FE-->>U: Highlighted analysis view

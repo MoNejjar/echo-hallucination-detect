@@ -1,0 +1,30 @@
+%% System Topology Diagram (Authoritative Source)
+%% Render with: mmdc -i topology.mmd -o topology.svg
+
+flowchart LR
+  subgraph Browser[Client – React / Vite]
+    UI[Prompt Editor & Panels]
+    HL[Highlight Renderer]
+    Chat[Refinement Chat]
+    APIClient[Typed API Layer]
+  end
+
+  subgraph API[FastAPI Backend]
+    Router[Route Layer /api/analyze /api/refine]
+    Orchestrator[Analysis Orchestrator]
+    LLMService[LLM Service]
+    Scorer[Deterministic Scoring]
+    Sanitizer[Input Sanitizer]
+    AssistantSvc[Refinement Assistant]
+    Logger[Structured Logger]
+  end
+
+  subgraph OpenAI[External LLM]
+    GPT[(Model)]
+  end
+
+  UI --> APIClient --> Router --> Orchestrator --> Sanitizer
+  Orchestrator --> LLMService --> GPT --> LLMService --> Orchestrator
+  Orchestrator --> Scorer --> Orchestrator --> Router --> APIClient --> HL
+  Chat --> APIClient --> AssistantSvc --> LLMService
+  Logger -. observability .- Router

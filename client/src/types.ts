@@ -2,7 +2,7 @@ export interface HighlightSegment {
   start: number;
   end: number;
   text: string;
-  riskLevel: 'high' | 'medium' | 'low';
+  riskLevel: 'critical' | 'high' | 'medium' | 'low';
   confidence: number;
   reason: string;
   category: string;
@@ -34,10 +34,42 @@ export interface ChatMessage {
   id?: string;
 }
 
-// Risk Assessment types
+// Risk Assessment types - PRD-based structure
+export interface PromptViolation {
+  rule_id: string;
+  pillar: string;
+  severity: 'critical' | 'high' | 'medium';
+  span: string;
+}
+
+export interface MetaViolation {
+  rule_id: string;
+  pillar: string;
+  severity: 'critical' | 'high' | 'medium';
+  explanation: string;
+}
+
+export interface PromptRiskAssessment {
+  prompt_PRD: number | string;  // Can be number or empty string from backend
+  prompt_violations: PromptViolation[];
+  prompt_overview: string;
+}
+
+export interface MetaRiskAssessment {
+  meta_PRD: number | string;  // Can be number or empty string from backend
+  meta_violations: MetaViolation[];
+  meta_overview: string;
+}
+
+export interface RiskAssessment {
+  prompt: PromptRiskAssessment;
+  meta: MetaRiskAssessment;
+}
+
+// Legacy types for backward compatibility (deprecated)
 export interface RiskCriterion {
   name: string;
-  risk: 'high' | 'medium' | 'low';
+  risk: 'critical' | 'high' | 'medium' | 'low';
   percentage: number;
   description: string;
 }
@@ -47,11 +79,6 @@ export interface OverallAssessment {
   description: string;
 }
 
-export interface RiskAssessment {
-  criteria: RiskCriterion[];
-  overall_assessment: OverallAssessment;
-}
-
 // Risk Token types for detailed token analysis
 export interface RiskToken {
   id: string;
@@ -59,8 +86,11 @@ export interface RiskToken {
   reasoning: string;
   classification: 'Referential Ambiguity & Quantification' | 'Context Sufficiency & Integrity' | 'Instruction Structure & Delimitation' | 'Verifiability & Factuality' | 'Reasoning & Uncertainty Handling' | 'Other';
   mitigation: string;
-  risk_level?: 'high' | 'medium' | 'low';
+  risk_level?: 'critical' | 'high' | 'medium' | 'low';
 }
+
+// Analysis mode type
+export type AnalysisMode = 'faithfulness' | 'factuality' | 'both';
 
 // Backend API response types
 export interface AnalyzePromptResponse {

@@ -1,254 +1,279 @@
-# Echo Hallucination Detection - Architecture
+<div align="center">
 
-## Overview
+# 📐 Echo Hallucination Detection – System Architecture
 
-Echo Hallucination Detection is a full-stack web application that provides real-time analysis of AI prompts to identify potential hallucination risks using advanced LLM-based assessment techniques.
+*An end‑to‑end prompt risk intelligence and refinement platform for reducing LLM hallucinations.*
 
-## System Architecture
+</div>
 
-### High-Level Architecture
+---
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│                 │    │                 │    │                 │
-│   React Client  │◄──►│  FastAPI Server │◄──►│   OpenAI API    │
-│   (Frontend)    │    │   (Backend)     │    │     (LLM)       │
-│                 │    │                 │    │                 │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │
-         │                       │
-         ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐
-│                 │    │                 │
-│   Static Files  │    │  Configuration  │
-│   (Assets)      │    │   (.env files)  │
-│                 │    │                 │
-└─────────────────┘    └─────────────────┘
-```
+## 1. Executive Overview
 
-## Frontend Architecture (React + TypeScript)
+Echo transforms an unstructured natural‑language prompt into a **structured risk profile**, annotated **high / medium risk spans**, and **actionable refinement guidance**—all in a tight human‑in‑the‑loop workflow.
 
-### Technology Stack
-- **Framework**: React 18 with TypeScript
-- **Build Tool**: Vite
-- **Styling**: Tailwind CSS + Shadcn/UI components
-- **State Management**: React hooks (useState, useEffect)
-- **HTTP Client**: Fetch API
-- **Icons**: Lucide React
+The platform is architected as a **React + TypeScript single‑page client** backed by a **FastAPI service layer** that orchestrates an **LLM analysis pipeline**, applies **deterministic scoring heuristics**, and returns **machine + human readable artifacts** for visualization and iterative improvement.
 
-### Component Structure
-```
-src/
-├── components/
-│   ├── ui/              # Reusable UI components
-│   │   ├── button.tsx
-│   │   ├── card.tsx
-│   │   ├── dialog.tsx
-│   │   └── ...
-│   ├── AnalysisSection.tsx    # Main analysis display
-│   ├── AnalysisView.tsx       # Analysis results view
-│   ├── ChatPanel.tsx          # Chat interface
-│   ├── Editor.tsx             # Text editor with file upload
-│   ├── Sidebar.tsx            # Navigation sidebar
-│   └── ThemeProvider.tsx      # Dark/light mode
-├── lib/
-│   ├── api.ts          # API client
-│   └── utils.ts        # Utility functions
-├── types.ts            # TypeScript type definitions
-└── App.tsx            # Main application component
-```
+Key design principles:
 
-### Key Frontend Features
-- **Real-time Analysis**: Live prompt analysis with progress indicators
-- **Expandable Risk Sections**: Collapsible UI for detailed risk criteria
-- **File Upload**: Drag-and-drop or click-to-upload prompt files
-- **Chat Interface**: Interactive prompt refinement with LLM assistance
-- **Theme Support**: Dark/light mode with system preference detection
-- **Responsive Design**: Mobile-first approach with Tailwind CSS
+| Principle | Implementation Expression |
+|-----------|---------------------------|
+| Determinism over opacity | Hybrid: LLM extraction + rule post‑processing |
+| Fast feedback loop | Stateless idempotent `/analyze` flow + lightweight streaming `/refine` |
+| Progressive disclosure | Collapsible UI sections & semantic grouping |
+| Traceable highlighting | Stable `RISK_n` tag emission → structured token list → color map |
+| Evolvable scoring model | Criteria array + pluggable heuristics |
 
-## Backend Architecture (FastAPI + Python)
+---
 
-### Technology Stack
-- **Framework**: FastAPI
-- **Language**: Python 3.13+
-- **HTTP Server**: Uvicorn
-- **LLM Integration**: OpenAI GPT API
-- **Data Validation**: Pydantic
-- **Environment**: python-dotenv
+## 2. High‑Level System Topology
 
-### Project Structure
-```
-server/
-├── routes/
-│   ├── analyze.py      # Prompt analysis endpoints
-│   ├── health.py       # Health check endpoints
-│   ├── refine.py       # Prompt refinement endpoints
-│   └── refine_stream.py # Streaming refinement
-├── services/
-│   ├── llm.py          # OpenAI LLM service
-│   ├── checker.py      # Analysis logic
-│   ├── assistant.py    # Chat assistant
-│   └── sanitizer.py    # Input sanitization
-├── models/
-│   ├── prompt.py       # Prompt data models
-│   └── response.py     # Response data models
-├── utils/
-│   ├── logging.py      # Logging configuration
-│   └── highlight_parser.py # Text parsing utilities
-├── config.py           # Configuration management
-└── main.py            # FastAPI application entry point
+Canonical Mermaid source: `docs/diagrams/topology.mmd`
+
+```mermaid
+%% (Inline copy for immediate readability – edit the .mmd source.)
+flowchart LR
+  subgraph Browser[Client – React / Vite]
+    UI[Prompt Editor & Panels]
+    HL[Highlight Renderer]
+    Chat[Refinement Chat]
+    APIClient[Typed API Layer]
+  end
+
+  subgraph API[FastAPI Backend]
+    Router[Route Layer<br/>/api/analyze /api/refine]
+    Orchestrator[Analysis Orchestrator]
+    LLMService[LLM Service]
+    Scorer[Deterministic Scoring]
+    Sanitizer[Input Sanitizer]
+    AssistantSvc[Refinement Assistant]
+    Logger[Structured Logger]
+  end
+
+  subgraph OpenAI[External LLM]
+    GPT[(Model)]
+  end
+
+  UI --> APIClient --> Router --> Orchestrator --> Sanitizer
+  Orchestrator --> LLMService --> GPT --> LLMService --> Orchestrator
+  Orchestrator --> Scorer --> Orchestrator --> Router --> APIClient --> HL
+  Chat --> APIClient --> AssistantSvc --> LLMService
+  Logger -. observability .- Router
 ```
 
-### API Endpoints
+**Data Products Returned:**
+1. `annotated_prompt` – Original text with stable `<RISK_i> … </RISK_i>` span markers.
+2. `risk_tokens[]` – Array containing: id (`RISK_i`), text, classification rule(s), risk_level.
+3. `risk_assessment` – Structured criteria + overall percentage.
+4. `analysis_summary` – Narrative condensation for quick human scanning.
 
-#### Analysis Endpoints
-- `POST /api/analyze/` - Analyze prompt for hallucination risks
-- `GET /api/health/` - Health check
+---
 
-#### Refinement Endpoints
-- `POST /api/refine/` - Get prompt refinement suggestions
-- `GET /api/refine/stream` - Streaming refinement (SSE)
+## 3. Detailed Processing Pipeline
 
-#### Debug Endpoints (Development)
-- `GET /api/debug/test` - Basic connectivity test
-- `GET /api/debug/env` - Environment configuration check
+Canonical Mermaid source: `docs/diagrams/pipeline-sequence.mmd`
 
-## Data Models
+```mermaid
+%% (Inline copy – edit the .mmd source for changes.)
+sequenceDiagram
+  participant U as User
+  participant FE as Frontend
+  participant BE as FastAPI
+  participant SAN as Sanitizer
+  participant LLM as LLM Service
+  participant MODEL as OpenAI GPT
+  participant SCORE as Deterministic Scorer
 
-### Risk Assessment Structure
-```typescript
-interface RiskCriterion {
-  name: string;           // Criterion name (e.g., "Ambiguous References")
-  risk: 'high' | 'medium' | 'low';  // Risk level
-  percentage: number;     // Risk percentage (0-100)
-  description: string;    // Detailed description
-}
-
-interface OverallAssessment {
-  percentage: number;     // Overall risk percentage
-  description: string;    // Summary assessment
-}
-
-interface RiskAssessment {
-  criteria: RiskCriterion[];
-  overall_assessment: OverallAssessment;
-}
+  U->>FE: Click "Analyze"
+  FE->>BE: POST /api/analyze { prompt }
+  BE->>SAN: sanitize(prompt)
+  SAN-->>BE: clean_prompt
+  BE->>LLM: build+send analysis prompt
+  LLM->>MODEL: completion request
+  MODEL-->>LLM: raw structured response
+  LLM-->>BE: parsed tokens + XML risk block
+  BE->>SCORE: apply heuristic scoring
+  SCORE-->>BE: normalized risk metrics
+  BE-->>FE: JSON artifacts
+  FE->>FE: Map RISK_n → color classes
+  FE-->>U: Highlighted analysis view
 ```
 
-### API Response Format
-```typescript
-interface AnalyzePromptResponse {
-  annotated_prompt: string;        // HTML-highlighted prompt
-  analysis_summary: string;        // Human-readable summary
-  risk_assessment?: RiskAssessment; // Structured risk data
-}
-```
+### Core Phases
+| Phase | Responsibility | Guarantees |
+|-------|----------------|------------|
+| Sanitization | Strip control chars / trim / ensure UTF‑8 | Prevent injection & noise |
+| LLM Extraction | Produce raw spans + XML criteria | Structured envelope contract |
+| Parsing | Convert XML + tagged markup to Python objects | Fault‑tolerant fallback |
+| Deterministic Scoring | Apply rule weighting / normalization | Stable numerical outputs |
+| Token Binding | FE binds `<RISK_n>` tags to `risk_tokens` | Deterministic highlighting |
 
-## LLM Integration
+---
 
-### OpenAI GPT Integration
-- **Model**: GPT-4 (configurable)
-- **Purpose**: 
-  - Hallucination risk assessment
-  - Prompt improvement suggestions
-  - Interactive chat assistance
+## 4. Backend Service Layer
 
-### XML-Structured Responses
-The system uses XML formatting to extract structured data from LLM responses:
+| Module | File | Responsibility | Notable Details |
+|--------|------|----------------|-----------------|
+| App entry | `server/main.py` | App factory, CORS, router registration | Mounts `/api/*` namespace |
+| Routes – analysis | `routes/analyze.py` | Accept prompt, orchestrate pipeline | Returns all analysis artifacts |
+| Routes – refinement | `routes/refine.py`, `routes/refine_stream.py` | Iterative improvement (sync + streaming) | SSE capability (future) |
+| LLM service | `services/llm.py` | Prompt construction, model call, XML + span parsing | Defensive parsing + debug logging |
+| Assistant | `services/assistant.py` | Conversational refinement persona | Stateless; can evolve with memory layer |
+| Checker (if present) | `services/checker.py` | Additional rule passes / heuristics | Extensible rule registry |
+| Sanitizer | `services/sanitizer.py` | Input normalization | Minimal transformations |
+| Logging | `utils/logging.py` | Centralized log formatting | Future: structured JSON logs |
+| Highlight parser | `utils/highlight_parser.py` | Legacy span tag support | Superseded by `<RISK_n>` pattern |
+| Models | `models/prompt.py`, `models/response.py` | Pydantic contracts | Enforce response shape |
+
+### LLM Contract Strategy
+The system uses a *constrained XML + tag envelope* to force model outputs into a machine‑parsable schema. Example excerpt:
 
 ```xml
 <RISK_ASSESSMENT>
-  <CRITERION name="Ambiguous References" risk="high" percentage="85">
-    Pronouns and unclear subject references that may lead to confusion
-  </CRITERION>
-  <CRITERION name="Context Completeness" risk="medium" percentage="60">
-    Sufficient background information provided
-  </CRITERION>
-  <OVERALL_ASSESSMENT percentage="72">
-    The prompt shows high potential for hallucination due to ambiguous references
-  </OVERALL_ASSESSMENT>
+  <CRITERIA>
+    <CRITERION name="Ambiguity-Vagueness" risk="high" percentage="100">
+      Multiple vague referents lacking anchors.
+    </CRITERION>
+  </CRITERIA>
+  <OVERALL_ASSESSMENT percentage="60">High ambiguity concentration.</OVERALL_ASSESSMENT>
 </RISK_ASSESSMENT>
+
+Annotated Prompt:
+... learn about <RISK_1>java framework quarkus</RISK_1> and how it can ...
 ```
 
-## Security Considerations
+### Deterministic Scoring
+After LLM extraction, a deterministic layer normalizes and harmonizes risk categories:
 
-### Environment Variables
-- API keys stored in `.env` files (excluded from git)
-- Separate configuration for development/production
-- Environment validation on startup
-
-### CORS Configuration
-- Configured for development (localhost)
-- Should be restricted for production deployment
-
-### Input Sanitization
-- HTML sanitization for user inputs
-- File upload validation
-- Rate limiting (recommended for production)
-
-## Deployment Architecture
-
-### Development Environment
-```
-Frontend (Vite): http://localhost:5174
-Backend (Uvicorn): http://localhost:8001
+```text
+Input: Raw criteria (varying naming / %)
+→ Map to canonical set
+→ Clamp 0–100 & severity weighting
+→ Compute overall (weighted mean + dominance heuristic)
+→ Emit final `risk_assessment`
 ```
 
-### Production Considerations
-- **Frontend**: Build static files, serve via CDN or web server
-- **Backend**: Deploy on cloud platform (AWS, GCP, Azure)
-- **Environment**: Use container orchestration (Docker/Kubernetes)
-- **Database**: Consider adding persistent storage for analytics
-- **Caching**: Implement Redis for response caching
-- **Monitoring**: Add logging and monitoring services
+Fallback behavior: if XML missing → partial degrade (no crash) & reduced scoring.
 
-## Performance Considerations
+---
 
-### Frontend Optimizations
-- Code splitting and lazy loading
-- Image optimization
-- Bundle size optimization with Vite
+## 5. Frontend Architecture
 
-### Backend Optimizations
-- Async/await for non-blocking operations
-- Connection pooling for external APIs
-- Response caching for repeated requests
-- Background task processing for long-running analyses
+### Component Zones
+| Zone | Components | Role |
+|------|------------|------|
+| Prompt Workspace | `Editor`, `Toolbar` | Input acquisition & file load |
+| Analysis Display | `AnalysisSection`, `AnalysisView`, `Progress` | Visualization of structured results |
+| Risk Token Layer | Internal render function in `App.tsx` | Maps `<RISK_n>` tags to spans with color classes |
+| Interaction / Refinement | `ChatPanel`, `Sidebar` | Iterative improvement via assistant |
+| Theming & UI kit | `ThemeProvider`, `components/ui/*` | Consistent styling / dark mode |
 
-## Scalability
+### Highlight Rendering Logic
+1. Receive `annotated_prompt` + `risk_tokens[]`.
+2. Split on regex: `(<RISK_\d+>.*?<\/RISK_\d+>)`.
+3. Extract `riskId` (numeric) → reconstruct `RISK_${riskId}`.
+4. Lookup matching token object.
+5. Map `risk_level` → Tailwind class set:
+   - High → red palette
+   - Medium → yellow palette
+   - Low / unknown → no highlight (neutral)
 
-### Horizontal Scaling
-- Stateless backend design enables load balancing
-- Frontend can be served from CDN
-- Database sharding for user data (if added)
+### Resilience Features
+| Scenario | Mitigation |
+|----------|------------|
+| Missing token object | Fallback to neutral span |
+| Unexpected risk level | Default to neutral & log |
+| Partial analysis | Render available sections only |
 
-### Vertical Scaling
-- Increase server resources for LLM processing
-- Memory optimization for large prompt handling
-- CPU optimization for text processing algorithms
+---
 
-## Monitoring and Observability
+## 6. Data Contracts (TypeScript)
 
-### Logging
-- Structured logging with correlation IDs
-- Error tracking and alerting
-- Performance metrics collection
+```ts
+export interface RiskToken {
+  id: string;              // RISK_1 … RISK_n (stable join key)
+  text: string;            // Span content
+  risk_level: 'high' | 'medium' | 'low';
+  classification?: string; // Rule family or composite label
+  rule_ids?: number[];     // Underlying guideline rule references
+}
 
-### Health Checks
-- Application health endpoints
-- Database connectivity checks
-- External service dependency monitoring
+export interface RiskCriterion {
+  name: string;
+  risk: 'high' | 'medium' | 'low';
+  percentage: number;
+  description: string;
+}
 
-## Future Enhancements
+export interface OverallAssessment {
+  percentage: number;
+  description: string;
+}
 
-### Technical Improvements
-- Add database layer for prompt history
-- Implement user authentication and authorization
-- Add real-time collaboration features
-- Integrate multiple LLM providers
+export interface RiskAssessment {
+  criteria: RiskCriterion[];
+  overall_assessment: OverallAssessment;
+}
 
-### Feature Enhancements
-- Batch prompt analysis
-- Custom risk criteria configuration
-- Export analysis reports
-- Integration with popular writing tools
+export interface AnalyzePromptResponse {
+  annotated_prompt: string;
+  analysis_summary: string;
+  risk_assessment?: RiskAssessment;
+  risk_tokens?: RiskToken[];
+}
+```
+
+---
+
+## 7. Operational Concerns
+
+### Security & Hardening
+| Vector | Current | Future Hardening |
+|--------|---------|------------------|
+| Secrets | `.env` + dotenv | Vault / Secret Manager |
+| CORS | Dev‑only permissive | Origin allow‑list |
+| Input | Basic sanitize | Length caps, language detection |
+| Abuse | None | Rate limiting / API keys |
+| Transport | (local HTTP) | Enforce HTTPS in prod |
+
+### Observability
+Planned migration toward structured JSON logs → ingestion by ELK / OpenTelemetry exporters. Add span‑level timings around LLM round‑trip latency & parsing costs.
+
+---
+
+## 8. Performance & Scalability Posture
+
+| Layer | Current Approach | Scale Strategy |
+|-------|------------------|----------------|
+| Frontend | SPA + on‑demand fetch | CDN + code splitting + prefetch hints |
+| API | Stateless FastAPI | Horizontal pods + autoscaling |
+| LLM Calls | Direct OpenAI | Add provider abstraction + caching |
+| Token Mapping | Pure client compute | Memoization + virtualized rendering if large |
+| Future Persistence | In‑memory only | Postgres for history + Redis cache |
+
+Pluggable queue (Celery / RQ) possible for long‑running multi‑prompt batch analysis.
+
+---
+
+## 9. Evolution Roadmap (Excerpt)
+
+| Theme | Next Steps |
+|-------|------------|
+| Multi‑Model | Add Anthropic / local LLM adapter layer |
+| History | Persist prompt + diffs + risk deltas |
+| Evaluation | Add benchmark harness for scoring drift |
+| Collaboration | Shared sessions & annotation comments |
+| Explainability | Span‑level causal chains per rule |
+
+---
+
+## 10. Summary
+
+Echo’s architecture balances **LLM flexibility** with **deterministic traceability**, ensuring each highlighted risk token can be traced from **model emission → structured parse → UI binding**. The system is intentionally modular to support rapid iteration in a research / thesis context while leaving clear seams for production‑grade hardening.
+
+> *“Every hallucination avoided begins with a clearer prompt.”*
+
+---
+
+**See also:** `docs/user_flow.md` for experiential journey & interaction narrative.
+

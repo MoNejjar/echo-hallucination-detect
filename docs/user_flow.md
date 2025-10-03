@@ -1,8 +1,16 @@
-# User Flow Documentation
+<div align="center">
 
-## Overview
+# 🧭 Echo – User Experience & Interaction Flow
 
-This document outlines the complete user journey through the Echo Hallucination Detection application, from initial access to prompt refinement and analysis interpretation.
+*From raw prompt → structured risk intelligence → refined, hallucination‑resistant instruction.*
+
+</div>
+
+---
+
+## 1. Purpose
+
+This document captures the **end‑to‑end experiential journey** of a user inside Echo: *authoring*, *analyzing*, *interpreting*, *refining*, and *iterating* on prompts to systematically reduce hallucination risk. It complements system internals in `architecture.md` by focusing on **behavioral flow**, **cognitive touch‑points**, and **feedback mechanics**.
 
 ## Table of Contents
 - [Application Access](#application-access)
@@ -14,7 +22,7 @@ This document outlines the complete user journey through the Echo Hallucination 
 - [Advanced Features](#advanced-features)
 - [User Personas and Scenarios](#user-personas-and-scenarios)
 
-## Application Access
+## 2. Application Access
 
 ### 1. Initial Landing
 ```
@@ -24,13 +32,15 @@ User accesses: http://localhost:5174 (development)
 └── Welcome state shows placeholder text and instructions
 ```
 
-### 2. First-Time User Experience
-- **Loading State**: Smooth application initialization
-- **Interface Overview**: Clean, intuitive layout with clear action buttons
-- **Guidance**: Placeholder text provides usage hints
-- **Accessibility**: Responsive design adapts to screen size
+### 2. First-Time Experience Goals
+| Aspect | Design Intent | Outcome |
+|--------|---------------|---------|
+| Cognitive Load | Minimize initial branching | User focuses on a single “Write or Paste Prompt” task |
+| Trust Building | Immediate structure + neutral tone | Encourages experimentation |
+| Discoverability | Subtle affordances (toolbar, chat tab) | Progressive exploration |
+| Theming | Honor system preference | Reduces friction & fatigue |
 
-## Main Interface Overview
+## 3. Main Interface Overview
 
 ### Layout Structure
 ```
@@ -54,15 +64,19 @@ User accesses: http://localhost:5174 (development)
 └───────────────┴─────────────────────────────────────────────┘
 ```
 
-### Interactive Elements
-- **Collapsible Sidebar**: Expandable navigation (default: collapsed)
-- **Resizable Panels**: Adjustable content areas
-- **Theme Toggle**: Instant dark/light mode switching
-- **Action Buttons**: Clear visual feedback and states
+### Interactive Primitives
+| Element | Primary Role | Secondary Behavior |
+|---------|--------------|--------------------|
+| Sidebar | Mode switching (Analysis / Chat) | Future: settings / history |
+| Editor Area | Prompt capture | File content ingestion |
+| Toolbar | Actions (Upload / Analyze) | Could host shortcuts & presets |
+| Analysis Panels | Structured result reveal | Progressive disclosure via collapse |
+| Chat Panel | Iterative refinement loop | Learning scaffold |
+| Theme Toggle | A11y / preference control | Persisted via localStorage |
 
-## Prompt Input Methods
+## 4. Prompt Input Methods
 
-### Method 1: Direct Text Input
+### Method A: Direct Text Input
 
 #### Flow:
 ```
@@ -79,7 +93,7 @@ User accesses: http://localhost:5174 (development)
 - **Syntax Highlighting**: Future enhancement placeholder
 - **Character Limits**: Visual feedback for optimal prompt length
 
-### Method 2: File Upload
+### Method B: File Upload
 
 #### Flow:
 ```
@@ -105,7 +119,15 @@ User accesses: http://localhost:5174 (development)
 - **Content**: Text encoding verification
 - **Error Handling**: Clear error messages for invalid files
 
-## Analysis Process
+## 5. Analysis Process
+
+### Layered Mental Model
+| User Perception | Actual System Action |
+|-----------------|----------------------|
+| “It’s thinking…” | Sanitization + prompt shaping |
+| “Evaluating…” | Model call + XML / tag extraction |
+| “Scoring…” | Deterministic normalization & weighting |
+| “Rendering…” | Token binding & UI materialization |
 
 ### Step 1: Initiation
 ```
@@ -125,7 +147,7 @@ Progress Animation Sequence:
 └── 90-100%: "Finalizing results..."
 ```
 
-### Step 3: Backend Processing
+### Step 3: Backend Processing (Expanded)
 ```
 Backend Workflow:
 1. Receive prompt via POST /api/analyze/
@@ -145,9 +167,9 @@ Results Rendering:
 └── Interactive elements become available
 ```
 
-## Results Interpretation
+## 6. Results Interpretation
 
-### Risk Assessment Display
+### 6.1 Risk Assessment Display
 
 #### Overall Risk Score
 ```
@@ -193,7 +215,7 @@ Expanded State:
 └─────────────────────────────────────┘
 ```
 
-### High Risk Tokens Section
+### 6.2 High & Medium Risk Span Visualization
 ```
 Token Identification Display:
 ┌─────────────────────────────────────┐
@@ -206,7 +228,7 @@ Token Identification Display:
 └─────────────────────────────────────┘
 ```
 
-### User Interaction Patterns
+### 6.3 Interaction Patterns
 
 #### Primary Actions:
 1. **Expand/Collapse Sections**: Toggle detailed views
@@ -219,9 +241,9 @@ Token Identification Display:
 2. **Share Assessment**: Collaborate with team members
 3. **Save Session**: Bookmark for later reference
 
-## Prompt Refinement
+## 7. Prompt Refinement Loop
 
-### Chat-Based Refinement Flow
+### 7.1 Chat-Based Refinement Flow
 
 #### Step 1: Chat Initiation
 ```
@@ -263,7 +285,7 @@ Typical Chat Flow:
 6. Iterative improvement continues
 ```
 
-### Refinement Strategies by Risk Type
+### 7.2 Strategy Patterns by Risk Type
 
 #### High Risk - Ambiguous References
 ```
@@ -290,7 +312,21 @@ Assistant Response:
 - Expected output format"
 ```
 
-### Implementation Flow
+### 7.3 Iteration Loop – Reinforcement Cycle
+
+Canonical Mermaid source: `docs/diagrams/refinement-loop.mmd`
+
+```mermaid
+%% (Inline copy – edit the .mmd source for changes.)
+flowchart LR
+   Write[Write / Paste Prompt] --> Analyze[Run Analysis]
+   Analyze --> Visualize[View Highlights & Scores]
+   Visualize --> Reflect{Accept?}
+   Reflect -- No --> Chat[Ask Assistant]
+   Chat --> Apply[Incorporate Suggestions]
+   Apply --> Analyze
+   Reflect -- Yes --> Export[Refined Prompt Adopted]
+```
 ```
 Refinement Process:
 1. User receives suggestions via chat
@@ -299,9 +335,9 @@ Refinement Process:
 4. Repeat until acceptable risk level achieved
 ```
 
-## Advanced Features
+## 8. Advanced Features
 
-### Theme Customization
+### 8.1 Theme Customization
 
 #### Theme Toggle Flow:
 ```
@@ -317,7 +353,7 @@ Refinement Process:
 - **Dark Mode**: Reduced eye strain, modern aesthetic
 - **System**: Follows OS preference automatically
 
-### Keyboard Shortcuts
+### 8.2 Keyboard Shortcuts
 
 #### Text Editor:
 - `Ctrl+A`: Select all text
@@ -330,7 +366,7 @@ Refinement Process:
 - `Esc`: Close modals/dialogs
 - `F1`: Open help documentation
 
-### Responsive Design
+### 8.3 Responsive Design
 
 #### Desktop (>1024px):
 - Full sidebar visible
@@ -347,7 +383,7 @@ Refinement Process:
 - Single-column layout
 - Simplified interface elements
 
-## User Personas and Scenarios
+## 9. User Personas & Scenarios
 
 ### Persona 1: Academic Researcher
 
@@ -395,9 +431,56 @@ Refinement Process:
 
 ### Persona 3: Business Analyst
 
-#### Background:
-- Jennifer Park, data analyst
-- Uses AI for business intelligence reports
+#### Background
+*Jennifer Park – domain analyst needing reliable model outputs for reporting.*
+
+#### Motivations
+| Need | System Support |
+|------|----------------|
+| Avoid misleading summaries | Clear high‑risk span marking |
+| Rapid iteration | Fast re‑analysis loop |
+| Justification for edits | Criteria explanations |
+
+#### Typical Flow
+1. Pastes unstructured draft request.
+2. Identifies vague “business impact” phrases flagged red.
+3. Uses chat to convert them into measurable KPIs.
+4. Re‑analyzes → risk drops from 65% → 35%.
+5. Exports final prompt to documentation space.
+
+---
+
+## 10. Cognitive Design Considerations
+
+| UX Challenge | Mitigation | Result |
+|--------------|-----------|--------|
+| Invisible model heuristics | Explicit span tags + criteria names | Builds trust |
+| Overwhelm on first result | Collapsible panels | Progressive assimilation |
+| Unclear next action | Highlighted high‑risk tokens first | Action prioritization |
+| Ambiguous improvement path | Assistant gives before/after examples | Teaches pattern |
+
+---
+
+## 11. Future UX Extensions
+
+| Idea | Benefit |
+|------|---------|
+| History timeline | Track quality evolution / deltas |
+| Multi‑prompt batch mode | Benchmark alternatives rapidly |
+| Inline editing within highlights | Reduce context switching |
+| Risk criterion tuning | Adapt system to domain vocabulary |
+| Export to PDF / Markdown | Thesis / audit readiness |
+
+---
+
+## 12. Summary
+
+Echo’s user flow intentionally mirrors a **scientific refinement loop**: *observe → hypothesize → apply → re‑measure*. By surfacing **why** each span is risky and providing a low‑friction path to improvement, the system shortens the cognitive distance between **problem detection** and **prompt mastery**.
+
+> *“Clarity is not decorative; it is defensive.”*
+
+See: `architecture.md` for the underlying technical mechanics.
+
 - Needs reliable, fact-based outputs
 
 #### Typical Flow:
