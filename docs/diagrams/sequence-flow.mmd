@@ -1,0 +1,53 @@
+```mermaid
+sequenceDiagram
+    participant User as 👤 User
+    participant Client as 🖥️ React Client
+    participant API as ⚡ FastAPI Server
+    participant Facade as 🎭 OpenAI LLM Facade
+    participant Analyzer as 🔍 Analyzer Agent
+    participant OpenAI as 🤖 OpenAI GPT-4
+    participant Scorer as 📊 PRD Scorer
+    
+    User->>Client: Write/Paste Prompt
+    User->>Client: Click "Analyze Prompt"
+    Client->>API: POST /api/analyze/<br/>{prompt, analysis_mode}
+    
+    API->>Facade: analyze_prompt()
+    Facade->>Analyzer: analyze_prompt()
+    
+    Analyzer->>Analyzer: Load Guidelines XML
+    Analyzer->>Analyzer: Build System Prompt
+    
+    Analyzer->>OpenAI: Chat Completion Request
+    Note over OpenAI: LLM Analysis<br/>(2-5 seconds)
+    OpenAI-->>Analyzer: Structured Response<br/>(XML + JSON)
+    
+    Analyzer->>Analyzer: Parse Response
+    Analyzer->>Analyzer: Extract Risk Tokens
+    Analyzer->>Scorer: Calculate PRD Scores
+    Scorer-->>Analyzer: PRD Values
+    
+    Analyzer-->>Facade: Analysis Result
+    Facade-->>API: Analysis Result
+    API-->>Client: JSON Response<br/>{annotated_prompt, risk_tokens, assessment}
+    
+    Client->>Client: Parse Risk Tokens
+    Client->>Client: Apply Highlights
+    Client->>User: Display Analysis
+    
+    opt User Wants Refinement
+        User->>Client: Open Chat
+        User->>Client: Ask for Suggestions
+        Client->>API: POST /api/refine/stream/
+        API->>Facade: chat_stream()
+        Facade->>OpenAI: Streaming Request
+        OpenAI-->>Client: SSE Stream
+        Client->>User: Display Suggestions
+    end
+    
+    opt User Wants to Re-Analyze
+        User->>Client: Update Prompt
+        User->>Client: Click "Re-Analyze"
+        Note over Client,OpenAI: Repeat Analysis Flow
+    end
+```

@@ -1,0 +1,40 @@
+```mermaid
+flowchart TB
+    subgraph Client["🖥️ React Frontend"]
+        UI[UI Components<br/>Tailwind + shadcn/ui]
+        Editor[Monaco Editor<br/>Prompt Input]
+        Viz[Visualization Layer<br/>Risk Highlights]
+    end
+    
+    subgraph Server["⚡ FastAPI Backend"]
+        Routes[API Routes<br/>/analyze /refine]
+        Facade[OpenAI LLM Facade<br/>67 lines]
+    end
+    
+    subgraph Agents["🤖 Specialized Agents"]
+        Analyzer[Analyzer Agent<br/>Hallucination Detection]
+        Conversation[Conversation Agent<br/>Prompt Refinement]
+    end
+    
+    subgraph External["🌐 External Services"]
+        OpenAI[OpenAI GPT-4<br/>Analysis & Chat]
+    end
+    
+    UI --> Editor
+    Editor --> Routes
+    Routes --> Facade
+    Facade --> Analyzer
+    Facade --> Conversation
+    Analyzer --> OpenAI
+    Conversation --> OpenAI
+    OpenAI --> Analyzer
+    OpenAI --> Conversation
+    Analyzer --> Routes
+    Conversation --> Routes
+    Routes --> Viz
+    
+    style Client fill:#667eea,stroke:#764ba2,stroke-width:3px,color:#fff
+    style Server fill:#f093fb,stroke:#f5576c,stroke-width:3px,color:#fff
+    style Agents fill:#4facfe,stroke:#00f2fe,stroke-width:3px,color:#fff
+    style External fill:#43e97b,stroke:#38f9d7,stroke-width:3px,color:#fff
+```
