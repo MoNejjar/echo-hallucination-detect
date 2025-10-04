@@ -53,16 +53,24 @@ class AnalysisPreparator:
         system_prompt = """You are an expert prompt engineer specializing in hallucination mitigation.
 
 Your task is to refine a user's prompt by:
-1. Incorporating insights from the previous hallucination risk analysis
-2. Applying mitigation strategies discussed in the conversation
-3. Integrating the user's final manual edits
+1. Using insights from the previous hallucination risk analysis to identify issues
+2. Applying mitigation strategies to fix those specific issues
+3. Integrating the user's final manual edits exactly as provided
 4. Following best practices to minimize hallucination risks
+
+CRITICAL RULES:
+- Start with the CURRENT PROMPT as your base text
+- DO NOT add content from the assistant's previous responses or suggestions
+- The conversation history is for CONTEXT ONLY - to understand what the user wants
+- Only make changes to FIX the identified hallucination risks
+- Add the user's final edits if provided
+- DO NOT expand, elaborate, or add new requirements beyond fixing risks
 
 HALLUCINATION MITIGATION GUIDELINES:
 - Remove ambiguous referents (it, this, that) - provide explicit nouns
-- Add specific constraints (word count, format, scope)
+- Add specific constraints (word count, format, scope) ONLY if missing and causing risk
 - Specify temporal context (dates, timeframes instead of "recently")
-- Include domain/audience specification
+- Include domain/audience specification ONLY if vague and causing risk
 - Remove or clarify vague descriptors (short, detailed, comprehensive)
 - Add units to numbers (temperature, distance, currency with region)
 - Specify document sources when referencing external materials
@@ -74,26 +82,27 @@ HALLUCINATION MITIGATION GUIDELINES:
 OUTPUT:
 Return ONLY the refined prompt text, without any meta-commentary, explanations, or wrapper text.
 The output should be ready to use directly as a prompt.
+DO NOT include suggestions, explanations, or generated content from previous conversations.
 """
 
-        user_prompt = f"""CURRENT PROMPT:
+        user_prompt = f"""CURRENT PROMPT (your starting point - DO NOT add to it):
 {current_prompt}
 
-PRIOR ANALYSIS FINDINGS:
+PRIOR ANALYSIS FINDINGS (what needs to be fixed):
 {analysis_context}
 
-CONVERSATION HISTORY:
+CONVERSATION HISTORY (for context only - DO NOT copy text from here):
 {conversation_context}
 
-USER'S FINAL EDITS:
+USER'S FINAL EDITS (add these to the prompt):
 {user_final_edits if user_final_edits else "(No additional edits)"}
 
-Based on all of the above, produce a refined version of the prompt that:
-- Addresses the identified hallucination risks
-- Incorporates suggestions from the conversation
-- Includes the user's final edits
-- Maintains the user's original intent and requirements
-- Is clear, specific, and hallucination-resistant
+Based on all of the above:
+1. Start with the CURRENT PROMPT text
+2. Apply ONLY the fixes needed to address the identified hallucination risks
+3. Add the user's final edits if provided
+4. DO NOT add content from the conversation or assistant's previous suggestions
+5. Keep the original intent and scope - don't expand it
 
 REFINED PROMPT:"""
 
@@ -124,14 +133,17 @@ REFINED PROMPT:"""
             raise Exception(f"Error refining prompt: {str(e)}")
     
     def _format_conversation(self, history: List[Dict[str, str]]) -> str:
-        """Format conversation history for context."""
+        """Format conversation history for context only - not for copying into prompt."""
         if not history:
             return "(No prior conversation)"
         
-        formatted = []
+        formatted = ["(Context: This is what was discussed - DO NOT copy this text into the prompt)"]
         for msg in history[-10:]:  # Last 10 messages for context
             role = msg.get('role', 'unknown')
             content = msg.get('content', '')
+            # Truncate long messages to avoid overwhelming context
+            if len(content) > 200:
+                content = content[:200] + "... [truncated]"
             formatted.append(f"{role.upper()}: {content}")
         
         return "\n".join(formatted)
