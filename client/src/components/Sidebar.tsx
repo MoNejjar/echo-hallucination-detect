@@ -38,14 +38,9 @@ import {
   FileJson,
   Tornado
 } from 'lucide-react';
-import { 
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from './ui/dropdown-menu';
 import DarkModeToggle from './DarkModeToggle';
 import { LibraryDialog } from './LibraryDialog';
+import { ExportDialog } from './ExportDialog';
 import type { ChatMessage, PromptAnalysis, RiskAssessment } from '../types';
 
 interface SidebarProps {
@@ -77,6 +72,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [hoveredStar, setHoveredStar] = useState(0);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   // Reset file input when a new analysis starts (originalPrompt becomes empty)
   useEffect(() => {
@@ -177,196 +173,8 @@ An Echo AI User`;
     }, 3000);
   };
 
-  const exportAnalysisAsJSON = () => {
-    if (!analysis || !riskAssessment || !originalPrompt) {
-      alert('No analysis data available to export');
-      return;
-    }
-
-    const exportData = {
-      timestamp: new Date().toISOString(),
-      originalPrompt,
-      improvedPrompt: improvedPrompt || null,
-      analysis: {
-        annotated_prompt: analysis.annotated_prompt,
-        // Add other analysis fields you want to export
-      },
-      riskAssessment: {
-        prompt: riskAssessment.prompt,
-        meta: riskAssessment.meta
-      }
-    };
-
-    const dataStr = JSON.stringify(exportData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `echo-analysis-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    URL.revokeObjectURL(url);
-  };
-
-  const exportAnalysisAsImage = async () => {
-    if (!analysis || !riskAssessment || !originalPrompt) {
-      alert('No analysis data available to export');
-      return;
-    }
-
-    try {
-      // For now, let's create a simple HTML export that can be saved manually
-      const exportWindow = window.open('', '_blank', 'width=1200,height=800');
-      if (!exportWindow) {
-        alert('Please allow pop-ups to export as image');
-        return;
-      }
-
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Echo AI Analysis Report</title>
-          <style>
-            * { 
-              margin: 0; 
-              padding: 0; 
-              box-sizing: border-box; 
-            }
-            body { 
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-              background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); 
-              color: #1e293b; 
-              padding: 16px;
-              line-height: 1.4;
-              min-height: 100vh;
-              font-size: 12px;
-            }
-            .container { 
-              max-width: 100%; 
-              margin: 0 auto; 
-              background: white;
-              border-radius: 12px;
-              box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-              padding: 20px;
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 20px;
-              padding-bottom: 12px;
-              border-bottom: 2px solid #e2e8f0;
-            }
-            .header h1 {
-              font-size: 20px;
-              font-weight: 700;
-              color: #1e293b;
-              margin-bottom: 4px;
-            }
-            .header p {
-              color: #64748b;
-              font-size: 12px;
-            }
-            .grid { 
-              display: grid; 
-              grid-template-columns: 1fr 1fr; 
-              gap: 16px; 
-              margin-bottom: 16px; 
-            }
-            .card { 
-              border: 2px solid #e2e8f0; 
-              border-radius: 8px; 
-              padding: 12px; 
-              background: white;
-              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            }
-            .card h3 { 
-              margin: 0 0 8px 0; 
-              font-size: 14px; 
-              font-weight: 600; 
-              color: #1e293b;
-            }
-            .prompt-content { 
-              font-size: 11px; 
-              background: #fef2f2;
-              padding: 12px; 
-              border-radius: 6px; 
-              white-space: pre-wrap;
-              border: 1px solid #fecaca;
-              font-family: monospace;
-            }
-            .highlight-red { 
-              background: #fecaca;
-              color: #7f1d1d;
-              padding: 2px 4px;
-              border-radius: 3px;
-              font-weight: 500;
-            }
-            .highlight-yellow { 
-              background: #fef3c7;
-              color: #92400e;
-              padding: 2px 4px;
-              border-radius: 3px;
-              font-weight: 500;
-            }
-            .footer { 
-              margin-top: 16px; 
-              text-align: center; 
-              font-size: 10px; 
-              color: #64748b;
-              padding-top: 12px;
-              border-top: 1px solid #e2e8f0;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>🧠 Echo AI Analysis Report</h1>
-              <p>Comprehensive Hallucination Risk Assessment</p>
-            </div>
-            
-            <div class="grid">
-              <div class="card">
-                <h3>📝 Original Prompt</h3>
-                <div class="prompt-content">${(analysis.annotated_prompt || originalPrompt)
-                  .replace(/</g, '&lt;')
-                  .replace(/>/g, '&gt;')
-                  .replace(/&lt;r&gt;/g, '<span class="highlight-red">')
-                  .replace(/&lt;\/r&gt;/g, '</span>')
-                  .replace(/&lt;y&gt;/g, '<span class="highlight-yellow">')
-                  .replace(/&lt;\/y&gt;/g, '</span>')}</div>
-              </div>
-              
-              <div class="card">
-                <h3>✨ Improved Prompt</h3>
-                <div class="prompt-content">${(improvedPrompt || 'No improved version available').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
-              </div>
-            </div>
-            
-            <div class="footer">
-              Generated by Echo AI Hallucination Detection System - ${new Date().toLocaleDateString()}
-            </div>
-          </div>
-          
-          <script>
-            // Auto-print dialog for easy saving as PDF
-            setTimeout(() => {
-              window.print();
-            }, 1500);
-          </script>
-        </body>
-        </html>
-      `;
-
-      exportWindow.document.write(htmlContent);
-      exportWindow.document.close();
-    } catch (error) {
-      console.error('Error generating export:', error);
-      alert('Error generating export. Please try again.');
-    }
+  const handleExport = () => {
+    setShowExportDialog(true);
   };
 
   return (
@@ -438,57 +246,26 @@ An Echo AI User`;
             </Tooltip>
 
             {/* Export Button with Light Blue Colors */}
-            <DropdownMenu>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      disabled={!analysis || !riskAssessment}
-                      className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-gradient-to-r hover:from-blue-50 hover:to-sky-50 dark:hover:from-blue-900/20 dark:hover:to-sky-900/20 transition-all duration-300 transform hover:scale-[1.01] rounded-lg group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                    >
-                      <div className="flex flex-col items-center justify-center">
-                        <div className="p-1.5 rounded-md bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:from-blue-100 group-hover:to-sky-100 dark:group-hover:from-blue-800/50 dark:group-hover:to-sky-800/50 transition-all duration-200 mb-1">
-                          <Download className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200" />
-                        </div>
-                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-blue-700 dark:group-hover:text-blue-300">Export</span>
-                      </div>
-                    </Button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="right" className="bg-gray-900 dark:bg-gray-700 text-white">
-                  <p>{!analysis || !riskAssessment ? 'Run analysis first to export' : 'Export analysis results'}</p>
-                </TooltipContent>
-              </Tooltip>
-              <DropdownMenuContent align="start" className="w-48 bg-white/95 dark:bg-gray-900/95 backdrop-blur-lg border-gray-200/60 dark:border-gray-700/60 shadow-xl">
-                <DropdownMenuItem 
-                  onClick={exportAnalysisAsJSON}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  onClick={handleExport}
+                  variant="outline" 
                   disabled={!analysis || !riskAssessment}
-                  className="flex items-center p-2.5 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-gradient-to-r hover:from-blue-50 hover:to-sky-50 dark:hover:from-blue-900/20 dark:hover:to-sky-900/20 transition-all duration-300 transform hover:scale-[1.01] rounded-lg group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 >
-                  <div className="p-1 rounded-md bg-green-100 dark:bg-green-800/50 mr-2.5 group-hover:bg-green-200 dark:group-hover:bg-green-700/50 transition-colors">
-                    <FileJson className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+                  <div className="flex flex-col items-center justify-center">
+                    <div className="p-1.5 rounded-md bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:from-blue-100 group-hover:to-sky-100 dark:group-hover:from-blue-800/50 dark:group-hover:to-sky-800/50 transition-all duration-200 mb-1">
+                      <Download className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200" />
+                    </div>
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-blue-700 dark:group-hover:text-blue-300">Export</span>
                   </div>
-                  <div>
-                    <div className="font-medium text-sm text-gray-900 dark:text-gray-100">Export JSON</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Download analysis data</div>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={exportAnalysisAsImage}
-                  disabled={!analysis || !riskAssessment}
-                  className="flex items-center p-2.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="p-1 rounded-md bg-blue-100 dark:bg-blue-800/50 mr-2.5 group-hover:bg-blue-200 dark:group-hover:bg-blue-700/50 transition-colors">
-                    <Image className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <div className="font-medium text-sm text-gray-900 dark:text-gray-100">Export Report</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Save as PDF/image</div>
-                  </div>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="bg-gray-900 dark:bg-gray-700 text-white">
+                <p>{!analysis || !riskAssessment ? 'Run analysis first to export' : 'Export as PDF or JSON'}</p>
+              </TooltipContent>
+            </Tooltip>
 
             <Tooltip>
               <TooltipTrigger asChild>
@@ -579,33 +356,83 @@ An Echo AI User`;
                         🔍 What Is Echo?
                       </h2>
                       <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                        <strong>Echo</strong> is a lightweight tool designed to <strong>detect hallucination potential</strong> in user-written prompts and <strong>guide users through a conversational refinement process</strong>. It empowers non-experts to create clearer, more faithful instructions for LLMs — without needing to fine-tune models or write advanced prompt logic.
+                        <strong>Echo</strong> is an AI-powered <strong>hallucination detection system</strong> that analyzes prompts using <strong>PRD (Prompt Risk Detection)</strong> methodology. It identifies potential risks that could lead to hallucinations, empowering users to create clearer, more reliable prompts for LLMs.
                       </p>
                     </section>
 
                     <section>
                       <h2 className="text-xl font-semibold mb-3 text-purple-600 dark:text-purple-400">
-                        🎯 Motivation
+                        📊 PRD Methodology
                       </h2>
-                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed mb-4">
-                        LLMs are impressive — but they often generate <em>hallucinations</em>: factually incorrect, logically inconsistent, or unfaithful outputs. A major cause? Poorly structured or ambiguous prompts.
-                      </p>
                       <p className="text-gray-700 dark:text-gray-300 leading-relaxed mb-3">
-                        <strong>Echo</strong> tackles this challenge head-on by:
+                        Echo evaluates prompts across <strong>5 key pillars</strong> of prompt quality:
                       </p>
-                      <ul className="list-disc list-inside space-y-2 text-gray-700 dark:text-gray-300 ml-4">
-                        <li>Identifying hallucination-prone segments of prompts 🧩</li>
-                        <li>Explaining why those segments are risky 🗣️</li>
-                        <li>Helping users rewrite prompts via an intuitive feedback loop 🔄</li>
+                      <ul className="space-y-2 text-gray-700 dark:text-gray-300 ml-4">
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-500 font-bold">1.</span>
+                          <span><strong>Referential Ambiguity & Quantification</strong> — Clear references and quantifiers</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-500 font-bold">2.</span>
+                          <span><strong>Context Sufficiency & Integrity</strong> — Complete and consistent context</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-500 font-bold">3.</span>
+                          <span><strong>Instruction Structure & Delimitation</strong> — Well-formed and delimited instructions</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-500 font-bold">4.</span>
+                          <span><strong>Verifiability & Factuality</strong> — Verifiable claims and factual grounding</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-500 font-bold">5.</span>
+                          <span><strong>Reasoning & Uncertainty Handling</strong> — Clear reasoning paths and uncertainty management</span>
+                        </li>
                       </ul>
+                    </section>
+
+                    <section>
+                      <h2 className="text-xl font-semibold mb-3 text-purple-600 dark:text-purple-400">
+                        🎯 How It Works
+                      </h2>
+                      <div className="space-y-3 text-gray-700 dark:text-gray-300">
+                        <div className="flex items-start gap-3">
+                          <span className="text-2xl">📝</span>
+                          <div>
+                            <strong className="text-purple-600 dark:text-purple-400">Prompt Analysis</strong>
+                            <p className="text-sm">Echo scans your prompt for risky tokens and patterns</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <span className="text-2xl">📈</span>
+                          <div>
+                            <strong className="text-pink-600 dark:text-pink-400">PRD Scores</strong>
+                            <p className="text-sm">Prompt PRD (pink) and Meta PRD (cyan) measure risk levels from 0.00-1.00+</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <span className="text-2xl">⚠️</span>
+                          <div>
+                            <strong className="text-orange-600 dark:text-orange-400">Violations</strong>
+                            <p className="text-sm">Specific issues categorized by severity (Critical, High, Medium, Low)</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <span className="text-2xl">💡</span>
+                          <div>
+                            <strong className="text-cyan-600 dark:text-cyan-400">Mitigation</strong>
+                            <p className="text-sm">Actionable suggestions to improve your prompt and reduce hallucination risk</p>
+                          </div>
+                        </div>
+                      </div>
                     </section>
 
                     <section className="border-t pt-4">
                       <h2 className="text-xl font-semibold mb-3 text-purple-600 dark:text-purple-400">
-                        💬 Let's Talk!
+                        💬 Contact & Collaboration
                       </h2>
                       <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                        Have ideas, feedback, or want to collaborate? Please reach out via{' '}
+                        Have questions, feedback, or want to collaborate on prompt engineering research? Reach out via{' '}
                         <a 
                           href="mailto:mohamed.nejjar@tum.de" 
                           className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
@@ -766,6 +593,15 @@ An Echo AI User`;
       </Dialog>
 
       <LibraryDialog open={libraryOpen} onOpenChange={setLibraryOpen} />
+      
+      <ExportDialog
+        open={showExportDialog}
+        onOpenChange={setShowExportDialog}
+        analysis={analysis}
+        riskAssessment={riskAssessment}
+        originalPrompt={originalPrompt}
+        improvedPrompt={improvedPrompt}
+      />
     </TooltipProvider>
   );
 };

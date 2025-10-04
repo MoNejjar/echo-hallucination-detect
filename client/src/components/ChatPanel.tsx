@@ -22,7 +22,8 @@ import {
   ArrowRight,
   BotMessageSquare,
   Radar,
-  UserRound
+  UserRound,
+  RefreshCw
 } from 'lucide-react';
 import { ChatMessage } from '../types';
 import toast from 'react-hot-toast';
@@ -30,10 +31,12 @@ import toast from 'react-hot-toast';
 interface ChatPanelProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
+  onReanalyze?: () => void;
+  hasAnalysis?: boolean;
   isLoading?: boolean;
 }
 
-const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, isLoading }) => {
+const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onReanalyze, hasAnalysis = false, isLoading }) => {
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null);
@@ -451,6 +454,26 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, isLoadin
                                 )}
                               </Button>
                             </motion.div>
+                            
+                            {hasAnalysis && onReanalyze && (
+                              <motion.div 
+                                whileHover={{ scale: 1.05 }} 
+                                whileTap={{ scale: 0.95 }}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: 0.4 }}
+                              >
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-8 px-3 text-xs transition-all duration-200 rounded-full hover:bg-purple-50 dark:hover:bg-purple-950/30 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800"
+                                  onClick={onReanalyze}
+                                >
+                                  <RefreshCw className="w-3 h-3 mr-1" />
+                                  Re-analyze
+                                </Button>
+                              </motion.div>
+                            )}
                           </motion.div>
                         )}
                       </div>

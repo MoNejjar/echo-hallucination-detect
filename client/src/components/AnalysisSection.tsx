@@ -559,7 +559,7 @@ const AnalysisSection: React.FC<AnalysisSectionProps> = ({
   const backgroundGradient = getGradientBackground(hallucinationProbability);
 
   return (
-    <div className={`h-full flex flex-col transition-all duration-1000 ${backgroundGradient}`}>
+    <div className={`h-full flex flex-col transition-all duration-1000 ${backgroundGradient}`} data-analysis-section="true">
       {/* Header */}
       <div className="relative p-4 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-white/20 dark:border-gray-800/30 flex-shrink-0">
         <div className="flex items-center justify-between">

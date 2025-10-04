@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { analyzePrompt, refineOnce, refineStream } from "./lib/api";
+import { analyzePrompt, refineOnce, refineStream, preparePrompt } from "./lib/api";
 import { Button } from "./components/ui/button";
 import { Textarea } from "./components/ui/textarea";
 import { ScrollArea } from "./components/ui/scroll-area";
@@ -15,6 +15,8 @@ import AnalysisSection from "./components/AnalysisSection";
 import ChatPanel from "./components/ChatPanel";
 import Toolbar from "./components/Toolbar";
 import AnalysisModeToggle, { type AnalysisMode } from "./components/AnalysisModeToggle";
+import { ReanalyzeDialog } from "./components/ReanalyzeDialog";
+import { AnalysisLoadingDialog } from "./components/AnalysisLoadingDialog";
 import { Toaster } from 'react-hot-toast';
 import ExpandableEditor from "./components/ExpandableEditor";
 import { motion, AnimatePresence } from "framer-motion";
@@ -152,8 +154,21 @@ function App() {
   const [riskLevelFilter, setRiskLevelFilter] = useState<Set<'medium' | 'high' | 'critical'>>(new Set(['medium', 'high', 'critical']));
   const [currentHallucinationMode, setCurrentHallucinationMode] = useState<'faithfulness' | 'factuality' | 'both'>('both');
   const [showHelpGuide, setShowHelpGuide] = useState(false);
+  const [showReanalyzeDialog, setShowReanalyzeDialog] = useState(false);
+  const [isPreparingReanalysis, setIsPreparingReanalysis] = useState(false);
+  const [showConversationWarning, setShowConversationWarning] = useState(false);
 
-  const canAnalyze = useMemo(() => currentPrompt.trim().length > 10, [currentPrompt]);
+  // Check if prompt has at least 3 tokens (words) to enable analyze button
+  const canAnalyze = useMemo(() => {
+    const tokens = currentPrompt.trim().split(/\s+/).filter(t => t.length > 0);
+    return tokens.length >= 3;
+  }, [currentPrompt]);
+  
+  // Track conversation length for warning
+  React.useEffect(() => {
+    const userMessages = chatMessages.filter(m => m.role === 'user').length;
+    setShowConversationWarning(userMessages >= 5 && analysis !== null);
+  }, [chatMessages, analysis]);
 
   // Function to get risk color based on percentage
   const getRiskColor = (percentage: number) => {
@@ -192,8 +207,11 @@ function App() {
     console.log("=====================================");
   }, [riskAssessment]);
 
-  const handleAnalyze = useCallback(async (hallucinationMode: 'faithfulness' | 'factuality' | 'both' = 'both') => {
+  const handleAnalyze = useCallback(async (hallucinationMode: 'faithfulness' | 'factuality' | 'both' = 'both', promptOverride?: string) => {
     if (!canAnalyze) return;
+
+    // Use the override prompt if provided, otherwise use currentPrompt
+    const promptToAnalyze = promptOverride !== undefined ? promptOverride : currentPrompt;
 
     // Track the current hallucination mode
     setCurrentHallucinationMode(hallucinationMode);
@@ -207,6 +225,9 @@ function App() {
     setIsInitialRewrite(false);
 
     try {
+      // Add 6 seconds delay before starting actual analysis
+      await new Promise(resolve => setTimeout(resolve, 6000));
+
       // Step 1: Analysis with progress simulation
       const progressInterval = setInterval(() => {
         setAnalysisProgress(prev => {
@@ -223,7 +244,7 @@ function App() {
         ? '\n\nANALYSIS MODE: SIMPLE - Provide only text highlighting for potential issues. Do not include risk assessment scores or high-risk token analysis. Focus only on identifying and highlighting problematic segments in the text.'
         : '\n\nANALYSIS MODE: COMPREHENSIVE - Provide full analysis including risk assessment, high-risk tokens, and detailed highlighting with explanations.';
       
-      const promptWithContext = `${analysisInstructions}\n\nUSER PROMPT TO ANALYZE:\n${currentPrompt}`;
+      const promptWithContext = `${analysisInstructions}\n\nUSER PROMPT TO ANALYZE:\n${promptToAnalyze}`;
       
       const result = await analyzePrompt(promptWithContext, hallucinationMode);
       
@@ -297,6 +318,14 @@ function App() {
 
   const sendMessage = useCallback(
     async (userMessage: string) => {
+      console.log('📨 sendMessage called with:');
+      console.log('  currentPrompt:', currentPrompt?.substring(0, 100) + '...');
+      console.log('  analysis available:', !!analysis);
+      if (analysis) {
+        console.log('  analysis.annotated_prompt:', analysis.annotated_prompt?.substring(0, 100) + '...');
+        console.log('  risk_tokens count:', analysis.risk_tokens?.length || 0);
+      }
+      
       const userChat: ChatMessage = {
         role: "user",
         content: userMessage,
@@ -319,7 +348,9 @@ function App() {
           content: m.content,
         }));
 
-        const response = await refineStream(currentPrompt, userMessage, historyCompact);
+        // Pass the analysis output to the conversation so the assistant knows what was detected
+        console.log('🔄 Calling refineStream with analysis context');
+        const response = await refineStream(currentPrompt, userMessage, historyCompact, analysis);
         
         setChatMessages((prev) => 
           prev.map((m) => 
@@ -334,7 +365,7 @@ function App() {
         );
       }
     },
-    [chatMessages, currentPrompt]
+    [chatMessages, currentPrompt, analysis]
   );
 
   const onSendMessage = (message: string) => {
@@ -345,6 +376,7 @@ function App() {
   const handleNewAnalysis = () => {
     setCurrentPrompt("");
     setAnalysis(null);
+    setRiskAssessment(null);
     setChatMessages([]);
     setShowAnalysisSection(false);
     setIsAnalyzing(false);
@@ -354,6 +386,67 @@ function App() {
     setMetaDetailsExpanded(false);
     setTokensExpanded(false);
     setAnalysisResultsExpanded(false);
+    setShowConversationWarning(false);
+  };
+
+  // Generate preview of refined prompt using AI-assisted improvements
+  const handleGeneratePreview = async (additionalChanges: string): Promise<string> => {
+    console.log('🎨 Generating refined prompt preview');
+    
+    // Prepare the analysis context
+    const priorAnalysisContext = {
+      annotated_prompt: analysis?.annotated_prompt || analysis?.promptText || "",
+      risk_assessment: riskAssessment,
+      risk_tokens: analysis?.risk_tokens || [],
+    };
+    
+    // Call the preparator service to refine the prompt
+    const response = await preparePrompt(
+      currentPrompt,
+      priorAnalysisContext,
+      chatMessages.map(m => ({ role: m.role, content: m.content })),
+      additionalChanges
+    );
+    
+    if (response.success && response.refined_prompt) {
+      console.log('✨ Preview generated successfully');
+      return response.refined_prompt;
+    } else {
+      throw new Error('Failed to generate preview');
+    }
+  };
+
+  const handleReanalyze = async (refinedPrompt: string) => {
+    try {
+      setIsPreparingReanalysis(true);
+      
+      console.log('🔄 Re-analyzing with refined prompt:', refinedPrompt.substring(0, 100) + '...');
+      
+      // Update the prompt in the editor
+      setCurrentPrompt(refinedPrompt);
+      
+      // Reset conversation
+      setChatMessages([]);
+      setShowConversationWarning(false);
+      
+      // Add extra 3 seconds to loading time by delaying the start
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Trigger re-analysis
+      // Pass the refined prompt directly to avoid race condition with state update
+      await handleAnalyze(currentHallucinationMode, refinedPrompt);
+      
+      // Analysis complete - close the dialog
+      console.log('✅ Re-analysis complete');
+      setShowReanalyzeDialog(false);
+      setIsPreparingReanalysis(false);
+      
+    } catch (error) {
+      console.error('❌ Error during re-analysis:', error);
+      alert(`Failed to complete re-analysis: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setShowReanalyzeDialog(false);
+      setIsPreparingReanalysis(false);
+    }
   };
 
   const handleFileUpload = async (file: File) => {
@@ -501,83 +594,132 @@ function App() {
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto">
                   <div className="p-6 space-y-6">
-                    {/* Section 1: Conversational Agent */}
+                    {/* Section 1: Getting Started */}
                     <motion.div
                       initial={{ x: -50, opacity: 0 }}
                       animate={{ x: 0, opacity: 1 }}
                       transition={{ delay: 0.1 }}
                       className="group"
                     >
-                      <div className="flex items-start gap-4 p-4 rounded-xl border border-gray-700 bg-gray-800/50 hover:border-teal-600 transition-all duration-300">
+                      <div className="flex items-start gap-4 p-4 rounded-xl border border-gray-700 bg-gray-800/50 hover:border-blue-600 transition-all duration-300">
                         <motion.div
                           whileHover={{ scale: 1.1, rotate: 15 }}
-                          className="flex-shrink-0 p-3 bg-teal-600/80 rounded-xl text-white"
+                          className="flex-shrink-0 p-3 bg-blue-600/80 rounded-xl text-white"
                         >
-                          <MessageSquare className="w-6 h-6" />
+                          <ScrollText className="w-6 h-6" />
                         </motion.div>
                         <div className="flex-1">
-                          <h3 className="text-lg font-bold text-teal-400 mb-2">
-                            1. Conversational Agent
+                          <h3 className="text-lg font-bold text-blue-400 mb-2">
+                            1. Write Your Prompt
                           </h3>
                           <p className="text-gray-300 mb-3">
-                            Chat with the AI assistant to refine and improve your prompts. The agent provides intelligent suggestions and iterative improvements.
+                            Type or paste your prompt in the editor. You need at least <strong className="text-white">3 tokens</strong> (words) before the Analyze button becomes active.
                           </p>
                           <div className="flex flex-wrap gap-2">
-                            <Badge className="bg-gray-700 text-teal-300 border-teal-600">
-                              Real-time chat
+                            <Badge className="bg-gray-700 text-blue-300 border-blue-600">
+                              3+ tokens required
                             </Badge>
-                            <Badge className="bg-gray-700 text-teal-300 border-teal-600">
-                              Iterative refinement
+                            <Badge className="bg-gray-700 text-blue-300 border-blue-600">
+                              Auto-validation
                             </Badge>
                           </div>
                         </div>
                       </div>
                     </motion.div>
 
-                    {/* Section 2: Annotated Prompt */}
+                    {/* Section 2: Analysis Modes */}
+                    <motion.div
+                      initial={{ x: -50, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      transition={{ delay: 0.15 }}
+                      className="group"
+                    >
+                      <div className="flex items-start gap-4 p-4 rounded-xl border border-gray-700 bg-gray-800/50 hover:border-purple-600 transition-all duration-300">
+                        <motion.div
+                          whileHover={{ scale: 1.1, rotate: -15 }}
+                          className="flex-shrink-0 p-3 bg-purple-600/80 rounded-xl text-white"
+                        >
+                          <Target className="w-6 h-6" />
+                        </motion.div>
+                        <div className="flex-1">
+                          <h3 className="text-lg font-bold text-purple-400 mb-2">
+                            2. Choose Analysis Mode
+                          </h3>
+                          <p className="text-gray-300 mb-3">
+                            Select your preferred analysis mode using the toolbar buttons:
+                          </p>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex items-center gap-2 p-2 bg-gray-700/50 rounded-lg">
+                              <Badge className="bg-orange-600 text-white">Faithfulness</Badge>
+                              <span className="text-gray-300">Detects internal consistency issues</span>
+                            </div>
+                            <div className="flex items-center gap-2 p-2 bg-gray-700/50 rounded-lg">
+                              <Badge className="bg-green-600 text-white">Factuality</Badge>
+                              <span className="text-gray-300">Checks external world knowledge</span>
+                            </div>
+                            <div className="flex items-center gap-2 p-2 bg-gray-700/50 rounded-lg">
+                              <Badge className="bg-gray-600 text-white">Comprehensive</Badge>
+                              <span className="text-gray-300">Both modes combined</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+
+                    {/* Section 3: Analysis Loading */}
                     <motion.div
                       initial={{ x: -50, opacity: 0 }}
                       animate={{ x: 0, opacity: 1 }}
                       transition={{ delay: 0.2 }}
                       className="group"
                     >
-                      <div className="flex items-start gap-4 p-4 rounded-xl border border-gray-700 bg-gray-800/50 hover:border-blue-600 transition-all duration-300">
-                        <motion.div
-                          whileHover={{ scale: 1.1, rotate: -15 }}
-                          className="flex-shrink-0 p-3 bg-blue-600/80 rounded-xl text-white"
-                        >
-                          <Highlighter className="w-6 h-6" />
-                        </motion.div>
+                      <div className="flex items-start gap-4 p-4 rounded-xl border border-gray-700 bg-gray-800/50 hover:border-teal-600 transition-all duration-300">
+                        <div className="flex-shrink-0 p-3 bg-teal-600/80 rounded-xl text-white">
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                          >
+                            <Loader2 className="w-6 h-6" />
+                          </motion.div>
+                        </div>
                         <div className="flex-1">
-                          <h3 className="text-lg font-bold text-blue-400 mb-2">
-                            2. Annotated Prompt
+                          <h3 className="text-lg font-bold text-teal-400 mb-2">
+                            3. Analysis Progress
                           </h3>
                           <p className="text-gray-300 mb-3">
-                            View your prompt with highlighted risk areas. Color-coded annotations show critical, high, and medium risk tokens you can filter interactively.
+                            Watch the analysis unfold through <strong className="text-white">5 checkpoints</strong>:
                           </p>
-                          <div className="flex flex-wrap gap-2 mb-3">
-                            <Badge className="bg-red-900/40 text-red-300 border-red-600">
-                              Critical Risk
-                            </Badge>
-                            <Badge className="bg-orange-900/40 text-orange-300 border-orange-600">
-                              High Risk
-                            </Badge>
-                            <Badge className="bg-yellow-900/40 text-yellow-300 border-yellow-600">
-                              Medium Risk
-                            </Badge>
+                          <div className="space-y-1.5 text-sm">
+                            <div className="flex items-center gap-2 text-gray-300">
+                              <span className="text-teal-400">📖</span>
+                              <span><strong>Reading</strong> the prompt structure</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-gray-300">
+                              <span className="text-teal-400">🎯</span>
+                              <span><strong>Detecting</strong> risky tokens</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-gray-300">
+                              <span className="text-teal-400">🧮</span>
+                              <span><strong>Calculating</strong> PRD scores</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-gray-300">
+                              <span className="text-teal-400">✅</span>
+                              <span><strong>Finalizing</strong> analysis</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-gray-300">
+                              <span className="text-teal-400">💬</span>
+                              <span><strong>Summarizing</strong> for chat agent</span>
+                            </div>
                           </div>
-                          <p className="text-sm text-gray-400">
-                            💡 Use the filter icons to toggle visibility of different risk levels
-                          </p>
                         </div>
                       </div>
                     </motion.div>
 
-                    {/* Section 3: Hallucination Risk Score */}
+                    {/* Section 4: Analysis Results */}
                     <motion.div
                       initial={{ x: -50, opacity: 0 }}
                       animate={{ x: 0, opacity: 1 }}
-                      transition={{ delay: 0.3 }}
+                      transition={{ delay: 0.25 }}
                       className="group"
                     >
                       <div className="flex items-start gap-4 p-4 rounded-xl border border-gray-700 bg-gray-800/50 hover:border-green-600 transition-all duration-300">
@@ -586,66 +728,112 @@ function App() {
                           transition={{ duration: 0.6 }}
                           className="flex-shrink-0 p-3 bg-green-600/80 rounded-xl text-white"
                         >
-                          <MessageSquareWarning className="w-6 h-6" />
+                          <ChartSpline className="w-6 h-6" />
                         </motion.div>
                         <div className="flex-1">
                           <h3 className="text-lg font-bold text-green-400 mb-2">
-                            3. Hallucination Risk Score
+                            4. Review Analysis Results
                           </h3>
                           <p className="text-gray-300 mb-3">
-                            Get a comprehensive risk assessment with percentage scores for Faithfulness, Factuality, and Overall hallucination likelihood.
+                            The right panel shows comprehensive analysis with:
                           </p>
-                          <div className="grid grid-cols-3 gap-2">
-                            <div className="text-center p-2 bg-gray-700/50 rounded-lg border border-gray-600">
-                              <div className="text-xs text-gray-400">Faithfulness</div>
-                              <div className="text-lg font-bold text-orange-400">85%</div>
-                            </div>
-                            <div className="text-center p-2 bg-gray-700/50 rounded-lg border border-gray-600">
-                              <div className="text-xs text-gray-400">Factuality</div>
-                              <div className="text-lg font-bold text-green-400">65%</div>
-                            </div>
-                            <div className="text-center p-2 bg-gray-700/50 rounded-lg border border-gray-600">
-                              <div className="text-xs text-gray-400">Overall</div>
-                              <div className="text-lg font-bold text-blue-400">75%</div>
-                            </div>
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            <Badge className="bg-gray-700 text-green-300 border-green-600">
+                              Annotated Prompt
+                            </Badge>
+                            <Badge className="bg-gray-700 text-green-300 border-green-600">
+                              Risk Scores
+                            </Badge>
+                            <Badge className="bg-gray-700 text-green-300 border-green-600">
+                              Token Details
+                            </Badge>
                           </div>
+                          <p className="text-sm text-gray-400">
+                            💡 Use filter buttons to show/hide risk levels: <span className="text-red-400">Critical</span>, <span className="text-orange-400">High</span>, <span className="text-yellow-400">Medium</span>
+                          </p>
                         </div>
                       </div>
                     </motion.div>
 
-                    {/* Section 4: High Risk Tokens */}
+                    {/* Section 5: Conversational Agent */}
                     <motion.div
                       initial={{ x: -50, opacity: 0 }}
                       animate={{ x: 0, opacity: 1 }}
-                      transition={{ delay: 0.4 }}
+                      transition={{ delay: 0.3 }}
                       className="group"
                     >
                       <div className="flex items-start gap-4 p-4 rounded-xl border border-gray-700 bg-gray-800/50 hover:border-pink-600 transition-all duration-300">
                         <motion.div
                           whileHover={{ scale: 1.1 }}
-                          animate={{ rotate: [0, 5, -5, 0] }}
-                          transition={{ duration: 2, repeat: Infinity }}
                           className="flex-shrink-0 p-3 bg-pink-600/80 rounded-xl text-white"
                         >
-                          <Atom className="w-6 h-6" />
+                          <MessageSquare className="w-6 h-6" />
                         </motion.div>
                         <div className="flex-1">
                           <h3 className="text-lg font-bold text-pink-400 mb-2">
-                            4. High Risk Tokens
+                            5. Chat with AI Assistant
                           </h3>
                           <p className="text-gray-300 mb-3">
-                            Detailed analysis of each risky token with reasoning, classification, and mitigation strategies.
+                            After analysis, an AI assistant provides an initial rewrite. Continue the conversation to:
                           </p>
                           <div className="flex flex-wrap gap-2">
                             <Badge className="bg-gray-700 text-pink-300 border-pink-600">
-                              Detailed reasoning
+                              Ask questions
                             </Badge>
                             <Badge className="bg-gray-700 text-pink-300 border-pink-600">
-                              Mitigation tips
+                              Request changes
                             </Badge>
                             <Badge className="bg-gray-700 text-pink-300 border-pink-600">
-                              Rule classification
+                              Get explanations
                             </Badge>
+                            <Badge className="bg-gray-700 text-pink-300 border-pink-600">
+                              Iterative refinement
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+
+                    {/* Section 6: Re-Analysis */}
+                    <motion.div
+                      initial={{ x: -50, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      transition={{ delay: 0.35 }}
+                      className="group"
+                    >
+                      <div className="flex items-start gap-4 p-4 rounded-xl border border-gray-700 bg-gray-800/50 hover:border-yellow-600 transition-all duration-300">
+                        <motion.div
+                          whileHover={{ scale: 1.1 }}
+                          animate={{ rotate: [0, 5, -5, 0] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                          className="flex-shrink-0 p-3 bg-yellow-600/80 rounded-xl text-white"
+                        >
+                          <Zap className="w-6 h-6" />
+                        </motion.div>
+                        <div className="flex-1">
+                          <h3 className="text-lg font-bold text-yellow-400 mb-2">
+                            6. Re-Analyze with Refinements
+                          </h3>
+                          <p className="text-gray-300 mb-3">
+                            Click <strong className="text-white">Re-Analyze</strong> to generate a refined prompt based on your conversation:
+                          </p>
+                          <div className="space-y-2 text-sm text-gray-300">
+                            <div className="flex items-start gap-2">
+                              <span className="text-yellow-400">1.</span>
+                              <span>Add optional changes you want to see</span>
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <span className="text-yellow-400">2.</span>
+                              <span>Click <strong className="text-white">Generate Preview</strong> to see the refined prompt</span>
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <span className="text-yellow-400">3.</span>
+                              <span>Review and click <strong className="text-white">Confirm & Re-Analyze</strong></span>
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <span className="text-yellow-400">4.</span>
+                              <span>Watch the same 5-checkpoint loading animation</span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -655,29 +843,33 @@ function App() {
                     <motion.div
                       initial={{ y: 50, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
-                      transition={{ delay: 0.5 }}
-                      className="bg-gray-800/30 p-4 rounded-xl border border-dashed border-purple-600/50"
+                      transition={{ delay: 0.4 }}
+                      className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 p-4 rounded-xl border border-purple-600/50"
                     >
                       <h3 className="font-bold text-purple-400 mb-3 flex items-center gap-2">
                         <Sparkles className="w-5 h-5" />
-                        Quick Tips
+                        Pro Tips
                       </h3>
                       <ul className="space-y-2 text-sm text-gray-300">
                         <li className="flex items-start gap-2">
-                          <span className="text-purple-400">•</span>
-                          <span>Choose between <strong className="text-white">Comprehensive</strong>, <strong className="text-white">Faithfulness</strong>, or <strong className="text-white">Factuality</strong> analysis modes</span>
+                          <span className="text-purple-400">💡</span>
+                          <span>The loading dialog shows real-time progress through 5 analysis stages</span>
                         </li>
                         <li className="flex items-start gap-2">
-                          <span className="text-purple-400">•</span>
-                          <span>Click the filter icons to show/hide specific risk levels</span>
+                          <span className="text-purple-400">💡</span>
+                          <span>Conversation context is automatically included in re-analysis</span>
                         </li>
                         <li className="flex items-start gap-2">
-                          <span className="text-purple-400">•</span>
-                          <span>Expand sections to see detailed analysis and suggestions</span>
+                          <span className="text-purple-400">💡</span>
+                          <span>Expand token cards to see detailed reasoning and mitigation strategies</span>
                         </li>
                         <li className="flex items-start gap-2">
-                          <span className="text-purple-400">•</span>
-                          <span>Use the chat agent to iteratively improve your prompts</span>
+                          <span className="text-purple-400">💡</span>
+                          <span>Use the sidebar to access guidelines library and export results</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-400">💡</span>
+                          <span>Switch between light/dark mode using the theme toggle</span>
                         </li>
                       </ul>
                     </motion.div>
@@ -707,13 +899,15 @@ function App() {
             <ChatPanel 
               messages={chatMessages}
               onSendMessage={onSendMessage}
+              onReanalyze={() => setShowReanalyzeDialog(true)}
+              hasAnalysis={!!analysis}
               isLoading={isInitialRewrite}
             />
           </div>
 
           {/* Analysis Results */}
           {showAnalysisSection && (
-            <Card className="lg:col-span-2 flex flex-col overflow-hidden">
+            <Card className="lg:col-span-2 flex flex-col overflow-hidden" data-analysis-section="true">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <ChartSpline className="w-5 h-5" />
@@ -1474,88 +1668,48 @@ function App() {
                     <Toolbar
                       onAnalyze={handleAnalyze}
                       onToggleOverview={() => {}}
+                      onReanalyze={() => setShowReanalyzeDialog(true)}
                       isAnalyzing={isAnalyzing}
                       hasAnalysis={!!analysis}
+                      canAnalyze={canAnalyze}
                     />
                   </div>
-
-                  {/* Analysis Progress in Prompt Editor */}
-                  {isAnalyzing && (
-                    <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <div className="flex items-center gap-3">
-                        <div className="relative">
-                          <Loader2 className="w-6 h-6 text-blue-600 dark:text-blue-400 animate-spin" />
-                          <div className="absolute inset-0 w-6 h-6 border-2 border-blue-200 dark:border-blue-800 rounded-full animate-pulse"></div>
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium text-blue-900 dark:text-blue-100">
-                            AI Analysis in Progress
-                          </div>
-                          <div className="text-sm text-blue-700 dark:text-blue-300">
-                            {analysisProgress < 20 ? (
-                              <span className="flex items-center gap-1">
-                                <Search className="w-3 h-3" />
-                                Analyzing referential ambiguity...
-                              </span>
-                            ) : analysisProgress < 40 ? (
-                              <span className="flex items-center gap-1">
-                                <Target className="w-3 h-3" />
-                                Checking context sufficiency...
-                              </span>
-                            ) : analysisProgress < 60 ? (
-                              <span className="flex items-center gap-1">
-                                <FileText className="w-3 h-3" />
-                                Evaluating instruction structure...
-                              </span>
-                            ) : analysisProgress < 80 ? (
-                              <span className="flex items-center gap-1">
-                                <Shield className="w-3 h-3" />
-                                Verifying factual claims...
-                              </span>
-                            ) : analysisProgress < 90 ? (
-                              <span className="flex items-center gap-1">
-                                <Zap className="w-3 h-3" />
-                                Assessing reasoning patterns...
-                              </span>
-                            ) : (
-                              <span className="flex items-center gap-1">
-                                <Brain className="w-3 h-3" />
-                                {isInitialRewrite ? "Generating improvements..." : "Finalizing analysis..."}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                            {Math.round(analysisProgress)}%
-                          </div>
-                        </div>
+                  
+                  {/* Conversation Warning Banner */}
+                  {showConversationWarning && !isAnalyzing && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="flex items-start gap-3 p-4 bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-300 dark:border-yellow-700 rounded-lg"
+                    >
+                      <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-yellow-900 dark:text-yellow-100">
+                          Consider Re-analyzing
+                        </p>
+                        <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                          You've had {chatMessages.filter(m => m.role === 'user').length} exchanges. 
+                          Re-analyzing will keep the analysis and assistant's responses most relevant to your updated prompt.
+                        </p>
+                        <Button
+                          onClick={() => setShowReanalyzeDialog(true)}
+                          variant="outline"
+                          size="sm"
+                          className="mt-2 border-yellow-400 text-yellow-700 hover:bg-yellow-100 dark:border-yellow-600 dark:text-yellow-300 dark:hover:bg-yellow-900/30"
+                        >
+                          Re-analyze Now
+                        </Button>
                       </div>
-                      
-                      <div className="space-y-2">
-                        <Progress value={analysisProgress} className="h-3 bg-blue-100 dark:bg-blue-900/50" />
-                        
-                        {/* Analysis Steps */}
-                        <div className="flex justify-between text-xs text-blue-600 dark:text-blue-400 mt-2">
-                          <div className={`flex items-center gap-1 ${analysisProgress >= 25 ? 'opacity-100' : 'opacity-50'}`}>
-                            <div className={`w-2 h-2 rounded-full ${analysisProgress >= 25 ? 'bg-blue-500' : 'bg-blue-200 dark:bg-blue-800'}`}></div>
-                            <span>Scan</span>
-                          </div>
-                          <div className={`flex items-center gap-1 ${analysisProgress >= 50 ? 'opacity-100' : 'opacity-50'}`}>
-                            <div className={`w-2 h-2 rounded-full ${analysisProgress >= 50 ? 'bg-blue-500' : 'bg-blue-200 dark:bg-blue-800'}`}></div>
-                            <span>Analyze</span>
-                          </div>
-                          <div className={`flex items-center gap-1 ${analysisProgress >= 75 ? 'opacity-100' : 'opacity-50'}`}>
-                            <div className={`w-2 h-2 rounded-full ${analysisProgress >= 75 ? 'bg-blue-500' : 'bg-blue-200 dark:bg-blue-800'}`}></div>
-                            <span>Calculate</span>
-                          </div>
-                          <div className={`flex items-center gap-1 ${analysisProgress >= 100 ? 'opacity-100' : 'opacity-50'}`}>
-                            <div className={`w-2 h-2 rounded-full ${analysisProgress >= 100 ? 'bg-green-500' : 'bg-blue-200 dark:bg-blue-800'}`}></div>
-                            <span>Complete</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowConversationWarning(false)}
+                        className="flex-shrink-0"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </motion.div>
                   )}
                 </CardContent>
               </Card>
@@ -1563,6 +1717,26 @@ function App() {
           )}
         </div>
       </div>
+      
+      {/* Re-analyze Dialog */}
+      <ReanalyzeDialog
+        open={showReanalyzeDialog}
+        onOpenChange={setShowReanalyzeDialog}
+        currentPrompt={currentPrompt}
+        priorAnalysis={analysis}
+        conversationHistory={chatMessages.map(m => ({ role: m.role, content: m.content }))}
+        onGeneratePreview={handleGeneratePreview}
+        onReanalyze={handleReanalyze}
+        isLoading={isPreparingReanalysis}
+      />
+      
+      {/* Analysis Loading Dialog - shown during initial analysis */}
+      <AnalysisLoadingDialog
+        open={isAnalyzing && !showReanalyzeDialog}
+        title="Analyzing Your Prompt"
+        description="Please wait while we analyze your prompt for potential hallucination risks..."
+      />
+      
       <Toaster />
     </div>
   );

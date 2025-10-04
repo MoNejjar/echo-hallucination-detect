@@ -6,7 +6,7 @@ import json
 import xml.etree.ElementTree as ET
 from typing import Dict, Any, List, Optional
 from dotenv import load_dotenv
-from ..config import OPENAI_MODEL
+from ..config import OPENAI_MODEL, TEMPERATURE
 from pathlib import Path
 
 load_dotenv()
@@ -18,7 +18,7 @@ class OpenAILLM:
         )
         self.model = OPENAI_MODEL
         self.max_tokens = int(os.getenv("MAX_TOKENS", "4000"))
-        self.temperature = float(os.getenv("TEMPERATURE", "1"))
+        self.temperature = TEMPERATURE
         self.timeout = int(os.getenv("LLM_REQUEST_TIMEOUT", "60"))
         
     def _parse_risk_assessment(self, content: str) -> Dict[str, Any]:
@@ -267,7 +267,31 @@ class OpenAILLM:
 </system>
 """
     
-    def _get_conversation_system_prompt(self, current_prompt: str) -> str:
+    def _get_conversation_system_prompt(self, current_prompt: str, analysis_output: Optional[Dict[str, Any]] = None) -> str:
+        # Add analysis context section if available
+        analysis_context = ""
+        if analysis_output:
+            analysis_context = f"""
+    <prior_analysis>
+        - The current prompt has already been analyzed for hallucination risks.
+        - You have full visibility into what was detected, including highlighted risk spans and risk assessment.
+        - When the user asks questions like "which words are highlighted?" or "what is the PRD?", you MUST reference this analysis data.
+        - DO NOT say you cannot see the analysis - you have it below in structured format.
+        
+        <risk_assessment>
+            {json.dumps(analysis_output.get('risk_assessment', {}), indent=12)}
+        </risk_assessment>
+        
+        <risk_tokens>
+            {json.dumps(analysis_output.get('risk_tokens', []), indent=12)}
+        </risk_tokens>
+        
+        <analysis_summary>
+            {analysis_output.get('analysis_summary', 'No summary available')}
+        </analysis_summary>
+    </prior_analysis>
+"""
+        
         return f"""<system>
 	<role>
 	    - You are EchoAI, a conversational agent specializing in mitigating hallucinations in user prompts based on a set of given **hallucination_mitigation_guidelines**.
@@ -275,6 +299,7 @@ class OpenAILLM:
 	    - Since you are a conversational agent, you also must discuss your changes with the user and craft a version with which the user is happy through iterative refinement of the prompt.
 	    - You must adopt a teaching approach by understanding the user input and either taking it into consideration or criticizing it based on the **hallucination_mitigation_guidelines**.
 	</role>
+    {analysis_context}
 	<personality>
         - You are an agent with a critical and opinionated mindset. 
         - Your goal is not to simply agree with the user and incorporate their changes into the new refined prompt but to analyze their claims, challenge assumptions, and request evidence when necessary.
@@ -900,8 +925,12 @@ John Doe,john@example.com,2024-01-15"</good>
             print(f"Raw LLM response: {content[:300]}...")  # Debug logging
             
             try:
+                # Clean up JSON before parsing (remove trailing commas which are common LLM errors)
+                cleaned_content = re.sub(r',\s*}', '}', content)  # Remove trailing commas before }
+                cleaned_content = re.sub(r',\s*]', ']', cleaned_content)  # Remove trailing commas before ]
+                
                 # Parse the JSON response
-                parsed_response = json.loads(content)
+                parsed_response = json.loads(cleaned_content)
                 print(f"Successfully parsed JSON response")  # Debug
                 
                 # Validate required fields
@@ -1151,12 +1180,13 @@ John Doe,john@example.com,2024-01-15"</good>
             }
         }
     
-    async def chat_once(self, current_prompt: str, user_message: str = None) -> str:
+    async def chat_once(self, current_prompt: str, user_message: str = None, analysis_output: Optional[Dict[str, Any]] = None) -> str:
         """Generate a conversational response for prompt improvement."""
         try:
-            system_prompt = self._get_conversation_system_prompt(current_prompt)
+            system_prompt = self._get_conversation_system_prompt(current_prompt, analysis_output)
             print(f"DEBUG: chat_once system prompt length: {len(system_prompt)}")
             print(f"DEBUG: chat_once system prompt preview: {system_prompt[:100]}...")
+            print(f"DEBUG: chat_once analysis_output provided: {analysis_output is not None}")
             
             messages = [
                 {"role": "system", "content": system_prompt}
@@ -1190,13 +1220,15 @@ John Doe,john@example.com,2024-01-15"</good>
         self, 
         current_prompt: str, 
         conversation_history: List[Dict[str, str]], 
-        user_message: str
+        user_message: str,
+        analysis_output: Optional[Dict[str, Any]] = None
     ) -> str:
         """Conversational responses for iterative prompt improvement."""
         try:
-            system_prompt = self._get_conversation_system_prompt(current_prompt)
+            system_prompt = self._get_conversation_system_prompt(current_prompt, analysis_output)
             print(f"DEBUG: chat_stream system prompt length: {len(system_prompt)}")
             print(f"DEBUG: chat_stream system prompt preview: {system_prompt[:100]}...")
+            print(f"DEBUG: chat_stream analysis_output provided: {analysis_output is not None}")
             
             messages = [
                 {"role": "system", "content": system_prompt}

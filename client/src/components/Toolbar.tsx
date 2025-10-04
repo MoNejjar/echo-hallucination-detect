@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Info, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Info, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { Button } from './ui/button';
 import { AnalysisMode } from '../types';
 
 interface ToolbarProps {
   onAnalyze: (mode: AnalysisMode) => void;
   onToggleOverview: () => void;
+  onReanalyze?: () => void;
   isAnalyzing: boolean;
   hasAnalysis: boolean;
+  canAnalyze?: boolean;
 }
 
 const modes = [
@@ -54,8 +56,10 @@ const modes = [
 
 const Toolbar: React.FC<ToolbarProps> = ({ 
   onAnalyze, 
+  onReanalyze,
   isAnalyzing, 
-  hasAnalysis 
+  hasAnalysis,
+  canAnalyze = true
 }) => {
   const [selectedIndex, setSelectedIndex] = useState(2); // Start with "Both"
 
@@ -158,16 +162,29 @@ const Toolbar: React.FC<ToolbarProps> = ({
               ))}
             </div>
 
-            {/* Analyze Button */}
-            <div className="pt-2">
+            {/* Action Buttons */}
+            <div className="pt-2 flex items-center justify-center gap-3">
               <Button
                 onClick={() => onAnalyze(currentMode.id)}
-                disabled={isAnalyzing}
+                disabled={isAnalyzing || !canAnalyze}
                 className={`relative overflow-hidden bg-gradient-to-r ${currentMode.gradient} hover:opacity-90 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 px-8 py-2.5`}
                 size="lg"
               >
                 {isAnalyzing ? 'Analyzing...' : 'Analyze'}
               </Button>
+              
+              {hasAnalysis && !isAnalyzing && onReanalyze && (
+                <Button
+                  onClick={onReanalyze}
+                  disabled={isAnalyzing}
+                  variant="outline"
+                  className="relative overflow-hidden border-2 border-purple-500 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 gap-2"
+                  size="lg"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Re-analyze
+                </Button>
+              )}
             </div>
           </div>
         </div>
