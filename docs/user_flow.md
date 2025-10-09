@@ -227,7 +227,7 @@ while maintaining clean separation from conversation features.
 ```
 Results Rendering:
 ├── Progress bar completes (100%)
-├── Analysis sections expand with animation
+├── Analysis results appear with animation
 ├── Risk assessment data populates
 └── Interactive elements become available
 ```

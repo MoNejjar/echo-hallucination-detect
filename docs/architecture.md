@@ -43,9 +43,9 @@ flowchart TB
 
   subgraph API[FastAPI Backend]
     Router[Route Layer]
-    AnalyzeRoute[/api/analyze]
-    RefineRoute[/api/refine]
-    PrepareRoute[/api/prepare]
+    AnalyzeRoute["/api/analyze"]
+    RefineRoute["/api/refine"]
+    PrepareRoute["/api/prepare"]
     Sanitizer[Input Sanitizer]
     
     subgraph Agents[Specialized Agents]
