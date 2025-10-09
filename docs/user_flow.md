@@ -2,7 +2,43 @@
 
 # 🧭 Echo – User Experience & Interaction Flow
 
-*From raw prompt → structured risk intelligence → refined, hallucination‑resistant instruction.*
+*From raw prompt → structured risk intelligence →### Layered Mental Model
+| User Perception | Actual System Action |
+|-----------------|----------------------|
+| "Selecting mode…" | Mode parameter preparation (faithfulness/factuality/both) |
+| "It's thinking…" | Sanitization + guideline loading |
+| "Evaluating…" | AnalyzerAgent → GPT-4 with XML guidelines |
+| "Scoring…" | XML parsing + PRD calculation + normalization |
+| "Rendering…" | Token binding & UI materialization |
+
+### Step 0: Analysis Mode Selection
+
+Echo provides **three analysis modes** for different detection focuses:
+
+#### Mode Selection UI
+Users can choose their analysis focus via the toolbar selector:
+
+```
+┌──────────────────────────────────────────────────┐
+│ Choose Analysis Focus:                           │
+│                                                  │
+│  ○ Faithfulness  - Consistency with context     │
+│  ○ Factuality    - Real-world accuracy          │
+│  ● Both          - Comprehensive (Default)       │
+└──────────────────────────────────────────────────┘
+```
+
+#### Mode Descriptions
+
+| Mode | Visual Indicator | When to Use | Guideline File |
+|------|------------------|-------------|----------------|
+| **Faithfulness** | 🟣 Purple | Check if model stays true to provided information | `faithfulness.xml` |
+| **Factuality** | 🔵 Blue | Verify claims against factual/historical knowledge | `factuality.xml` |
+| **Both** | 🟢 Green (Default) | Comprehensive hallucination detection | `both.xml` |
+
+The selected mode is passed to the backend and determines which XML guidelines the AnalyzerAgent loads for risk assessment.
+
+### Step 1: Initiation hallucination‑resistant instruction.*
 
 </div>
 
@@ -69,9 +105,11 @@ User accesses: http://localhost:5174 (development)
 |---------|--------------|--------------------|
 | Sidebar | Mode switching (Analysis / Chat) | Future: settings / history |
 | Editor Area | Prompt capture | File content ingestion |
-| Toolbar | Actions (Upload / Analyze) | Could host shortcuts & presets |
+| Toolbar | Actions (Upload / Analyze / Re-Analyze) | Analysis mode selector |
+| Analysis Mode Selector | Choose detection focus | Faithfulness / Factuality / Both |
 | Analysis Panels | Structured result reveal | Progressive disclosure via collapse |
-| Chat Panel | Iterative refinement loop | Learning scaffold |
+| Chat Panel | Iterative refinement loop | Re-analysis trigger |
+| Re-Analyze Dialog | Prompt refinement workflow | Preview generation |
 | Theme Toggle | A11y / preference control | Persisted via localStorage |
 
 ## 4. Prompt Input Methods
@@ -147,16 +185,43 @@ Progress Animation Sequence:
 └── 90-100%: "Finalizing results..."
 ```
 
-### Step 3: Backend Processing (Expanded)
+### Step 3: Backend Processing (Agent-Based Architecture)
 ```
-Backend Workflow:
-1. Receive prompt via POST /api/analyze/
-2. Sanitize and validate input
-3. Send structured request to OpenAI API
-4. Parse XML-formatted risk assessment
-5. Format response with structured data
-6. Return analysis results to frontend
+Backend Workflow (Updated):
+1. Receive prompt via POST /api/analyze/ { prompt, analysis_mode }
+2. Route → Sanitizer: Clean and validate input
+3. Route → LLM Facade: Delegate to AnalyzerAgent
+4. AnalyzerAgent Processing:
+   ├── Load XML guidelines based on selected mode:
+   │   • faithfulness.xml (Faithfulness mode)
+   │   • factuality.xml (Factuality mode)
+   │   • both.xml (Both modes - default)
+   ├── Construct structured prompt with guidelines
+   ├── Send request to GPT-4
+   ├── Receive XML-formatted risk assessment
+   ├── Parse XML structure:
+   │   • Extract <CRITERION> elements
+   │   • Parse <RISK_n> tagged tokens from annotated prompt
+   │   • Build risk_tokens array
+   ├── Calculate PRD (Prompt Risk Density):
+   │   • prompt_PRD = (high_risk_tokens / total_tokens) × 100
+   │   • meta_PRD = weighted average of criteria scores
+   ├── Apply deterministic post-processing
+   └── Format structured response
+5. Return to frontend:
+   {
+     annotated_prompt: "...<RISK_1>text</RISK_1>...",
+     risk_tokens: [{id, text, risk_level, classification, pillar}],
+     risk_assessment: {
+       prompt: {prompt_PRD, prompt_violations[]},
+       meta: {meta_PRD, meta_violations[]}
+     },
+     analysis_summary: "..."
+   }
 ```
+
+**Key Innovation**: Agent-based delegation allows specialized analysis logic
+while maintaining clean separation from conversation features.
 
 ### Step 4: Results Display
 ```
@@ -334,6 +399,198 @@ Refinement Process:
 3. User re-runs analysis to see improvements
 4. Repeat until acceptable risk level achieved
 ```
+
+### 7.4 Re-Analysis Workflow (Advanced Feature)
+
+#### Overview
+
+Echo provides an **advanced re-analysis feature** that leverages conversation history to intelligently refine prompts while avoiding content accumulation. This is powered by the **Preparator Service** which synthesizes insights from:
+- Prior analysis findings
+- Conversation-discussed improvements
+- User's final manual edits
+
+#### When to Use Re-Analysis
+
+Echo displays a **conversation warning banner** after 5+ conversation exchanges:
+
+```
+┌─────────────────────────────────────────────────────┐
+│ ⚠️ Consider Re-analyzing                             │
+│                                                     │
+│ You've had 7 exchanges. Re-analyzing will keep the │
+│ analysis and assistant's responses most relevant   │
+│ to your updated prompt.                            │
+│                                                     │
+│ [Re-analyze Now]  [Dismiss]                         │
+└─────────────────────────────────────────────────────┘
+```
+
+#### Step-by-Step Re-Analysis Flow
+
+##### Step 1: Trigger Re-Analysis
+
+```
+User Action Options:
+1. Click "Re-Analyze" button in toolbar
+2. Click "Re-analyze Now" in warning banner
+3. Use keyboard shortcut (future enhancement)
+```
+
+##### Step 2: Re-Analyze Dialog Opens
+
+```
+Dialog Interface:
+┌──────────────────────────────────────────────────────┐
+│  🔄 Re-analyze Prompt                                 │
+├──────────────────────────────────────────────────────┤
+│                                                      │
+│  ℹ️ Before re-analysis, you can make final changes   │
+│     Add any last-minute adjustments below, then      │
+│     generate a preview. This will update the         │
+│     analysis and restart the conversation with       │
+│     fresh context.                                   │
+│                                                      │
+│  📄 Current Prompt:                                  │
+│  ┌────────────────────────────────────────────────┐ │
+│  │ Write a blog post about AI hallucinations     │ │
+│  │ and how to detect them.                       │ │
+│  └────────────────────────────────────────────────┘ │
+│                                                      │
+│  ✏️ Additional Changes (Optional):                   │
+│  ┌────────────────────────────────────────────────┐ │
+│  │ Target audience: software developers          │ │
+│  │ Length: 1000-1500 words                       │ │
+│  │ Include code examples                         │ │
+│  └────────────────────────────────────────────────┘ │
+│                                                      │
+│  [✨ Generate Preview]                               │
+│                                                      │
+│  [Cancel]                                            │
+└──────────────────────────────────────────────────────┘
+```
+
+##### Step 3: Generate Preview
+
+```
+User clicks "Generate Preview"
+│
+├── Loading Animation: "Generating preview..."
+│
+├── Frontend sends POST /api/prepare/prepare with:
+│   ├── current_prompt (base text)
+│   ├── prior_analysis (violations, risk tokens, PRD scores)
+│   ├── conversation_history (for semantic context)
+│   └── user_final_edits (optional manual additions)
+│
+├── Backend Preparator Service:
+│   ├── Loads hallucination mitigation guidelines
+│   ├── Understands conversation context (what was discussed)
+│   ├── Identifies improvements suggested in chat
+│   ├── Applies mitigation strategies to fix identified risks
+│   ├── Integrates user's final edits
+│   ├── **Critically**: Does NOT copy conversation text
+│   └── Generates refined prompt
+│
+└── Preview appears in dialog
+```
+
+```
+Preview Display:
+┌──────────────────────────────────────────────────────┐
+│  ✨ Preview of Refined Prompt:                        │
+│  ┌────────────────────────────────────────────────┐  │
+│  │ ✨ This refined prompt incorporates insights   │  │
+│  │    from your conversation, the hallucination   │  │
+│  │    mitigation guidelines, and the prior        │  │
+│  │    analysis to provide guided improvements.    │  │
+│  └────────────────────────────────────────────────┘  │
+│                                                      │
+│  ┌────────────────────────────────────────────────┐  │
+│  │ Write a blog post about AI hallucinations     │  │
+│  │ and how to detect them.                       │  │
+│  │                                               │  │
+│  │ Target audience: software developers with     │  │
+│  │ intermediate knowledge of machine learning.   │  │
+│  │                                               │  │
+│  │ Length: 1000-1500 words                       │  │
+│  │                                               │  │
+│  │ Include specific code examples showing:       │  │
+│  │ - Prompt engineering techniques               │  │
+│  │ - Detection methods                           │  │
+│  │ - Mitigation strategies                       │  │
+│  │                                               │  │
+│  │ Format: Technical blog post with clear        │  │
+│  │ sections and practical takeaways.             │  │
+│  └────────────────────────────────────────────────┘  │
+│                                                      │
+│  [Cancel]  [🔄 Confirm & Re-analyze]                 │
+└──────────────────────────────────────────────────────┘
+```
+
+##### Step 4: Confirm & Re-analyze
+
+```
+User clicks "Confirm & Re-analyze"
+│
+├── Dialog closes with loading animation
+│
+├── System updates:
+│   ├── Refined prompt replaces editor content
+│   ├── Conversation history is cleared (fresh start)
+│   ├── Show conversation warning dismissed
+│   └── Re-analysis dialog closed
+│
+├── Automatic analysis triggered:
+│   ├── Same flow as initial analysis (Step 1-4)
+│   ├── Using currently selected analysis mode
+│   └── With refined prompt as input
+│
+└── Fresh results display:
+    ├── New PRD scores calculated
+    ├── New risk tokens identified
+    ├── Updated risk assessment
+    └── Clean conversation state (no accumulated context)
+```
+
+#### Key Benefits of Re-Analysis
+
+| Benefit | Explanation |
+|---------|-------------|
+| **Context-Aware** | Uses conversation to understand improvements needed |
+| **No Content Bloat** | Doesn't copy conversation text into prompt |
+| **Preview First** | See changes before committing to re-analysis |
+| **Fresh Start** | New analysis with clean conversation state |
+| **Intelligent Synthesis** | Applies mitigation strategies discussed in chat |
+| **Iterative Improvement** | Supports multiple refinement cycles |
+
+#### Technical Details
+
+The re-analysis workflow is powered by three backend components:
+
+```
+Frontend            Backend Services
+────────           ────────────────────────
+                   
+Re-Analyze Dialog  →  POST /api/prepare/prepare
+                      ├── Preparator Service
+                      │   ├── Load guidelines
+                      │   ├── Parse conversation context
+                      │   ├── Apply mitigation strategies
+                      │   └── Generate refined prompt
+                      └── Return: { refined_prompt, success }
+                   
+[Confirm]          →  POST /api/analyze/
+                      ├── AnalyzerAgent
+                      │   ├── Load mode-specific guidelines
+                      │   ├── Analyze refined prompt
+                      │   ├── Calculate PRD scores
+                      │   └── Extract risk tokens
+                      └── Return: Full analysis results
+```
+
+For technical implementation details, see:
+- `docs/architecture.md` - Agent architecture
+- `docs/RE-ANALYSIS_FIX.md` - Content accumulation prevention
 
 ## 8. Advanced Features
 
