@@ -1,25 +1,33 @@
-%% Processing Pipeline Sequence (Authoritative Source)
+%% Processing Pipeline Sequence (Authoritative Source) - Updated for Agent Architecture
 %% Render with: mmdc -i pipeline-sequence.mmd -o pipeline-sequence.svg
 
 sequenceDiagram
   participant U as User
   participant FE as Frontend
-  participant BE as FastAPI
+  participant Route as /api/analyze
   participant SAN as Sanitizer
-  participant LLM as LLM Service
+  participant Facade as LLM Facade
+  participant Analyzer as Analyzer Agent
   participant MODEL as OpenAI GPT
-  participant SCORE as Deterministic Scorer
 
   U->>FE: Click "Analyze"
-  FE->>BE: POST /api/analyze { prompt }
-  BE->>SAN: sanitize(prompt)
-  SAN-->>BE: clean_prompt
-  BE->>LLM: build+send analysis prompt
-  LLM->>MODEL: completion request
-  MODEL-->>LLM: raw structured response
-  LLM-->>BE: parsed tokens + XML risk block
-  BE->>SCORE: apply heuristic scoring
-  SCORE-->>BE: normalized risk metrics
-  BE-->>FE: JSON artifacts
-  FE->>FE: Map RISK_n → color classes
-  FE-->>U: Highlighted analysis view
+  FE->>Route: POST /api/analyze { prompt, mode }
+  Route->>SAN: sanitize(prompt)
+  SAN-->>Route: clean_prompt
+  Route->>Facade: analyze_prompt(prompt, mode)
+  Facade->>Analyzer: analyze_prompt(prompt, mode)
+  
+  Note over Analyzer: Load guidelines XML<br/>(faithfulness/factuality/both)
+  
+  Analyzer->>MODEL: completion request with guidelines
+  MODEL-->>Analyzer: raw structured response
+  
+  Note over Analyzer: Parse XML risk assessment<br/>Extract RISK_n tokens<br/>Calculate PRD scores
+  
+  Analyzer-->>Facade: analyzed data
+  Facade-->>Route: {annotated_prompt, risk_tokens, risk_assessment}
+  Route-->>FE: JSON artifacts
+  
+  Note over FE: Map RISK_n → color classes<br/>Render highlighted view
+  
+  FE-->>U: Highlighted analysis + risk dashboard

@@ -1,30 +1,66 @@
-%% System Topology Diagram (Authoritative Source)
+%% System Topology Diagram (Authoritative Source) - Updated for Agent Architecture
 %% Render with: mmdc -i topology.mmd -o topology.svg
 
-flowchart LR
-  subgraph Browser[Client – React / Vite]
+flowchart TB
+  subgraph Browser[Client - React / Vite]
     UI[Prompt Editor & Panels]
     HL[Highlight Renderer]
     Chat[Refinement Chat]
+    ReAnalyze[Re-Analyze Dialog]
     APIClient[Typed API Layer]
   end
 
   subgraph API[FastAPI Backend]
-    Router[Route Layer /api/analyze /api/refine]
-    Orchestrator[Analysis Orchestrator]
-    LLMService[LLM Service]
-    Scorer[Deterministic Scoring]
+    Router[Route Layer]
+    AnalyzeRoute[/api/analyze]
+    RefineRoute[/api/refine]
+    PrepareRoute[/api/prepare]
     Sanitizer[Input Sanitizer]
-    AssistantSvc[Refinement Assistant]
+    
+    subgraph Agents[Specialized Agents]
+      LLMFacade[LLM Facade]
+      AnalyzerAgent[Analyzer Agent]
+      ConversationAgent[Conversation Agent]
+      Preparator[Preparator Service]
+    end
+    
     Logger[Structured Logger]
   end
 
   subgraph OpenAI[External LLM]
-    GPT[(Model)]
+    GPT[(GPT-4)]
   end
 
-  UI --> APIClient --> Router --> Orchestrator --> Sanitizer
-  Orchestrator --> LLMService --> GPT --> LLMService --> Orchestrator
-  Orchestrator --> Scorer --> Orchestrator --> Router --> APIClient --> HL
-  Chat --> APIClient --> AssistantSvc --> LLMService
+  UI --> APIClient
+  Chat --> APIClient
+  ReAnalyze --> APIClient
+  
+  APIClient --> Router
+  Router --> AnalyzeRoute
+  Router --> RefineRoute
+  Router --> PrepareRoute
+  
+  AnalyzeRoute --> Sanitizer --> LLMFacade
+  RefineRoute --> LLMFacade
+  PrepareRoute --> Preparator
+  
+  LLMFacade --> AnalyzerAgent
+  LLMFacade --> ConversationAgent
+  
+  AnalyzerAgent --> GPT
+  ConversationAgent --> GPT
+  Preparator --> GPT
+  
+  GPT --> AnalyzerAgent
+  GPT --> ConversationAgent
+  GPT --> Preparator
+  
+  AnalyzerAgent --> AnalyzeRoute
+  ConversationAgent --> RefineRoute
+  Preparator --> PrepareRoute
+  
+  AnalyzeRoute --> APIClient --> HL
+  RefineRoute --> APIClient --> Chat
+  PrepareRoute --> APIClient --> ReAnalyze
+  
   Logger -. observability .- Router

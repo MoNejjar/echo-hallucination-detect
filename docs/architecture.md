@@ -32,32 +32,68 @@ Canonical Mermaid source: `docs/diagrams/topology.mmd`
 
 ```mermaid
 %% (Inline copy for immediate readability – edit the .mmd source.)
-flowchart LR
-  subgraph Browser[Client – React / Vite]
+flowchart TB
+  subgraph Browser[Client - React / Vite]
     UI[Prompt Editor & Panels]
     HL[Highlight Renderer]
     Chat[Refinement Chat]
+    ReAnalyze[Re-Analyze Dialog]
     APIClient[Typed API Layer]
   end
 
   subgraph API[FastAPI Backend]
-    Router[Route Layer<br/>/api/analyze /api/refine]
-    Orchestrator[Analysis Orchestrator]
-    LLMService[LLM Service]
-    Scorer[Deterministic Scoring]
+    Router[Route Layer]
+    AnalyzeRoute[/api/analyze]
+    RefineRoute[/api/refine]
+    PrepareRoute[/api/prepare]
     Sanitizer[Input Sanitizer]
-    AssistantSvc[Refinement Assistant]
+    
+    subgraph Agents[Specialized Agents]
+      LLMFacade[LLM Facade]
+      AnalyzerAgent[Analyzer Agent]
+      ConversationAgent[Conversation Agent]
+      Preparator[Preparator Service]
+    end
+    
     Logger[Structured Logger]
   end
 
   subgraph OpenAI[External LLM]
-    GPT[(Model)]
+    GPT[(GPT-4)]
   end
 
-  UI --> APIClient --> Router --> Orchestrator --> Sanitizer
-  Orchestrator --> LLMService --> GPT --> LLMService --> Orchestrator
-  Orchestrator --> Scorer --> Orchestrator --> Router --> APIClient --> HL
-  Chat --> APIClient --> AssistantSvc --> LLMService
+  UI --> APIClient
+  Chat --> APIClient
+  ReAnalyze --> APIClient
+  
+  APIClient --> Router
+  Router --> AnalyzeRoute
+  Router --> RefineRoute
+  Router --> PrepareRoute
+  
+  AnalyzeRoute --> Sanitizer --> LLMFacade
+  RefineRoute --> LLMFacade
+  PrepareRoute --> Preparator
+  
+  LLMFacade --> AnalyzerAgent
+  LLMFacade --> ConversationAgent
+  
+  AnalyzerAgent --> GPT
+  ConversationAgent --> GPT
+  Preparator --> GPT
+  
+  GPT --> AnalyzerAgent
+  GPT --> ConversationAgent
+  GPT --> Preparator
+  
+  AnalyzerAgent --> AnalyzeRoute
+  ConversationAgent --> RefineRoute
+  Preparator --> PrepareRoute
+  
+  AnalyzeRoute --> APIClient --> HL
+  RefineRoute --> APIClient --> Chat
+  PrepareRoute --> APIClient --> ReAnalyze
+  
   Logger -. observability .- Router
 ```
 
@@ -78,25 +114,33 @@ Canonical Mermaid source: `docs/diagrams/pipeline-sequence.mmd`
 sequenceDiagram
   participant U as User
   participant FE as Frontend
-  participant BE as FastAPI
+  participant Route as /api/analyze
   participant SAN as Sanitizer
-  participant LLM as LLM Service
+  participant Facade as LLM Facade
+  participant Analyzer as Analyzer Agent
   participant MODEL as OpenAI GPT
-  participant SCORE as Deterministic Scorer
 
   U->>FE: Click "Analyze"
-  FE->>BE: POST /api/analyze { prompt }
-  BE->>SAN: sanitize(prompt)
-  SAN-->>BE: clean_prompt
-  BE->>LLM: build+send analysis prompt
-  LLM->>MODEL: completion request
-  MODEL-->>LLM: raw structured response
-  LLM-->>BE: parsed tokens + XML risk block
-  BE->>SCORE: apply heuristic scoring
-  SCORE-->>BE: normalized risk metrics
-  BE-->>FE: JSON artifacts
-  FE->>FE: Map RISK_n → color classes
-  FE-->>U: Highlighted analysis view
+  FE->>Route: POST /api/analyze { prompt, mode }
+  Route->>SAN: sanitize(prompt)
+  SAN-->>Route: clean_prompt
+  Route->>Facade: analyze_prompt(prompt, mode)
+  Facade->>Analyzer: analyze_prompt(prompt, mode)
+  
+  Note over Analyzer: Load guidelines XML<br/>(faithfulness/factuality/both)
+  
+  Analyzer->>MODEL: completion request with guidelines
+  MODEL-->>Analyzer: raw structured response
+  
+  Note over Analyzer: Parse XML risk assessment<br/>Extract RISK_n tokens<br/>Calculate PRD scores
+  
+  Analyzer-->>Facade: analyzed data
+  Facade-->>Route: {annotated_prompt, risk_tokens, risk_assessment}
+  Route-->>FE: JSON artifacts
+  
+  Note over FE: Map RISK_n → color classes<br/>Render highlighted view
+  
+  FE-->>U: Highlighted analysis + risk dashboard
 ```
 
 ### Core Phases
@@ -112,18 +156,90 @@ sequenceDiagram
 
 ## 4. Backend Service Layer
 
+### Routes
 | Module | File | Responsibility | Notable Details |
 |--------|------|----------------|-----------------|
-| App entry | `server/main.py` | App factory, CORS, router registration | Mounts `/api/*` namespace |
-| Routes – analysis | `routes/analyze.py` | Accept prompt, orchestrate pipeline | Returns all analysis artifacts |
-| Routes – refinement | `routes/refine.py`, `routes/refine_stream.py` | Iterative improvement (sync + streaming) | SSE capability (future) |
-| LLM service | `services/llm.py` | Prompt construction, model call, XML + span parsing | Defensive parsing + debug logging |
-| Assistant | `services/assistant.py` | Conversational refinement persona | Stateless; can evolve with memory layer |
-| Checker (if present) | `services/checker.py` | Additional rule passes / heuristics | Extensible rule registry |
+| App entry | `server/main.py` | App factory, CORS, router registration | Mounts `/api/*` namespace with health, analyze, refine, prepare |
+| Routes – health | `routes/health.py` | Health check endpoint | Simple liveness probe at `/api/health/` |
+| Routes – analysis | `routes/analyze.py` | Accept prompt, orchestrate pipeline | `POST /api/analyze/` - Returns all analysis artifacts |
+| Routes – refinement | `routes/refine.py` | Conversational improvement | `POST /api/refine/` and `GET /api/refine/stream` |
+| Routes – preparation | `routes/prepare.py` | Pre-analysis prompt refinement | `POST /api/prepare/prepare` - Refines prompts for re-analysis |
+
+### Services (Agent-Based Architecture)
+| Module | File | Responsibility | Notable Details |
+|--------|------|----------------|-----------------|
+| LLM Facade | `services/llm.py` | Lightweight delegation layer | Delegates to specialized agents (124 lines) |
+| Analyzer Agent | `services/analyzer_agent.py` | Hallucination detection & analysis | PRD calculation, guideline loading, risk scoring |
+| Conversation Agent | `services/conversation_agent.py` | Conversational refinement | Chat-based prompt improvement with context |
+| Preparator | `services/preparator.py` | Re-analysis preparation | Integrates prior analysis + conversation for refinement |
 | Sanitizer | `services/sanitizer.py` | Input normalization | Minimal transformations |
+
+### Utilities & Models
+| Module | File | Responsibility | Notable Details |
+|--------|------|----------------|-----------------|
 | Logging | `utils/logging.py` | Centralized log formatting | Future: structured JSON logs |
-| Highlight parser | `utils/highlight_parser.py` | Legacy span tag support | Superseded by `<RISK_n>` pattern |
-| Models | `models/prompt.py`, `models/response.py` | Pydantic contracts | Enforce response shape |
+| Highlight parser | `utils/highlight_parser.py` | Token extraction utilities | Used for `<RISK_n>` pattern parsing |
+| Models | `models/prompt.py`, `models/response.py` | Pydantic contracts | Enforce request/response shape |
+
+### Agent-Based Architecture Pattern
+
+The system refactored from a monolithic `llm.py` (1261 lines) to a **specialized agent architecture**:
+
+```
+┌─────────────────────────────────────────────────────┐
+│              OpenAILLM (Facade - 124 lines)         │
+│  • Maintains backward compatibility                 │
+│  • Delegates to specialized agents                  │
+└────────────┬──────────────────────────┬─────────────┘
+             │                          │
+    ┌────────▼────────┐        ┌───────▼────────┐
+    │ AnalyzerAgent   │        │ ConversationAgent│
+    │ (513 lines)     │        │ (224 lines)      │
+    ├─────────────────┤        ├──────────────────┤
+    │ • analyze_prompt│        │ • chat_once      │
+    │ • Load guidelines│       │ • chat_stream    │
+    │ • Calculate PRD │        │ • Refinement     │
+    │ • Risk scoring  │        │   guidance       │
+    └─────────────────┘        └──────────────────┘
+```
+
+**Key Benefits:**
+- **Separation of Concerns**: Analysis vs. Conversation logic isolated
+- **Maintainability**: Smaller, focused modules (500 lines vs 1200)
+- **Testability**: Each agent can be tested independently
+- **Extensibility**: Easy to add new agents (e.g., EvaluatorAgent, SummaryAgent)
+
+### Analysis Modes
+
+The system supports **three analysis modes** with different guideline sets:
+
+| Mode | File | Focus | Use Case |
+|------|------|-------|----------|
+| **Faithfulness** | `data/faithfulness.xml` | Consistency with input/context | Check if model stays faithful to provided information |
+| **Factuality** | `data/factuality.xml` | Real-world accuracy | Verify claims against factual knowledge |
+| **Both** | `data/both.xml` | Comprehensive | Default mode - checks both faithfulness and factuality |
+
+Users select mode via the frontend → passed to `POST /api/analyze/` → agent loads corresponding XML guidelines.
+
+### Re-Analysis Workflow
+
+The **Preparator Service** (`services/preparator.py`) enables iterative refinement:
+
+1. **User converses** with ConversationAgent about prompt issues
+2. **User clicks "Re-Analyze"** and optionally adds final edits
+3. **Frontend calls** `POST /api/prepare/prepare` with:
+   - Current prompt
+   - Prior analysis (violations, risk tokens)
+   - Conversation history (for context)
+   - User's final edits
+4. **Preparator synthesizes** a refined prompt:
+   - Fixes identified hallucination risks
+   - Applies mitigation strategies discussed
+   - Integrates user's manual edits
+   - **Critically**: Does NOT copy conversation text into prompt
+5. **Refined prompt** sent back to `POST /api/analyze/` with fresh conversation
+
+See `docs/RE-ANALYSIS_FIX.md` for detailed explanation of how conversation context is used without content accumulation.
 
 ### LLM Contract Strategy
 The system uses a *constrained XML + tag envelope* to force model outputs into a machine‑parsable schema. Example excerpt:
