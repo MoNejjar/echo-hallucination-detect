@@ -15,7 +15,6 @@ flowchart TB
     AnalyzeRoute[/api/analyze]
     RefineRoute[/api/refine]
     PrepareRoute[/api/prepare]
-    Sanitizer[Input Sanitizer]
     
     subgraph Agents[Specialized Agents]
       LLMFacade[LLM Facade]
@@ -40,7 +39,7 @@ flowchart TB
   Router --> RefineRoute
   Router --> PrepareRoute
   
-  AnalyzeRoute --> Sanitizer --> LLMFacade
+  AnalyzeRoute --> LLMFacade
   RefineRoute --> LLMFacade
   PrepareRoute --> Preparator
   

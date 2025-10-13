@@ -46,7 +46,6 @@ flowchart TB
     AnalyzeRoute["/api/analyze"]
     RefineRoute["/api/refine"]
     PrepareRoute["/api/prepare"]
-    Sanitizer[Input Sanitizer]
     
     subgraph Agents[Specialized Agents]
       LLMFacade[LLM Facade]
@@ -71,7 +70,7 @@ flowchart TB
   Router --> RefineRoute
   Router --> PrepareRoute
   
-  AnalyzeRoute --> Sanitizer --> LLMFacade
+  AnalyzeRoute --> LLMFacade
   RefineRoute --> LLMFacade
   PrepareRoute --> Preparator
   
@@ -115,15 +114,12 @@ sequenceDiagram
   participant U as User
   participant FE as Frontend
   participant Route as /api/analyze
-  participant SAN as Sanitizer
   participant Facade as LLM Facade
   participant Analyzer as Analyzer Agent
   participant MODEL as OpenAI GPT
 
   U->>FE: Click "Analyze"
   FE->>Route: POST /api/analyze { prompt, mode }
-  Route->>SAN: sanitize(prompt)
-  SAN-->>Route: clean_prompt
   Route->>Facade: analyze_prompt(prompt, mode)
   Facade->>Analyzer: analyze_prompt(prompt, mode)
   
@@ -172,7 +168,6 @@ sequenceDiagram
 | Analyzer Agent | `services/analyzer_agent.py` | Hallucination detection & analysis | PRD calculation, guideline loading, risk scoring |
 | Conversation Agent | `services/conversation_agent.py` | Conversational refinement | Chat-based prompt improvement with context |
 | Preparator | `services/preparator.py` | Re-analysis preparation | Integrates prior analysis + conversation for refinement |
-| Sanitizer | `services/sanitizer.py` | Input normalization | Minimal transformations |
 
 ### Utilities & Models
 | Module | File | Responsibility | Notable Details |

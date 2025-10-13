@@ -5,15 +5,12 @@ sequenceDiagram
   participant U as User
   participant FE as Frontend
   participant Route as /api/analyze
-  participant SAN as Sanitizer
   participant Facade as LLM Facade
   participant Analyzer as Analyzer Agent
   participant MODEL as OpenAI GPT
 
   U->>FE: Click "Analyze"
   FE->>Route: POST /api/analyze { prompt, mode }
-  Route->>SAN: sanitize(prompt)
-  SAN-->>Route: clean_prompt
   Route->>Facade: analyze_prompt(prompt, mode)
   Facade->>Analyzer: analyze_prompt(prompt, mode)
   
