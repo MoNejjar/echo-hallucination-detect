@@ -1,44 +1,85 @@
-flowchart TB```mermaid
+%% Architecture Diagramflowchart TB```mermaid
+
+%% Render with: mmdc -i architecture.mmd -o architecture.svg
 
     subgraph Client[React Frontend]flowchart TB
 
-        UI[UI Components]    subgraph Client[React Frontend]
+flowchart TB
 
-        Editor[Prompt Editor]        UI[UI Components]
+    subgraph Client[React Frontend]        UI[UI Components]    subgraph Client[React Frontend]
 
-        Viz[Risk Visualization]        Editor[Prompt Editor]
+        UI[UI Components]
 
-    end        Viz[Risk Visualization]
+        Editor[Prompt Editor]        Editor[Prompt Editor]        UI[UI Components]
 
-        end
+        Viz[Risk Visualization]
 
-    subgraph Server[FastAPI Backend]    
+    end        Viz[Risk Visualization]        Editor[Prompt Editor]
 
-        Routes[API Routes]    subgraph Server[FastAPI Backend]
+    
 
-        Facade[LLM Facade]        Routes[API Routes]
+    subgraph Server[FastAPI Backend]    end        Viz[Risk Visualization]
 
-    end        Facade[LLM Facade]
+        Routes[API Routes]
 
-        end
+        Facade[LLM Facade]        end
 
-    subgraph Agents[Specialized Agents]    
+    end
 
-        Analyzer[Analyzer Agent]    subgraph Agents[Specialized Agents]
+        subgraph Server[FastAPI Backend]    
 
-        Conversation[Conversation Agent]        Analyzer[Analyzer Agent]
+    subgraph Agents[Specialized Agents]
 
-    end        Conversation[Conversation Agent]
+        Analyzer[Analyzer Agent]        Routes[API Routes]    subgraph Server[FastAPI Backend]
 
-        end
+        Conversation[Conversation Agent]
 
-    subgraph External[External Services]    
+    end        Facade[LLM Facade]        Routes[API Routes]
 
-        OpenAI[OpenAI GPT-4]    subgraph External[External Services]
+    
 
-    end        OpenAI[OpenAI GPT-4]
+    subgraph External[External Services]    end        Facade[LLM Facade]
 
-        end
+        OpenAI[OpenAI GPT-4]
+
+    end        end
+
+    
+
+    UI --> Editor    subgraph Agents[Specialized Agents]    
+
+    Editor --> Routes
+
+    Routes --> Facade        Analyzer[Analyzer Agent]    subgraph Agents[Specialized Agents]
+
+    Facade --> Analyzer
+
+    Facade --> Conversation        Conversation[Conversation Agent]        Analyzer[Analyzer Agent]
+
+    Analyzer --> OpenAI
+
+    Conversation --> OpenAI    end        Conversation[Conversation Agent]
+
+    OpenAI --> Analyzer
+
+    OpenAI --> Conversation        end
+
+    Analyzer --> Routes
+
+    Conversation --> Routes    subgraph External[External Services]    
+
+    Routes --> Viz
+
+            OpenAI[OpenAI GPT-4]    subgraph External[External Services]
+
+    style Client fill:#667eea,stroke:#764ba2,stroke-width:3px
+
+    style Server fill:#f093fb,stroke:#f5576c,stroke-width:3px    end        OpenAI[OpenAI GPT-4]
+
+    style Agents fill:#4facfe,stroke:#00f2fe,stroke-width:3px
+
+    style External fill:#43e97b,stroke:#38f9d7,stroke-width:3px        end
+
 
     UI --> Editor    
 

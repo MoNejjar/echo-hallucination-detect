@@ -12,9 +12,9 @@ flowchart TB
 
   subgraph API[FastAPI Backend]
     Router[Route Layer]
-    AnalyzeRoute[/api/analyze]
-    RefineRoute[/api/refine]
-    PrepareRoute[/api/prepare]
+    AnalyzeRoute["/api/analyze"]
+    RefineRoute["/api/refine"]
+    PrepareRoute["/api/prepare"]
     
     subgraph Agents[Specialized Agents]
       LLMFacade[LLM Facade]
