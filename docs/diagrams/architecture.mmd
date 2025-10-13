@@ -1,81 +1,78 @@
-%% Architecture Diagram```mermaid
+flowchart TB```mermaid
 
-%% Render with: mmdc -i architecture.mmd -o architecture.svgflowchart TB
+    subgraph Client[React Frontend]flowchart TB
 
-    subgraph Client[React Frontend]
+        UI[UI Components]    subgraph Client[React Frontend]
 
-flowchart TB        UI[UI Components]
+        Editor[Prompt Editor]        UI[UI Components]
 
-    subgraph Client[React Frontend]        Editor[Prompt Editor]
+        Viz[Risk Visualization]        Editor[Prompt Editor]
 
-        UI[UI Components]        Viz[Risk Visualization]
+    end        Viz[Risk Visualization]
 
-        Editor[Prompt Editor]    end
+        end
 
-        Viz[Risk Visualization]    
+    subgraph Server[FastAPI Backend]    
 
-    end    subgraph Server[FastAPI Backend]
+        Routes[API Routes]    subgraph Server[FastAPI Backend]
 
-            Routes[API Routes]
+        Facade[LLM Facade]        Routes[API Routes]
 
-    subgraph Server[FastAPI Backend]        Facade[LLM Facade]
+    end        Facade[LLM Facade]
 
-        Routes[API Routes]    end
+        end
 
-        Facade[LLM Facade]    
+    subgraph Agents[Specialized Agents]    
 
-    end    subgraph Agents[Specialized Agents]
+        Analyzer[Analyzer Agent]    subgraph Agents[Specialized Agents]
 
-            Analyzer[Analyzer Agent]
+        Conversation[Conversation Agent]        Analyzer[Analyzer Agent]
 
-    subgraph Agents[Specialized Agents]        Conversation[Conversation Agent]
+    end        Conversation[Conversation Agent]
 
-        Analyzer[Analyzer Agent]    end
+        end
 
-        Conversation[Conversation Agent]    
+    subgraph External[External Services]    
 
-    end    subgraph External[External Services]
+        OpenAI[OpenAI GPT-4]    subgraph External[External Services]
 
-            OpenAI[OpenAI GPT-4]
+    end        OpenAI[OpenAI GPT-4]
 
-    subgraph External[External Services]    end
+        end
 
-        OpenAI[OpenAI GPT-4]    
+    UI --> Editor    
 
-    end    UI --> Editor
+    Editor --> Routes    UI --> Editor
 
-        Editor --> Routes
+    Routes --> Facade    Editor --> Routes
 
-    UI --> Editor    Routes --> Facade
+    Facade --> Analyzer    Routes --> Facade
 
-    Editor --> Routes    Facade --> Analyzer
+    Facade --> Conversation    Facade --> Analyzer
 
-    Routes --> Facade    Facade --> Conversation
+    Analyzer --> OpenAI    Facade --> Conversation
 
-    Facade --> Analyzer    Analyzer --> OpenAI
+    Conversation --> OpenAI    Analyzer --> OpenAI
 
-    Facade --> Conversation    Conversation --> OpenAI
+    OpenAI --> Analyzer    Conversation --> OpenAI
 
-    Analyzer --> OpenAI    OpenAI --> Analyzer
+    OpenAI --> Conversation    OpenAI --> Analyzer
 
-    Conversation --> OpenAI    OpenAI --> Conversation
+    Analyzer --> Routes    OpenAI --> Conversation
 
-    OpenAI --> Analyzer    Analyzer --> Routes
+    Conversation --> Routes    Analyzer --> Routes
 
-    OpenAI --> Conversation    Conversation --> Routes
+    Routes --> Viz    Conversation --> Routes
 
-    Analyzer --> Routes    Routes --> Viz
+        Routes --> Viz
 
-    Conversation --> Routes    
+    style Client fill:#667eea,stroke:#764ba2,stroke-width:3px    
 
-    Routes --> Viz    style Client fill:#667eea,stroke:#764ba2,stroke-width:3px
+    style Server fill:#f093fb,stroke:#f5576c,stroke-width:3px    style Client fill:#667eea,stroke:#764ba2,stroke-width:3px
 
-        style Server fill:#f093fb,stroke:#f5576c,stroke-width:3px
+    style Agents fill:#4facfe,stroke:#00f2fe,stroke-width:3px    style Server fill:#f093fb,stroke:#f5576c,stroke-width:3px
 
-    style Client fill:#667eea,stroke:#764ba2,stroke-width:3px    style Agents fill:#4facfe,stroke:#00f2fe,stroke-width:3px
-
-    style Server fill:#f093fb,stroke:#f5576c,stroke-width:3px    style External fill:#43e97b,stroke:#38f9d7,stroke-width:3px
-
-    style Agents fill:#4facfe,stroke:#00f2fe,stroke-width:3px```
+    style External fill:#43e97b,stroke:#38f9d7,stroke-width:3px    style Agents fill:#4facfe,stroke:#00f2fe,stroke-width:3px
 
     style External fill:#43e97b,stroke:#38f9d7,stroke-width:3px
+```

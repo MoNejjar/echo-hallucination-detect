@@ -169,11 +169,9 @@ sequenceDiagram
 | Conversation Agent | `services/conversation_agent.py` | Conversational refinement | Chat-based prompt improvement with context |
 | Preparator | `services/preparator.py` | Re-analysis preparation | Integrates prior analysis + conversation for refinement |
 
-### Utilities & Models
+### Models
 | Module | File | Responsibility | Notable Details |
 |--------|------|----------------|-----------------|
-| Logging | `utils/logging.py` | Centralized log formatting | Future: structured JSON logs |
-| Highlight parser | `utils/highlight_parser.py` | Token extraction utilities | Used for `<RISK_n>` pattern parsing |
 | Models | `models/prompt.py`, `models/response.py` | Pydantic contracts | Enforce request/response shape |
 
 ### Agent-Based Architecture Pattern
