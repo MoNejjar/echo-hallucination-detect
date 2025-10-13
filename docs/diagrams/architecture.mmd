@@ -1,119 +1,41 @@
-%% Architecture Diagramflowchart TB```mermaid
-
+﻿%% Architecture Diagram
 %% Render with: mmdc -i architecture.mmd -o architecture.svg
 
-    subgraph Client[React Frontend]flowchart TB
-
 flowchart TB
-
-    subgraph Client[React Frontend]        UI[UI Components]    subgraph Client[React Frontend]
-
+    subgraph Client[React Frontend]
         UI[UI Components]
-
-        Editor[Prompt Editor]        Editor[Prompt Editor]        UI[UI Components]
-
+        Editor[Prompt Editor]
         Viz[Risk Visualization]
-
-    end        Viz[Risk Visualization]        Editor[Prompt Editor]
-
-    
-
-    subgraph Server[FastAPI Backend]    end        Viz[Risk Visualization]
-
-        Routes[API Routes]
-
-        Facade[LLM Facade]        end
-
     end
-
-        subgraph Server[FastAPI Backend]    
-
+    
+    subgraph Server[FastAPI Backend]
+        Routes[API Routes]
+        Facade[LLM Facade]
+    end
+    
     subgraph Agents[Specialized Agents]
-
-        Analyzer[Analyzer Agent]        Routes[API Routes]    subgraph Server[FastAPI Backend]
-
+        Analyzer[Analyzer Agent]
         Conversation[Conversation Agent]
-
-    end        Facade[LLM Facade]        Routes[API Routes]
-
+    end
     
-
-    subgraph External[External Services]    end        Facade[LLM Facade]
-
+    subgraph External[External Services]
         OpenAI[OpenAI GPT-4]
-
-    end        end
-
+    end
     
-
-    UI --> Editor    subgraph Agents[Specialized Agents]    
-
+    UI --> Editor
     Editor --> Routes
-
-    Routes --> Facade        Analyzer[Analyzer Agent]    subgraph Agents[Specialized Agents]
-
+    Routes --> Facade
     Facade --> Analyzer
-
-    Facade --> Conversation        Conversation[Conversation Agent]        Analyzer[Analyzer Agent]
-
+    Facade --> Conversation
     Analyzer --> OpenAI
-
-    Conversation --> OpenAI    end        Conversation[Conversation Agent]
-
+    Conversation --> OpenAI
     OpenAI --> Analyzer
-
-    OpenAI --> Conversation        end
-
+    OpenAI --> Conversation
     Analyzer --> Routes
-
-    Conversation --> Routes    subgraph External[External Services]    
-
+    Conversation --> Routes
     Routes --> Viz
-
-            OpenAI[OpenAI GPT-4]    subgraph External[External Services]
-
+    
     style Client fill:#667eea,stroke:#764ba2,stroke-width:3px
-
-    style Server fill:#f093fb,stroke:#f5576c,stroke-width:3px    end        OpenAI[OpenAI GPT-4]
-
+    style Server fill:#f093fb,stroke:#f5576c,stroke-width:3px
     style Agents fill:#4facfe,stroke:#00f2fe,stroke-width:3px
-
-    style External fill:#43e97b,stroke:#38f9d7,stroke-width:3px        end
-
-
-    UI --> Editor    
-
-    Editor --> Routes    UI --> Editor
-
-    Routes --> Facade    Editor --> Routes
-
-    Facade --> Analyzer    Routes --> Facade
-
-    Facade --> Conversation    Facade --> Analyzer
-
-    Analyzer --> OpenAI    Facade --> Conversation
-
-    Conversation --> OpenAI    Analyzer --> OpenAI
-
-    OpenAI --> Analyzer    Conversation --> OpenAI
-
-    OpenAI --> Conversation    OpenAI --> Analyzer
-
-    Analyzer --> Routes    OpenAI --> Conversation
-
-    Conversation --> Routes    Analyzer --> Routes
-
-    Routes --> Viz    Conversation --> Routes
-
-        Routes --> Viz
-
-    style Client fill:#667eea,stroke:#764ba2,stroke-width:3px    
-
-    style Server fill:#f093fb,stroke:#f5576c,stroke-width:3px    style Client fill:#667eea,stroke:#764ba2,stroke-width:3px
-
-    style Agents fill:#4facfe,stroke:#00f2fe,stroke-width:3px    style Server fill:#f093fb,stroke:#f5576c,stroke-width:3px
-
-    style External fill:#43e97b,stroke:#38f9d7,stroke-width:3px    style Agents fill:#4facfe,stroke:#00f2fe,stroke-width:3px
-
     style External fill:#43e97b,stroke:#38f9d7,stroke-width:3px
-```
