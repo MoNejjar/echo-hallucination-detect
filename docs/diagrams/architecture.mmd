@@ -1,11 +1,10 @@
-﻿%% Architecture Diagram
-%% Render with: mmdc -i architecture.mmd -o architecture.svg
-
+﻿%% Refined Architecture Diagram
 flowchart TB
     subgraph Client[React Frontend]
         UI[UI Components]
         Editor[Prompt Editor]
         Viz[Risk Visualization]
+        Chat[Dialogue Interface]
     end
     
     subgraph Server[FastAPI Backend]
@@ -13,18 +12,20 @@ flowchart TB
         Facade[LLM Facade]
     end
     
-    subgraph Agents[Specialized Agents]
+    subgraph Agents[LLM Service]
         Analyzer[Analyzer Agent]
         Conversation[Conversation Agent]
     end
     
     subgraph External[External Services]
-        OpenAI[OpenAI GPT-4]
+        OpenAI[LLM]
     end
     
+    %% Connections
     UI --> Editor
     Editor --> Routes
     Routes --> Facade
+    Routes --> Chat
     Facade --> Analyzer
     Facade --> Conversation
     Analyzer --> OpenAI
@@ -34,8 +35,12 @@ flowchart TB
     Analyzer --> Routes
     Conversation --> Routes
     Routes --> Viz
+
     
-    style Client fill:#667eea,stroke:#764ba2,stroke-width:3px
-    style Server fill:#f093fb,stroke:#f5576c,stroke-width:3px
-    style Agents fill:#4facfe,stroke:#00f2fe,stroke-width:3px
-    style External fill:#43e97b,stroke:#38f9d7,stroke-width:3px
+    style Client fill:#002147,stroke:#764ba2,stroke-width:3px,color:#ffffff
+    style Server fill:#002147,stroke:#f5576c,stroke-width:3px,color:#ffffff
+    style Agents fill:#002147,stroke:#00f2fe,stroke-width:3px,color:#ffffff
+    style External fill:#002147,stroke:#38f9d7,stroke-width:3px,color:#ffffff
+
+    
+    linkStyle default stroke:#5B7C99,stroke-width:2px,color:#5B7C99

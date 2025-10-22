@@ -1,5 +1,23 @@
-%% Processing Pipeline Sequence (Authoritative Source) - Updated for Agent Architecture
-%% Render with: mmdc -i pipeline-sequence.mmd -o pipeline-sequence.svg
+%% Processing Pipeline Sequence (Thesis Version - Uniform Colors)
+%% Render with: 
+%% mmdc -i pipeline-sequence.mmd -o pipeline-sequence.svg --configFile mermaid-thesis.json
+
+%%{init: {
+  "themeVariables": {
+    "primaryColor": "#5B7C99",
+    "primaryTextColor": "#ffffff",
+    "primaryBorderColor": "#36454F",
+    "actorBkg": "#5B7C99",
+    "actorTextColor": "#ffffff",
+    "actorBorder": "#36454F",
+    "signalColor": "#3B4C5E",
+    "lineColor": "#3B4C5E",
+    "textColor": "#1E1E1E",
+    "noteBkgColor": "#E0E6ED",
+    "noteTextColor": "#1E1E1E",
+    "noteBorderColor": "#B8C2CC"
+  }
+}%%
 
 sequenceDiagram
   participant U as User
@@ -7,8 +25,10 @@ sequenceDiagram
   participant Route as /api/analyze
   participant Facade as LLM Facade
   participant Analyzer as Analyzer Agent
-  participant MODEL as OpenAI GPT
+  participant MODEL as LLM
+  participant Conv as Conversation Agent
 
+  %% --- Analysis Flow ---
   U->>FE: Click "Analyze"
   FE->>Route: POST /api/analyze { prompt, mode }
   Route->>Facade: analyze_prompt(prompt, mode)
@@ -28,3 +48,12 @@ sequenceDiagram
   Note over FE: Map RISK_n → color classes<br/>Render highlighted view
   
   FE-->>U: Highlighted analysis + risk dashboard
+
+  %% --- Optional Conversational Refinement ---
+  Note over U,Conv: (Optional) User engages with Conversational Agent<br/>to refine or rephrase prompt iteratively
+  U->>FE: Open Chat Interface
+  FE->>Conv: POST /api/refine { user_message }
+  Conv->>MODEL: Generate contextual suggestion
+  MODEL-->>Conv: suggested prompt revision
+  Conv-->>FE: Revised prompt suggestion
+  FE-->>U: Display conversational feedback
