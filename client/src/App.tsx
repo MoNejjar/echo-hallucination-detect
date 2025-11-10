@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { analyzePrompt, refineOnce, refineStream, preparePrompt } from "./lib/api";
+import { analyzePrompt, refineStream, preparePrompt, initiatePrompt } from "./lib/api";
 import { Button } from "./components/ui/button";
 import { Textarea } from "./components/ui/textarea";
 import { ScrollArea } from "./components/ui/scroll-area";
@@ -9,7 +9,7 @@ import { Badge } from "./components/ui/badge";
 import { Separator } from "./components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
 import { Loader2, Brain, MessageSquare, Sparkles, ChevronDown, ChevronUp, AlertTriangle, Tag, Lightbulb, FileText, Search, Zap, Target, Shield, ShieldAlert, ShieldX, Highlighter, MessageSquareWarning, Atom, Filter, ChartSpline, HelpCircle, X, WholeWord, ScrollText } from "lucide-react";
-import type { ChatMessage, PromptAnalysis, RiskAssessment } from "./types";
+import type { ChatMessage, PromptAnalysis, RiskAssessment, InitiateResponse, PrepareVariation } from "./types";
 import Sidebar from "./components/Sidebar";
 import AnalysisSection from "./components/AnalysisSection";
 import ChatPanel from "./components/ChatPanel";
@@ -17,7 +17,6 @@ import Toolbar from "./components/Toolbar";
 import AnalysisModeToggle, { type AnalysisMode } from "./components/AnalysisModeToggle";
 import { ReanalyzeDialog } from "./components/ReanalyzeDialog";
 import { AnalysisLoadingDialog } from "./components/AnalysisLoadingDialog";
-import { Toaster } from 'react-hot-toast';
 import ExpandableEditor from "./components/ExpandableEditor";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -157,6 +156,10 @@ function App() {
   const [showReanalyzeDialog, setShowReanalyzeDialog] = useState(false);
   const [isPreparingReanalysis, setIsPreparingReanalysis] = useState(false);
   const [showConversationWarning, setShowConversationWarning] = useState(false);
+  // Initiator outputs
+  const [initiatorClarifyingQuestion, setInitiatorClarifyingQuestion] = useState<string | null>(null);
+  const [initiatorMitigationOverview, setInitiatorMitigationOverview] = useState<string | null>(null);
+  const [preparedVariations, setPreparedVariations] = useState<PrepareVariation[] | null>(null);
 
   // Check if prompt has at least 3 tokens (words) to enable analyze button
   const canAnalyze = useMemo(() => {
@@ -192,6 +195,9 @@ function App() {
     }
   };
 
+  // Run initiator
+  
+
   // Debug: Log riskAssessment whenever it changes
   React.useEffect(() => {
     console.log("=== RISK ASSESSMENT STATE CHANGED (PRD) ===");
@@ -211,7 +217,8 @@ function App() {
     if (!canAnalyze) return;
 
     // Use the override prompt if provided, otherwise use currentPrompt
-    const promptToAnalyze = promptOverride !== undefined ? promptOverride : currentPrompt;
+  const promptToAnalyze = promptOverride !== undefined ? promptOverride : currentPrompt;
+  const originalUserPrompt = promptToAnalyze; // used for initiator
 
     // Track the current hallucination mode
     setCurrentHallucinationMode(hallucinationMode);
@@ -220,7 +227,10 @@ function App() {
     setIsAnalyzing(true);
     setAnalysisProgress(0);
     setAnalysis(null);
-    setChatMessages([]);
+  setChatMessages([]);
+  setInitiatorClarifyingQuestion(null);
+  setInitiatorMitigationOverview(null);
+  setPreparedVariations(null);
     // Don't immediately show analysis section - let animation show first
     setIsInitialRewrite(false);
 
@@ -246,7 +256,7 @@ function App() {
       
       const promptWithContext = `${analysisInstructions}\n\nUSER PROMPT TO ANALYZE:\n${promptToAnalyze}`;
       
-      const result = await analyzePrompt(promptWithContext, hallucinationMode);
+  const result = await analyzePrompt(promptWithContext, hallucinationMode);
       
       // Debug: Log the actual API response
       console.log("=== API RESPONSE DEBUG ===");
@@ -292,20 +302,36 @@ function App() {
       await new Promise(resolve => setTimeout(resolve, 1000));
       setShowAnalysisSection(true);
 
-      // Step 2: Initial conversational rewrite
-      setIsInitialRewrite(true);
-      const initial = await refineOnce(
-        currentPrompt,
-        [],
-        "Please rewrite this prompt to be clearer and reduce hallucination risks. Explain what changes you made and why. Format your response with clear sections showing the improved prompt and explanations."
-      );
+      // Step 2: Initiator - seamlessly start the conversation with mitigation + optional clarifying question
+      let initiation: InitiateResponse | null = null;
+      try {
+        initiation = await initiatePrompt(originalUserPrompt, mapped, hallucinationMode);
+        const clarQ = initiation.clarifying_question;
+        const overview = initiation.mitigation_plan?.overview;
+        setInitiatorClarifyingQuestion(clarQ || null);
+        setInitiatorMitigationOverview(overview || null);
 
-      const assistantMsg: ChatMessage = {
-        role: "assistant",
-        content: initial.assistant_message,
-        timestamp: new Date(), // Changed from string to Date object
-      };
-      setChatMessages([assistantMsg]);
+        // Compose an assistant message summarizing initiator outputs
+        const parts: string[] = [];
+        if (clarQ) {
+          parts.push(`Clarifying question: ${clarQ}`);
+        }
+        if (overview) {
+          parts.push(`Mitigation plan: ${overview}`);
+        }
+        if (parts.length) {
+          setChatMessages([{
+            role: 'assistant',
+            content: parts.join("\n\n"),
+            timestamp: new Date(),
+          }]);
+        }
+      } catch (e) {
+        console.warn('Initiator failed or unavailable:', e);
+      }
+
+      // Do NOT generate conversational agent output yet.
+      // Wait for user reply; sendMessage will invoke refineStream accordingly.
 
     } catch (err) {
       console.error("Analyze sequence failed:", err);
@@ -390,7 +416,7 @@ function App() {
   };
 
   // Generate preview of refined prompt using AI-assisted improvements
-  const handleGeneratePreview = async (additionalChanges: string): Promise<string> => {
+  const handleGeneratePreview = async (additionalChanges: string): Promise<number> => {
     console.log('🎨 Generating refined prompt preview');
     
     // Prepare the analysis context
@@ -408,9 +434,12 @@ function App() {
       additionalChanges
     );
     
-    if (response.success && response.refined_prompt) {
-      console.log('✨ Preview generated successfully');
-      return response.refined_prompt;
+    if (response.success) {
+      // Store prepared variations for selection in dialog (5 variants)
+      setPreparedVariations(response.variations || []);
+      const count = response.variations?.length || 0;
+      console.log(`✨ Variants generated successfully: ${count}`);
+      return count;
     } else {
       throw new Error('Failed to generate preview');
     }
@@ -1651,6 +1680,8 @@ function App() {
             </Card>
           )}
 
+          
+
           {/* Prompt Editor - Only shown when analysis section is not visible */}
           {!showAnalysisSection && (
             <>
@@ -1728,6 +1759,7 @@ function App() {
         onGeneratePreview={handleGeneratePreview}
         onReanalyze={handleReanalyze}
         isLoading={isPreparingReanalysis}
+        preparedVariations={preparedVariations || undefined}
       />
       
       {/* Analysis Loading Dialog - shown during initial analysis */}
@@ -1737,7 +1769,6 @@ function App() {
         description="Please wait while we analyze your prompt for potential hallucination risks..."
       />
       
-      <Toaster />
     </div>
   );
 }

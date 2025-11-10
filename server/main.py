@@ -9,9 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # Try relative imports first (when running from server dir), fall back to absolute
 try:
-    from routes import health, analyze, refine, prepare
+    from routes import health, analyze, refine, prepare, initiate
 except ImportError:
-    from server.routes import health, analyze, refine, prepare
+    from server.routes import health, analyze, refine, prepare, initiate
 
 # Create FastAPI app
 app = FastAPI(
@@ -37,6 +37,7 @@ api_router.include_router(health.router, prefix="/health", tags=["health"])
 api_router.include_router(analyze.router, prefix="/analyze", tags=["analyze"])
 api_router.include_router(refine.router, prefix="/refine", tags=["refine"])
 api_router.include_router(prepare.router, prefix="/prepare", tags=["prepare"])
+api_router.include_router(initiate.router, prefix="/initiate", tags=["initiate"])
 
 # Include the main API router
 app.include_router(api_router, prefix="/api")

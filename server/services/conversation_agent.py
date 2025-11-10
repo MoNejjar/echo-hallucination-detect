@@ -25,7 +25,7 @@ class ConversationAgent:
             api_key=os.getenv("OPENAI_API_KEY")
         )
         self.model = OPENAI_MODEL
-        self.max_tokens = int(os.getenv("MAX_TOKENS", "4000"))
+        self.max_tokens = int(os.getenv("MAX_TOKENS", "20000"))
         self.temperature = TEMPERATURE
         self.timeout = int(os.getenv("LLM_REQUEST_TIMEOUT", "60"))
     

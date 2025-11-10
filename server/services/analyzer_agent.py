@@ -26,8 +26,8 @@ class AnalyzerAgent:
             api_key=os.getenv("OPENAI_API_KEY")
         )
         self.model = OPENAI_MODEL
-        self.max_tokens = int(os.getenv("MAX_TOKENS", "4000"))
-        self.timeout = int(os.getenv("LLM_REQUEST_TIMEOUT", "60"))
+        self.max_tokens = int(os.getenv("MAX_TOKENS", "120000"))  # Increased for analyzer's large responses
+        self.timeout = int(os.getenv("LLM_REQUEST_TIMEOUT", "180"))
         self.temperature = 1  # Lower temperature for analysis consistency
         
     def _load_guidelines(self, analysis_mode: str = "both") -> str:
@@ -450,6 +450,8 @@ class AnalyzerAgent:
             analysis_prompt = self._get_hallucination_analysis_prompt(user_prompt, analysis_mode)
             
             print(f"Analyzing clean user prompt: {user_prompt[:100]}...")  # Debug
+            print(f"[ANALYZER DEBUG] Requesting max_completion_tokens: {self.max_tokens}")
+            print(f"[ANALYZER DEBUG] Model: {self.model}, Temperature: {self.temperature}")
             
             response = await asyncio.wait_for(
                 self.client.chat.completions.create(
@@ -459,26 +461,125 @@ class AnalyzerAgent:
                     ],
                     max_completion_tokens=self.max_tokens,
                     temperature=self.temperature,
+                    # Low reasoning effort for fast, cost-effective structured output
+                    reasoning_effort="low",
                 ),
                 timeout=self.timeout
             )
             
+            # Log token usage details
+            if hasattr(response, 'usage') and response.usage:
+                print(f"[ANALYZER DEBUG] Token usage - Prompt: {response.usage.prompt_tokens}, Completion: {response.usage.completion_tokens}, Total: {response.usage.total_tokens}")
+                if hasattr(response.usage, 'completion_tokens_details'):
+                    details = response.usage.completion_tokens_details
+                    print(f"[ANALYZER DEBUG] Completion details - Reasoning: {getattr(details, 'reasoning_tokens', 0)}, Audio: {getattr(details, 'audio_tokens', 0)}")
+            
             content = response.choices[0].message.content
-            print(f"Raw LLM response: {content[:300]}...")  # Debug logging
+            
+            # Check if content is None or empty - this is the <no output> issue
+            if not content or len(content.strip()) == 0:
+                print(f"[ANALYZER ERROR] LLM returned empty/no content! Response object: {response}")
+                print(f"[ANALYZER ERROR] Finish reason: {response.choices[0].finish_reason if response.choices else 'NO_CHOICES'}")
+                print(f"[ANALYZER ERROR] Model used: {self.model}")
+                raise ValueError(f"LLM returned empty response. Finish reason: {response.choices[0].finish_reason}")
+            
+            print(f"[ANALYZER DEBUG] Raw LLM response length: {len(content)}")
+            print(f"[ANALYZER DEBUG] First 500 chars: {content[:500]}")
+            print(f"[ANALYZER DEBUG] Last 200 chars: {content[-200:] if len(content) > 200 else content}")
             
             try:
-                # Clean up JSON before parsing (remove trailing commas which are common LLM errors)
-                cleaned_content = re.sub(r',\s*}', '}', content)  # Remove trailing commas before }
+                # Step 1: Strip markdown code blocks if present
+                cleaned_content = content
+                if '```' in cleaned_content:
+                    # Extract content between code fences
+                    match = re.search(r'```(?:json)?\s*\n(.*?)\n```', cleaned_content, re.DOTALL)
+                    if match:
+                        cleaned_content = match.group(1)
+                    else:
+                        # Try removing all code fences
+                        cleaned_content = re.sub(r'```(?:json)?', '', cleaned_content)
+                
+                # Step 2: Try to extract JSON object from text (find first { to last })
+                start_idx = cleaned_content.find('{')
+                end_idx = cleaned_content.rfind('}')
+                if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                    cleaned_content = cleaned_content[start_idx:end_idx+1]
+                
+                # Step 3: Clean up common JSON errors
+                cleaned_content = re.sub(r',\s*}', '}', cleaned_content)  # Remove trailing commas before }
                 cleaned_content = re.sub(r',\s*]', ']', cleaned_content)  # Remove trailing commas before ]
+                
+                print(f"[ANALYZER DEBUG] Cleaned content length: {len(cleaned_content)}")
+                print(f"[ANALYZER DEBUG] Attempting JSON parse...")
                 
                 # Parse the JSON response
                 parsed_response = json.loads(cleaned_content)
-                print(f"Successfully parsed JSON response")  # Debug
+                print(f"[ANALYZER DEBUG] Successfully parsed JSON response")  # Debug
                 
                 # Validate required fields
                 if not all(key in parsed_response for key in ["annotated_prompt", "analysis_summary", "risk_tokens", "risk_assessment"]):
                     raise ValueError("Missing required fields in JSON response")
                 
+                # Enrich risk tokens with rule_ids and span indices if possible
+                try:
+                    annotated = parsed_response.get("annotated_prompt", "")
+                    # Build a mapping from RISK_n to (start,end) in the cleaned text
+                    def map_spans(annotated_text: str):
+                        clean_chars = []
+                        idx = 0
+                        span_map = {}
+                        i2 = 0
+                        n2 = len(annotated_text)
+                        open_stack = []
+                        while i2 < n2:
+                            if annotated_text.startswith("<RISK_", i2):
+                                j2 = annotated_text.find('>', i2)
+                                if j2 == -1:
+                                    break
+                                tag = annotated_text[i2:j2+1]
+                                m2 = re.match(r"<(?P<id>RISK_\d+)>", tag)
+                                if m2:
+                                    rid = m2.group('id')
+                                    open_stack.append((rid, idx))
+                                i2 = j2 + 1
+                                continue
+                            if annotated_text.startswith("</RISK_", i2):
+                                j2 = annotated_text.find('>', i2)
+                                if j2 == -1:
+                                    break
+                                tag = annotated_text[i2:j2+1]
+                                m2 = re.match(r"</(?P<id>RISK_\d+)>", tag)
+                                if m2 and open_stack:
+                                    rid = m2.group('id')
+                                    open_id, start_idx = open_stack.pop()
+                                    use_id = rid if rid else open_id
+                                    span_map[use_id] = (start_idx, idx)
+                                i2 = j2 + 1
+                                continue
+                            # normal char
+                            clean_chars.append(annotated_text[i2])
+                            idx += 1
+                            i2 += 1
+                        clean_text_local = ''.join(clean_chars)
+                        return clean_text_local, span_map
+                    _, span_map = map_spans(annotated)
+                    # Attach span indices and rule_ids
+                    for token in parsed_response.get("risk_tokens", []) or []:
+                        cls = token.get("classification", "")
+                        ids = re.findall(r'"(R\d+)"', cls)
+                        if not ids:
+                            nums = re.findall(r'\b(\d+)\b', cls)
+                            ids = [f"R{n}" for n in nums]
+                        if ids:
+                            token["rule_ids"] = ids
+                        rid = token.get("id")
+                        if rid and rid in span_map:
+                            start_idx, end_idx = span_map[rid]
+                            token["span_start"] = start_idx
+                            token["span_end"] = end_idx
+                except Exception as enrich_err:
+                    print(f"DEBUG: Failed to enrich risk tokens with spans/rule_ids: {enrich_err}")
+
                 # Calculate PRD scores for prompt and meta violations
                 risk_assessment = parsed_response.get("risk_assessment", {})
                 
@@ -501,12 +602,15 @@ class AnalyzerAgent:
                 return parsed_response
                 
             except json.JSONDecodeError as e:
-                print(f"JSON parsing failed: {e}")
-                print(f"Content that failed to parse: {content}")
+                print(f"[ANALYZER DEBUG] JSON parsing failed: {e}")
+                print(f"[ANALYZER DEBUG] Failed content preview: {cleaned_content[:1000] if cleaned_content else 'EMPTY'}")
                 
                 # Fallback to create a basic response
                 return self._create_fallback_response(user_prompt, content)
             
         except Exception as e:
-            print(f"Analysis failed: {str(e)}")
-            raise Exception(f"Analysis failed: {str(e)}")
+            import traceback
+            print(f"[ANALYZER ERROR] Analysis failed with exception type: {type(e).__name__}")
+            print(f"[ANALYZER ERROR] Exception message: {str(e)}")
+            print(f"[ANALYZER ERROR] Full traceback:\n{traceback.format_exc()}")
+            raise Exception(f"Analysis failed: {type(e).__name__}: {str(e)}")

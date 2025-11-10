@@ -47,6 +47,10 @@ class RiskToken(BaseModel):
     classification: str
     mitigation: str
     risk_level: Optional[str] = None
+    # Optional enriched fields extracted downstream from classification
+    rule_ids: Optional[List[str]] = None
+    span_start: Optional[int] = None
+    span_end: Optional[int] = None
 
 class ChatMessage(BaseModel):
     role: str  # "user" or "assistant"

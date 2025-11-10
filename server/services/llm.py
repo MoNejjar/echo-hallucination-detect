@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 from ..config import OPENAI_MODEL, TEMPERATURE
 from .analyzer_agent import AnalyzerAgent
 from .conversation_agent import ConversationAgent
+from .initiator_agent import InitiatorAgent
 
 load_dotenv()
 
@@ -27,13 +28,13 @@ class OpenAILLM:
             api_key=os.getenv("OPENAI_API_KEY")
         )
         self.model = OPENAI_MODEL
-        self.max_tokens = int(os.getenv("MAX_TOKENS", "4000"))
+        self.max_tokens = int(os.getenv("MAX_TOKENS", "20000"))
         self.temperature = TEMPERATURE
         self.timeout = int(os.getenv("LLM_REQUEST_TIMEOUT", "60"))
-        
         # Initialize specialized agents
         self.analyzer = AnalyzerAgent()
         self.conversation = ConversationAgent()
+        self.initiator = InitiatorAgent()
     
     async def analyze_prompt(self, prompt: str, analysis_mode: str = "both") -> Dict[str, Any]:
         """
@@ -64,3 +65,7 @@ class OpenAILLM:
         Delegates to ConversationAgent for all conversation logic.
         """
         return await self.conversation.chat_stream(current_prompt, conversation_history, user_message, analysis_output)
+
+    async def initiate(self, prompt: str, analysis_output: Optional[Dict[str, Any]] = None, analysis_mode: str = "both") -> Dict[str, Any]:
+        """Single-turn initiation producing clarifying question, mitigation plan and 5 variations."""
+        return await self.initiator.initiate(prompt, analysis_output, analysis_mode)

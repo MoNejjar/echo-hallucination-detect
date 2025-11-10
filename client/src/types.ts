@@ -84,7 +84,8 @@ export interface RiskToken {
   id: string;
   text: string;
   reasoning: string;
-  classification: 'Referential Ambiguity & Quantification' | 'Context Sufficiency & Integrity' | 'Instruction Structure & Delimitation' | 'Verifiability & Factuality' | 'Reasoning & Uncertainty Handling' | 'Other';
+  // Backend may append rule_ids or use free-form strings; keep this flexible
+  classification: string;
   mitigation: string;
   risk_level?: 'critical' | 'high' | 'medium' | 'low';
 }
@@ -102,4 +103,39 @@ export interface AnalyzePromptResponse {
 
 export interface RefineOnceResponse {
   assistant_message: string;
+}
+
+// Initiator integration types (variations removed; now only clarifying question + mitigation plan)
+
+export interface InitiatorMitigationPlanPrinciple {
+  name: string;
+  rules: string[];
+  summary: string;
+}
+
+export interface InitiatorMitigationPlan {
+  overview: string;
+  rules_addressed: string[];
+  principles: InitiatorMitigationPlanPrinciple[];
+}
+
+export interface InitiateResponse {
+  clarifying_question: string | null;
+  mitigation_plan: InitiatorMitigationPlan;
+  success: boolean;
+}
+
+// Prepare integration types
+export interface PrepareVariation {
+  id: number;
+  label: string;
+  focus: string;
+  prompt: string;
+}
+
+export interface PrepareResponse {
+  refined_prompt: string;
+  variations: PrepareVariation[];
+  success: boolean;
+  message?: string;
 }

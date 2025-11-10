@@ -1,0 +1,274 @@
+<hallucination_detection_guidelines version="1.0" mode="detect-only">
+    <!-- ===================== A. REFERENTIAL GROUNDING ===================== -->
+    <pillar id="A" name="Referential-Grounding" class="prompt">
+        <rule id="A1" name="Ambiguous-Referents" severity="critical">
+            <detect>
+                <pattern>Demonstrative/neutral pronouns with no clear antecedent in previous 1-2 sentences.</pattern>
+                <pattern>Deixis without anchor.</pattern>
+                <pattern>Placeholder nouns or ambiguous NPs.</pattern>
+            </detect>
+            <example>"Explain <RISK>this</RISK> clearly."</example>
+            <mitigations>
+                <mitigation>
+                    <summary>Replace ambiguous referents with explicit entities or context to prevent factual mismatches between references and content.</summary>
+                    <example>"Explain this clearly." → "Explain the statistical method described in the previous paragraph clearly."</example>
+                </mitigation>
+            </mitigations>
+        </rule>
+
+        <rule id="A2" name="Canonical-Naming-Drift" severity="high">
+            <detect>
+                <pattern>Multiple synonyms or abbreviations for same entity without mapping.</pattern>
+            </detect>
+            <example>"Compare <RISK>LLM</RISK> to <RISK>the chatbot</RISK>."</example>
+            <mitigations>
+                <mitigation>
+                    <summary>Define each named entity once and use consistent terminology throughout the prompt to prevent factual mixing across entities.</summary>
+                    <example>"Compare LLM to the chatbot." → "Compare the GPT-4 language model to a rule-based chatbot; use these exact names throughout."</example>
+                </mitigation>
+            </mitigations>
+        </rule>
+    </pillar>
+
+    <!-- ===================== B. QUANTIFICATION & CONSTRAINTS ===================== -->
+    <pillar id="B" name="Quantification-Constraints" class="prompt">
+        <rule id="B1" name="Relative-Descriptors" severity="low">
+            <detect>
+                <pattern>Vague quantifiers or adjectives that mislead factual comparisons.</pattern>
+            </detect>
+            <example>"LLMs are <RISK>much faster</RISK> than humans."</example>
+            <mitigations>
+                <mitigation>
+                    <summary>Specify measurable quantities or contextual baselines when using comparative or vague quantifiers to ensure truth verifiability.</summary>
+                    <example>"LLMs are much faster than humans." → "LLMs can process about 1000 tokens per second on average, compared to a human reading rate of ~5 words per second."</example>
+                </mitigation>
+            </mitigations>
+        </rule>
+
+        <rule id="B2" name="Temporal-Vagueness" severity="high">
+            <detect>
+                <pattern>Temporal adjectives without clear timeframes leading to misleading factual interpretations.</pattern>
+            </detect>
+            <example>"AI has <RISK>recently</RISK> surpassed human creativity."</example>
+            <mitigations>
+                <mitigation>
+                    <summary>Anchor temporal statements to explicit dates, ranges, or versions of evidence to avoid factual drift over time.</summary>
+                    <example>"AI has recently surpassed human creativity." → "As of 2024, several AI systems such as Midjourney and ChatGPT have demonstrated creativity benchmarks comparable to human output in limited domains."</example>
+                </mitigation>
+            </mitigations>
+        </rule>
+
+        <rule id="B3" name="Underspecified-Scope" severity="medium">
+            <detect>
+                <pattern>Tasks requesting generalizations without limiting conditions.</pattern>
+            </detect>
+            <example>"<RISK>Explain climate change</RISK>."</example>
+            <mitigations>
+                <mitigation>
+                    <summary>Constrain factual scope to a timeframe, domain, or evidence base to reduce the chance of overly broad or partially incorrect claims.</summary>
+                    <example>"Explain climate change." → "Explain key mechanisms of climate change according to the IPCC AR6 2023 report."</example>
+                </mitigation>
+            </mitigations>
+        </rule>
+    </pillar>
+
+    <!-- ==================== D. PREMISES & EVIDENCE ==================== -->
+    <pillar id="D" name="Premises-Evidence" class="prompt">
+        <rule id="D1" name="False-or-Unverified-Premise" severity="critical">
+            <detect>
+                <pattern>Prompts embedding false or unverifiable factual claims.</pattern>
+            </detect>
+            <example>"Explain how <RISK>humans only use 10% of their brain</RISK>."</example>
+            <mitigations>
+                <mitigation>
+                    <summary>Reframe or fact-check task premises; use neutral phrasing that asks for evidence or myth verification instead of assuming correctness.</summary>
+                    <example>"Explain how humans only use 10% of their brain." → "Evaluate the claim that humans use only 10% of their brain and explain the scientific consensus on this myth."</example>
+                </mitigation>
+            </mitigations>
+        </rule>
+
+        <rule id="D2" name="Leading-Opinion-Framing" severity="critical">
+            <detect>
+                <pattern>Questions embedding a biased or false framing that guides the model toward false claims.</pattern>
+            </detect>
+            <example>"Why is <RISK>climate change a hoax</RISK>?"</example>
+            <mitigations>
+                <mitigation>
+                    <summary>Reframe subjective or false presuppositions into neutral, open questions that request evaluation of evidence rather than assumption of truth.</summary>
+                    <example>"Why is climate change a hoax?" → "What evidence supports and contradicts claims that climate change is a hoax?"</example>
+                </mitigation>
+            </mitigations>
+        </rule>
+    </pillar>
+
+    <!-- =================== E. NUMBERS & UNITS =================== -->
+    <pillar id="E" name="Numbers-Units" class="prompt">
+        <rule id="E1" name="Unitless-Number" severity="low">
+            <detect>
+                <pattern>Numerical values lacking units may lead to factual distortion.</pattern>
+            </detect>
+            <example>"The distance is <RISK>100</RISK>."</example>
+            <mitigations>
+                <mitigation>
+                    <summary>Add explicit units (km, s, °C, etc.) to ensure numerical facts are interpretable and verifiable.</summary>
+                    <example>"The distance is 100." → "The distance is 100 kilometers."</example>
+                </mitigation>
+            </mitigations>
+        </rule>
+
+        <rule id="E2" name="Percent-No-Baseline" severity="medium">
+            <detect>
+                <pattern>Percentages stated without reference category or baseline.</pattern>
+            </detect>
+            <example>"Accuracy improved by <RISK>10%</RISK>."</example>
+            <mitigations>
+                <mitigation>
+                    <summary>Specify what the percentage is relative to (dataset, metric, time period) for factual traceability.</summary>
+                    <example>"Accuracy improved by 10%." → "Accuracy improved by 10% relative to the 2023 baseline model on the same validation dataset."</example>
+                </mitigation>
+            </mitigations>
+        </rule>
+
+        <rule id="E3" name="Currency-Unspecified" severity="low">
+            <detect>
+                <pattern>Monetary values without currency identifiers can distort factual interpretation.</pattern>
+            </detect>
+            <example>"The project cost <RISK>5,000</RISK>."</example>
+            <mitigations>
+                <mitigation>
+                    <summary>Always include currency codes and, if relevant, region or year to make comparisons factually valid.</summary>
+                    <example>"The project cost 5,000." → "The project cost USD 5,000 in 2024."</example>
+                </mitigation>
+            </mitigations>
+        </rule>
+    </pillar>
+
+    <!-- =============== F. RETRIEVAL & ANCHORING =============== -->
+    <pillar id="F" name="Retrieval-Anchoring" class="prompt">
+        <rule id="F1" name="Source-Class-Unspecified" severity="critical">
+            <detect>
+                <pattern>Requests to retrieve or cite information without specifying the type or reliability of sources.</pattern>
+            </detect>
+            <example>"<RISK>Find</RISK> the latest cancer cure."</example>
+            <mitigations>
+                <mitigation>
+                    <summary>Explicitly request source classes (peer-reviewed papers, official statistics) and require citation in the response.</summary>
+                    <example>"Find the latest cancer cure." → "Find peer-reviewed 2024 research articles on novel cancer therapies and cite their journal names."</example>
+                </mitigation>
+            </mitigations>
+        </rule>
+
+        <rule id="F2" name="Document-Anchor-Missing" severity="critical">
+            <detect>
+                <pattern>Mentions of “the paper/report/dataset” without identifiers lead to unverifiable grounding.</pattern>
+            </detect>
+            <example>"Summarize <RISK>the report</RISK>."</example>
+            <mitigations>
+                <mitigation>
+                    <summary>Include explicit identifiers (title, DOI, URL, year) so facts can be traced to a specific document.</summary>
+                    <example>"Summarize the report." → "Summarize the 2023 UN IPCC Climate Report (AR6, Working Group II)."</example>
+                </mitigation>
+            </mitigations>
+        </rule>
+    </pillar>
+
+    <!-- ================= H. STYLE, BIAS & ROLE ================= -->
+    <pillar id="H" name="Style-Bias-Role" class="prompt">
+        <rule id="H1" name="Style-Inflation" severity="medium">
+            <detect>
+                <pattern>Creative or humorous formatting in factual contexts increases distortion risk.</pattern>
+            </detect>
+            <example>"Explain quantum physics <RISK>as a poem</RISK>."</example>
+            <mitigations>
+                <mitigation>
+                    <summary>Separate stylistic creativity from factual explanation; request accurate content before stylistic transformation.</summary>
+                    <example>"Explain quantum physics as a poem." → "First explain the facts of quantum physics accurately; then rewrite that explanation in poetic form."</example>
+                </mitigation>
+            </mitigations>
+        </rule>
+
+        <rule id="H2" name="Bias-Stereotypes" severity="critical">
+            <detect>
+                <pattern>Biased phrasing leading to false generalizations about groups.</pattern>
+            </detect>
+            <example>"<RISK>Immigrants</RISK> increase crime rates."</example>
+            <mitigations>
+                <mitigation>
+                    <summary>Neutralize group-level generalizations by requesting data-driven, evidence-based comparison rather than causal claims.</summary>
+                    <example>"Immigrants increase crime rates." → "Summarize what empirical studies say about correlations between immigration and crime in OECD countries since 2010."</example>
+                </mitigation>
+            </mitigations>
+        </rule>
+    </pillar>
+
+    <!-- ============ I. REASONING & UNCERTAINTY ============ -->
+    <pillar id="I" name="Reasoning-Uncertainty" class="prompt">
+        <rule id="I1" name="Uncertainty-Permission" severity="critical">
+            <detect>
+                <pattern>Prompts forcing certainty on inherently unknown or speculative facts.</pattern>
+            </detect>
+            <example>"State <RISK>exactly</RISK> how many alien species exist."</example>
+            <mitigations>
+                <mitigation>
+                    <summary>Allow for uncertainty or probabilistic framing by explicitly asking for confidence levels or epistemic limits.</summary>
+                    <example>"State exactly how many alien species exist." → "Discuss scientific estimates and uncertainties regarding the probability of extraterrestrial life."</example>
+                </mitigation>
+            </mitigations>
+        </rule>
+
+        <rule id="I2" name="Subjective-Framing-Risk" severity="medium">
+            <detect>
+                <pattern>Opinion-based questions mistaken for factual ones.</pattern>
+            </detect>
+            <example>"<RISK>Do you think</RISK> vaccines work?"</example>
+            <mitigations>
+                <mitigation>
+                    <summary>Rephrase to request evidence-based synthesis rather than subjective stance.</summary>
+                    <example>"Do you think vaccines work?" → "Summarize scientific evidence on vaccine efficacy according to WHO and CDC reports."</example>
+                </mitigation>
+            </mitigations>
+        </rule>
+    </pillar>
+
+    <!-- ============== L. CONTEXTUAL INTEGRITY ============== -->
+    <pillar id="L" name="Contextual-Integrity" class="prompt">
+        <rule id="L1" name="Conflicting-Instructions" severity="critical">
+            <detect>
+                <pattern>Conflicts causing factual contradiction within one prompt.</pattern>
+            </detect>
+            <example>"Explain why <RISK>AI was invented in 2023</RISK> and describe early 1980s AI research."</example>
+            <mitigations>
+                <mitigation>
+                    <summary>Ensure chronological and logical consistency; remove or clarify statements that contradict known facts.</summary>
+                    <example>"Explain why AI was invented in 2023." → "Explain milestones in AI development from the 1950s to 2023, focusing on deep learning advances."</example>
+                </mitigation>
+            </mitigations>
+        </rule>
+
+        <rule id="L2" name="Negation-Risk" severity="low">
+            <detect>
+                <pattern>Negatively framed or double-negative instructions may invert factual meaning.</pattern>
+            </detect>
+            <example>"<RISK>Don’t include</RISK> incorrect facts."</example>
+            <mitigations>
+                <mitigation>
+                    <summary>Rephrase as a positive, verifiable directive specifying what factual standard to meet.</summary>
+                    <example>"Don’t include incorrect facts." → "Ensure every statement is supported by reliable, cited evidence."</example>
+                </mitigation>
+            </mitigations>
+        </rule>
+
+        <rule id="L3" name="Clarification-Gap" severity="critical">
+            <detect>
+                <pattern>Missing context leads to ungrounded factual assumptions.</pattern>
+            </detect>
+            <example>"Summarize the findings of <RISK>the study</RISK>." (no study given)</example>
+            <mitigations>
+                <mitigation>
+                    <summary>Provide all needed source text, data, or citations before asking for factual summarization.</summary>
+                    <example>"Summarize the findings of the study." → "Here is the 2022 Nature study on CRISPR efficiency. Summarize its main findings and limitations."</example>
+                </mitigation>
+            </mitigations>
+        </rule>
+    </pillar>
+</hallucination_detection_guidelines>

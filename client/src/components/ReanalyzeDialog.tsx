@@ -12,15 +12,18 @@ import { Textarea } from './ui/textarea';
 import { Info, Sparkles, RefreshCw, Wand2 } from 'lucide-react';
 import { AnalysisLoadingDialog } from './AnalysisLoadingDialog';
 
+import type { PrepareVariation } from '../types';
+
 interface ReanalyzeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   currentPrompt: string;
   priorAnalysis: any;
   conversationHistory: { role: string; content: string }[];
-  onGeneratePreview: (additionalChanges: string) => Promise<string>;
+  onGeneratePreview: (additionalChanges: string) => Promise<number>;
   onReanalyze: (refinedPrompt: string) => void;
   isLoading?: boolean;
+  preparedVariations?: PrepareVariation[];
 }
 
 export function ReanalyzeDialog({
@@ -31,22 +34,25 @@ export function ReanalyzeDialog({
   conversationHistory,
   onGeneratePreview,
   onReanalyze,
-  isLoading = false
+  isLoading = false,
+  preparedVariations
 }: ReanalyzeDialogProps) {
   const [additionalChanges, setAdditionalChanges] = useState('');
   const [previewPrompt, setPreviewPrompt] = useState('');
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const [hasGeneratedPreview, setHasGeneratedPreview] = useState(false);
 
-  const handleGeneratePreview = async () => {
+  const handleGeneratePreview = async (baseOverride?: string) => {
     setIsGeneratingPreview(true);
     try {
-      const refinedPrompt = await onGeneratePreview(additionalChanges);
-      setPreviewPrompt(refinedPrompt);
+      const variantCount = await onGeneratePreview(additionalChanges || "");
       setHasGeneratedPreview(true);
+      if (!variantCount) {
+        setPreviewPrompt('');
+      }
     } catch (error) {
       console.error('Failed to generate preview:', error);
-      setPreviewPrompt('Error generating preview. Please try again.');
+      setPreviewPrompt('');
     } finally {
       setIsGeneratingPreview(false);
     }
@@ -109,7 +115,7 @@ export function ReanalyzeDialog({
             </div>
           </motion.div>
 
-          {/* Section 2: Current Prompt */}
+          {/* Section 2: Current Prompt & Variations (Initiator + Prepared) */}
           <div className="space-y-2">
             <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
               Current Prompt:
@@ -119,6 +125,41 @@ export function ReanalyzeDialog({
                 {currentPrompt}
               </pre>
             </div>
+
+            {hasGeneratedPreview && preparedVariations && preparedVariations.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mt-4">
+                  Prepared Variations (after your edits):
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {preparedVariations.map(v => (
+                    <motion.button
+                      key={`prep-${v.id}`}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      disabled={isGeneratingPreview || isLoading}
+                      onClick={() => {
+                        setPreviewPrompt(v.prompt);
+                        setHasGeneratedPreview(true);
+                      }}
+                      className="text-left p-3 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors group"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-mono text-emerald-700 dark:text-emerald-300">#{v.id}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 bg-emerald-200 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-200 rounded">
+                          {v.label}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-gray-600 dark:text-gray-300 mb-1">Focus: {v.focus}</div>
+                      <div className="text-xs text-gray-700 dark:text-gray-200 line-clamp-4 whitespace-pre-wrap font-mono">
+                        {v.prompt}
+                      </div>
+                      <div className="mt-2 text-[10px] text-emerald-700 dark:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity">Click to use as preview</div>
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Section 3: Additional Changes */}
@@ -145,7 +186,7 @@ export function ReanalyzeDialog({
                 Preview of Refined Prompt:
               </label>
               <Button
-                onClick={handleGeneratePreview}
+                onClick={() => handleGeneratePreview()}
                 disabled={isGeneratingPreview || isLoading}
                 size="sm"
                 className="gap-2 bg-purple-600 hover:bg-purple-700"
@@ -163,7 +204,7 @@ export function ReanalyzeDialog({
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4" />
-                    Generate Preview
+                    {hasGeneratedPreview ? 'Regenerate Variants' : 'Generate Variants'}
                   </>
                 )}
               </Button>
@@ -176,11 +217,10 @@ export function ReanalyzeDialog({
                   No preview generated yet
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-500">
-                  Click "Generate Preview" to create a refined version of your prompt using AI-assisted improvements 
-                  based on the conversation history, hallucination mitigation guidelines, and prior analysis.
+                  Click "Generate Variants" to generate 5 refined options based on your edits, conversation history, mitigation guidelines, and prior analysis. Then choose one to preview below.
                 </p>
               </div>
-            ) : (
+            ) : preparedVariations && preparedVariations.length > 0 ? (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -189,15 +229,29 @@ export function ReanalyzeDialog({
                 <div className="flex items-center gap-2 p-2 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-md">
                   <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                   <p className="text-xs text-purple-700 dark:text-purple-300">
-                    This refined prompt incorporates insights from your conversation, the hallucination mitigation guidelines, and the prior analysis to provide guided improvements.
+                    Select one of the generated variants above to preview it here.
                   </p>
                 </div>
                 <div className="p-4 bg-purple-50 dark:bg-purple-950/20 border-2 border-purple-300 dark:border-purple-700 rounded-lg max-h-60 overflow-y-auto">
                   <pre className="text-sm whitespace-pre-wrap font-mono text-gray-800 dark:text-gray-200">
-                    {previewPrompt}
+                    {previewPrompt || 'No variant selected yet.'}
                   </pre>
                 </div>
               </motion.div>
+            ) : (
+              <div className="p-6 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg text-center">
+                <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-2">No variants returned</p>
+                <p className="text-xs text-yellow-700 dark:text-yellow-300 mb-3">The generation succeeded but produced zero variants. Try regenerating or adjust your additional changes.</p>
+                <Button
+                  onClick={() => handleGeneratePreview()}
+                  disabled={isGeneratingPreview || isLoading}
+                  size="sm"
+                  variant="outline"
+                  className="border-yellow-400 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-100 dark:hover:bg-yellow-800/30"
+                >
+                  Regenerate Variants
+                </Button>
+              </div>
             )}
           </div>
         </div>
