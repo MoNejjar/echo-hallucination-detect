@@ -105,23 +105,10 @@ export interface RefineOnceResponse {
   assistant_message: string;
 }
 
-// Initiator integration types (variations removed; now only clarifying question + mitigation plan)
-
-export interface InitiatorMitigationPlanPrinciple {
-  name: string;
-  rules: string[];
-  summary: string;
-}
-
-export interface InitiatorMitigationPlan {
-  overview: string;
-  rules_addressed: string[];
-  principles: InitiatorMitigationPlanPrinciple[];
-}
+// Initiator integration types
 
 export interface InitiateResponse {
-  clarifying_question: string | null;
-  mitigation_plan: InitiatorMitigationPlan;
+  message: string;
   success: boolean;
 }
 

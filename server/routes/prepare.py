@@ -20,6 +20,7 @@ class PrepareRequest(BaseModel):
     prior_analysis: Dict[str, Any]
     conversation_history: List[Dict[str, str]]
     user_final_edits: Optional[str] = ""
+    analysis_mode: Optional[str] = "both"
 
 
 class Variation(BaseModel):
@@ -47,13 +48,20 @@ async def prepare_prompt(request: PrepareRequest):
     3. Integrate user's final manual edits
     """
     try:
-        logger.info(f"Preparing refined prompt (current length: {len(request.current_prompt)})")
+        logger.info(f"Preparing refined prompt (current length: {len(request.current_prompt)}, mode: {request.analysis_mode})")
+        
+        # Validate analysis_mode
+        valid_modes = ["faithfulness", "factuality", "both"]
+        analysis_mode = request.analysis_mode or "both"
+        if analysis_mode not in valid_modes:
+            raise HTTPException(status_code=400, detail=f"Invalid analysis_mode. Must be one of: {', '.join(valid_modes)}")
         
         refine_data = await preparator.refine_prompt(
             current_prompt=request.current_prompt,
             prior_analysis=request.prior_analysis,
             conversation_history=request.conversation_history,
-            user_final_edits=request.user_final_edits or ""
+            user_final_edits=request.user_final_edits or "",
+            analysis_mode=analysis_mode
         )
         refined_prompt = refine_data.get("refined_prompt", "")
         variations_raw = refine_data.get("variations", [])

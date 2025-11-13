@@ -114,13 +114,22 @@ const renderAnnotated = (text: string, analysisData?: PromptAnalysis | null, fil
           
           console.log('🎨 [App.tsx renderAnnotated] Applying colors:', colors);
           
+          // Handle multi-line text by splitting and wrapping each line
+          const lines = riskText.split('\n');
+          
           return (
-            <span
-              key={index}
-              className={`${colors.bg} ${colors.text} ${colors.border} px-1 py-0.5 rounded border font-medium`}
-              title={`Risk Token ${riskId} (${riskLevel.toUpperCase()} RISK)`}
-            >
-              {riskText}
+            <span key={index}>
+              {lines.map((line, lineIndex) => (
+                <span key={`${index}-${lineIndex}`}>
+                  {lineIndex > 0 && '\n'}
+                  <span
+                    className={`${colors.bg} ${colors.text} ${colors.border} px-1 py-0.5 rounded border font-medium inline-block`}
+                    title={`Risk Token ${riskId} (${riskLevel.toUpperCase()} RISK)`}
+                  >
+                    {line}
+                  </span>
+                </span>
+              ))}
             </span>
           );
         }
@@ -302,27 +311,15 @@ function App() {
       await new Promise(resolve => setTimeout(resolve, 1000));
       setShowAnalysisSection(true);
 
-      // Step 2: Initiator - seamlessly start the conversation with mitigation + optional clarifying question
-      let initiation: InitiateResponse | null = null;
+      // Step 2: Initiator - seamlessly start the conversation with markdown-formatted message
       try {
-        initiation = await initiatePrompt(originalUserPrompt, mapped, hallucinationMode);
-        const clarQ = initiation.clarifying_question;
-        const overview = initiation.mitigation_plan?.overview;
-        setInitiatorClarifyingQuestion(clarQ || null);
-        setInitiatorMitigationOverview(overview || null);
-
-        // Compose an assistant message summarizing initiator outputs
-        const parts: string[] = [];
-        if (clarQ) {
-          parts.push(`Clarifying question: ${clarQ}`);
-        }
-        if (overview) {
-          parts.push(`Mitigation plan: ${overview}`);
-        }
-        if (parts.length) {
+        const initiation = await initiatePrompt(originalUserPrompt, mapped, hallucinationMode);
+        
+        // The initiator now returns a single markdown message
+        if (initiation.message) {
           setChatMessages([{
             role: 'assistant',
-            content: parts.join("\n\n"),
+            content: initiation.message,
             timestamp: new Date(),
           }]);
         }
@@ -347,6 +344,7 @@ function App() {
       console.log('📨 sendMessage called with:');
       console.log('  currentPrompt:', currentPrompt?.substring(0, 100) + '...');
       console.log('  analysis available:', !!analysis);
+      console.log('  currentHallucinationMode:', currentHallucinationMode);
       if (analysis) {
         console.log('  analysis.annotated_prompt:', analysis.annotated_prompt?.substring(0, 100) + '...');
         console.log('  risk_tokens count:', analysis.risk_tokens?.length || 0);
@@ -375,8 +373,8 @@ function App() {
         }));
 
         // Pass the analysis output to the conversation so the assistant knows what was detected
-        console.log('🔄 Calling refineStream with analysis context');
-        const response = await refineStream(currentPrompt, userMessage, historyCompact, analysis);
+        console.log('🔄 Calling refineStream with analysis context and mode:', currentHallucinationMode);
+        const response = await refineStream(currentPrompt, userMessage, historyCompact, analysis, currentHallucinationMode);
         
         setChatMessages((prev) => 
           prev.map((m) => 
@@ -391,7 +389,7 @@ function App() {
         );
       }
     },
-    [chatMessages, currentPrompt, analysis]
+    [chatMessages, currentPrompt, analysis, currentHallucinationMode]
   );
 
   const onSendMessage = (message: string) => {
@@ -431,7 +429,8 @@ function App() {
       currentPrompt,
       priorAnalysisContext,
       chatMessages.map(m => ({ role: m.role, content: m.content })),
-      additionalChanges
+      additionalChanges,
+      currentHallucinationMode
     );
     
     if (response.success) {

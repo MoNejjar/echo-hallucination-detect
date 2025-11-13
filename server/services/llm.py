@@ -44,28 +44,35 @@ class OpenAILLM:
         """
         return await self.analyzer.analyze_prompt(prompt, analysis_mode)
     
-    async def chat_once(self, current_prompt: str, user_message: str = None, analysis_output: Optional[Dict[str, Any]] = None) -> str:
+    async def chat_once(
+        self, 
+        current_prompt: str, 
+        user_message: str = None, 
+        analysis_output: Optional[Dict[str, Any]] = None,
+        analysis_mode: str = "both"
+    ) -> str:
         """
         Generate a conversational response for prompt improvement.
         
         Delegates to ConversationAgent for all conversation logic.
         """
-        return await self.conversation.chat_once(current_prompt, user_message, analysis_output)
+        return await self.conversation.chat_once(current_prompt, user_message, analysis_output, analysis_mode)
     
     async def chat_stream(
         self, 
         current_prompt: str, 
         conversation_history: List[Dict[str, str]], 
         user_message: str,
-        analysis_output: Optional[Dict[str, Any]] = None
+        analysis_output: Optional[Dict[str, Any]] = None,
+        analysis_mode: str = "both"
     ) -> str:
         """
         Conversational responses for iterative prompt improvement.
         
         Delegates to ConversationAgent for all conversation logic.
         """
-        return await self.conversation.chat_stream(current_prompt, conversation_history, user_message, analysis_output)
+        return await self.conversation.chat_stream(current_prompt, conversation_history, user_message, analysis_output, analysis_mode)
 
-    async def initiate(self, prompt: str, analysis_output: Optional[Dict[str, Any]] = None, analysis_mode: str = "both") -> Dict[str, Any]:
-        """Single-turn initiation producing clarifying question, mitigation plan and 5 variations."""
+    async def initiate(self, prompt: str, analysis_output: Optional[Dict[str, Any]] = None, analysis_mode: str = "both") -> str:
+        """Single-turn initiation producing clarifying question and mitigation plan as markdown text."""
         return await self.initiator.initiate(prompt, analysis_output, analysis_mode)

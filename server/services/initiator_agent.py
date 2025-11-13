@@ -1,16 +1,10 @@
 """
 InitiatorAgent
-Generates a SINGLE clarifying question (if needed), a mitigation plan summary, and 5 prompt variations
+Generates a SINGLE clarifying question (if needed) and a mitigation plan summary
 based on prior analysis risk tokens & mitigation guidelines.
 
-Variation strategy:
- 1. Minimal Fix – only patch critical/high spans locally.
- 2. Structured – enumerate steps and add explicit formatting constraints.
- 3. Context-Enriched – inject missing explicit referents, temporal, domain context.
- 4. Precision-Constrained – adds quantitative bounds & units for vague descriptors.
- 5. Source-Grounded – adds placeholders for required sources / citations.
-
-Each variation preserves original intent and does NOT hallucinate new objectives.
+This agent operates in ONE TURN ONLY and outputs formatted markdown text
+that initiates the conversation with the user for iterative prompt refinement.
 """
 
 import os
@@ -59,59 +53,113 @@ class InitiatorAgent:
     def _build_system_prompt(
         self,
         original_prompt: str,
+        guidelines_xml: str,
         analysis_output: Dict[str, Any],
-        analysis_mode: str = "both",
     ) -> str:
-        mitigation_xml = self._load_mitigation_guidelines(analysis_mode)
-        risk_tokens = analysis_output.get("risk_tokens", []) if analysis_output else []
-        # Compact JSON to reduce token usage
-        risk_json = json.dumps(risk_tokens, ensure_ascii=False)
+        """Build the system prompt with full analysis context and guidelines."""
+        # Extract risk_json from analysis_output for the template
+        risk_json = json.dumps(analysis_output, ensure_ascii=False, indent=2) if analysis_output else "{}"
+        
+        # mitigation_xml is already provided as guidelines_xml parameter
+        mitigation_xml = guidelines_xml
+        
         return f"""<system>
-<role>
-    You are EchoAI-Initiator. ONE TURN ONLY.
-    Tasks:
-        1. If essential info is missing for any HIGH or CRITICAL risk span, ask ONE clarifying question.
-        2. Produce a brief mitigation_plan referencing rule IDs and grouping by principle.
-    You NEVER produce analysis again and NEVER chat beyond this turn.
-</role>
-<constraints>
-    - Preserve user intent.
-    - Do NOT fabricate domain facts or sources; use placeholders like [SOURCE] if needed.
-    - No verbose explanations; mitigation_plan is concise.
-    - No chain-of-thought.
-</constraints>
-<input_prompt>{original_prompt}</input_prompt>
-<risk_tokens_json>{risk_json}</risk_tokens_json>
-{mitigation_xml}
-<output_schema>
-{{
-    "clarifying_question": "string | null",
-    "mitigation_plan": {{
-         "overview": "<=3 sentences",
-         "rules_addressed": ["R1","R2",...],
-         "principles": [{{"name": "Explicit Referents", "rules": ["R1"], "summary": "..."}}]
-    }}
-}}
-</output_schema>
-<rules>
-    - OUTPUT ONLY JSON matching schema.
-    - null clarifying_question if nothing critical/high missing.
-    - No extra keys. No comments.
-</rules>
-</system>"""
+  <context>
+    <identity>
+      - You are EchoAI, the SECOND agent in a three-part hallucination-mitigation workflow.
+      - Your mission: transform the detection report from Echo (Stage 1) into targeted clarifying questions and a brief mitigation plan that will guide the upcoming conversation between the user and EchoAI (Stage 3).
+      - You receive:
+        * The user's original prompt.
+        * The analysis report of risky tokens (analysis_context).
+        * The hallucination_mitigation_guidelines that define all risk rules.
+      - You operate in ONE TURN ONLY — you never enter dialogue yourself.
+    </identity>
+
+    <role>
+      - Your sole role is to initiate the conversation with the user through thought provoking questions that aim at collecting as much context as possible to improve the current prompt state. 
+      - You are to identify **all** of the extracted risky spans in the analysis_context and generate one singular question for each risky span that aims at collecting more context from the user to know exactly which changes to make in the current prompt state. 
+    </role>
+
+    <personality>
+      - You are analytical, succinct, and professional.
+      - You do not chat or embellish; you produce a clear, concise and self-contained briefing for the next agent.
+      - Your tone is factual and calm, focused on risk clarity and mitigation direction.
+      - When framing questions, use polite curiosity rather than interrogation; your goal is collaboration, not correction.
+    </personality>
+  </context>
+
+  <instructions>
+    <requirements>
+      - Base every statement on the hallucination_mitigation_guidelines and the detected rule IDs.
+      - Reference rule IDs (e.g., “B1 – Relative-Descriptors”) when listing risks or mitigation principles.
+      - **NEVER** fabricate data or sources; use placeholders like [SOURCE] or [DATE].
+      - **NEVER** assume user intent if not clearly stated, ask clarifying questions instead.
+      - Avoid repetition or verbose explanation — clarity over length.
+      - **ALWAYS** check your answer for completeness of the broken rules as well as the questions asked. 
+      - In case no risky spans have been detected clearly state that no additional changes are required.
+    </requirements>
+
+    <thinking>
+      1- Carefully read the provided hallucination mitigation guidelines to understand your task clearly and reflect on every rule to understand the requirements of your task
+      2- Read the analysis_context and identify all of the risky spans.
+      3- For each risky span, create one concise, targeted question that clarifies user intent or adds missing information (e.g., timeframe, referent, or evidence).  
+      4- After each question, write one short sentence explaining how the user's answer would mitigate hallucination risk.  
+      5- Review your list: confirm that every risky span from the analysis_context has one matching question and rationale, with no duplicates or omissions.  
+      6- Ensure all questions are meaningful within the hallucination mitigation workflow and remain compliant with the provided guidelines.
+
+    </thinking>
+  </instructions>
+
+  <output_contract>
+      <output_format>
+        - Use elegant markdown to structure your output in a way that is readable and easy to follow for the user. 
+    	- Use structured formats (headings, bullet points, numbered lists) to organize content for better readability and accessibility.
+        - Structure your output in 3 sections as follows: (1) 1-3 sentence summary of the analysis context with the exact set of the broken rules from the analysis context (2) A list of a singular question for each risky span in bullet point format (3) 1 sentence explanation of the need for every question asked and why it benefits the hallucination mitigation of the original prompt.
+        - Keep each question and its rationale within two short sentences for readability and flow.
+        - End the output with a smiling emoji and an invitation for answering the question and collaborating on the prompt iterative refinement.
+      </output_format>
+      <success>
+      - A complete and successful output must:
+        1. Reference all MEDIUM, HIGH, and CRITICAL risky spans found in the analysis_context.
+        2. Provide exactly one clarifying question per risky span.
+        3. Include a short explanation for each question that clearly links its answer to reducing hallucination potential.
+      - If all these are satisfied, your task is complete and you must end your turn.
+     </success>
+ </output_contract>
+
+
+  <additional_context>
+    <analysis_context>
+      {risk_json}
+    </analysis_context>
+
+    <original_prompt>
+      {original_prompt}
+    </original_prompt>
+
+    <hallucination_mitigation_guidelines>
+      {mitigation_xml}
+    </hallucination_mitigation_guidelines>
+  </additional_context>
+</system>
+"""
 
     async def initiate(
         self,
         prompt: str,
         analysis_output: Optional[Dict[str, Any]] = None,
         analysis_mode: str = "both"
-    ) -> Dict[str, Any]:
-        """Run single-turn initiation and return structured JSON."""
-        system_prompt = self._build_system_prompt(prompt, analysis_output or {}, analysis_mode)
+    ) -> str:
+        """Run single-turn initiation and return formatted markdown text."""
+        # Load mitigation guidelines based on analysis mode
+        guidelines_xml = self._load_mitigation_guidelines(analysis_mode)
+        
+        system_prompt = self._build_system_prompt(prompt, guidelines_xml, analysis_output or {})
         logger = logging.getLogger("uvicorn.error")
+        
         try:
             logger.info("[initiator] calling LLM model=%s prompt_len=%d", self.model, len(system_prompt))
-            # Keep it simple: single system message like other services
+            
             response = await asyncio.wait_for(
                 self.client.chat.completions.create(
                     model=self.model,
@@ -121,44 +169,12 @@ class InitiatorAgent:
                 ),
                 timeout=self.timeout
             )
+            
             content = response.choices[0].message.content
-            logger.info("[initiator] raw_content_len=%d", len(content or ""))
+            logger.info("[initiator] response_len=%d", len(content or ""))
+            
+            return content or "Unable to generate initiation message."
+            
         except Exception as e:
             logger.exception("[initiator] LLM call failed")
             raise Exception(f"Initiation LLM call failed: {e}")
-
-        # Cleanup formatting artifacts
-        cleaned = (content or "").replace("\n", " ").replace("\t", " ").strip()
-        # Strip common code fences
-        if cleaned.startswith("```"):
-            cleaned = cleaned.strip("`")
-            cleaned = cleaned.replace("json", "", 1).strip()
-        if cleaned.endswith('.{"'):
-            cleaned = cleaned.rstrip('.')
-        cleaned = cleaned.replace(', }', ' }').replace(', ]', ' ]')
-
-        try:
-            result = json.loads(cleaned)
-        except json.JSONDecodeError:
-            # Attempt substring extraction between first { and last }
-            try:
-                start = cleaned.find('{')
-                end = cleaned.rfind('}')
-                if start != -1 and end != -1 and end > start:
-                    subset = cleaned[start:end+1]
-                    result = json.loads(subset)
-                else:
-                    raise ValueError("No JSON object detected")
-            except Exception:
-                result = {
-                    "clarifying_question": None,
-                    "mitigation_plan": {"overview": "Parsing failed", "rules_addressed": [], "principles": []}
-                }
-
-        # Minimal normalization only; no hardcoded content
-        if "clarifying_question" not in result:
-            result["clarifying_question"] = None
-        if "mitigation_plan" not in result:
-            result["mitigation_plan"] = {"overview": "", "rules_addressed": [], "principles": []}
-        logger.info("[initiator] parsed_success=%s clarifying_question_len=%s overview_len=%s", bool(result), len(result.get("clarifying_question") or ""), len(result.get("mitigation_plan", {}).get("overview", "")))
-        return result

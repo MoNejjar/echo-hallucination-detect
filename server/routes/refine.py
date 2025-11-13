@@ -11,6 +11,7 @@ class RefineRequest(BaseModel):
     conversation_history: List[Dict[str, str]]
     user_message: str
     analysis_output: Optional[Dict[str, Any]] = None
+    analysis_mode: Optional[str] = "both"
 
 class RefineResponse(BaseModel):
     assistant_message: str
@@ -26,10 +27,17 @@ async def refine_prompt(request: RefineRequest):
         print(f"DEBUG: User message: {request.user_message}")
         print(f"DEBUG: Conversation history length: {len(request.conversation_history)}")
         print(f"DEBUG: Analysis output provided: {request.analysis_output is not None}")
+        print(f"DEBUG: Analysis mode: {request.analysis_mode}")
         
         # Check if prompt is provided
         if not request.prompt or not request.prompt.strip():
             raise HTTPException(status_code=400, detail="Prompt is required")
+        
+        # Validate analysis_mode
+        valid_modes = ["faithfulness", "factuality", "both"]
+        analysis_mode = request.analysis_mode or "both"
+        if analysis_mode not in valid_modes:
+            raise HTTPException(status_code=400, detail=f"Invalid analysis_mode. Must be one of: {', '.join(valid_modes)}")
         
         # Use LLM service for refinement with conversation
         if request.conversation_history:
@@ -39,7 +47,8 @@ async def refine_prompt(request: RefineRequest):
                 current_prompt=request.prompt,
                 conversation_history=request.conversation_history,
                 user_message=request.user_message,
-                analysis_output=request.analysis_output
+                analysis_output=request.analysis_output,
+                analysis_mode=analysis_mode
             )
         else:
             print("DEBUG: Using chat_once without conversation history")
@@ -47,7 +56,8 @@ async def refine_prompt(request: RefineRequest):
             assistant_message = await llm_service.chat_once(
                 current_prompt=request.prompt,
                 user_message=request.user_message,
-                analysis_output=request.analysis_output
+                analysis_output=request.analysis_output,
+                analysis_mode=analysis_mode
             )
         
         print(f"DEBUG: Response length: {len(assistant_message)}")
@@ -58,7 +68,13 @@ async def refine_prompt(request: RefineRequest):
         raise HTTPException(status_code=500, detail=f"Refinement failed: {str(e)}")
 
 @router.get("/stream")
-async def refine_stream(prompt: str, user_message: str, history_json: str = "[]", analysis_json: str = "null"):
+async def refine_stream(
+    prompt: str, 
+    user_message: str, 
+    history_json: str = "[]", 
+    analysis_json: str = "null",
+    analysis_mode: str = "both"
+):
     """Refinement suggestions for a prompt (converted from streaming to regular response)."""
     try:
         print("=== REFINE STREAM CALLED ===")
@@ -66,6 +82,12 @@ async def refine_stream(prompt: str, user_message: str, history_json: str = "[]"
         print(f"DEBUG: User message: {user_message}")
         print(f"DEBUG: History JSON: {history_json[:100]}...")
         print(f"DEBUG: Analysis JSON: {analysis_json[:100] if analysis_json != 'null' else 'null'}...")
+        print(f"DEBUG: Analysis mode: {analysis_mode}")
+        
+        # Validate analysis_mode
+        valid_modes = ["faithfulness", "factuality", "both"]
+        if analysis_mode not in valid_modes:
+            raise HTTPException(status_code=400, detail=f"Invalid analysis_mode. Must be one of: {', '.join(valid_modes)}")
         
         conversation_history = json.loads(history_json)
         print(f"DEBUG: Parsed history length: {len(conversation_history)}")
@@ -84,7 +106,8 @@ async def refine_stream(prompt: str, user_message: str, history_json: str = "[]"
             current_prompt=prompt,
             conversation_history=conversation_history,
             user_message=user_message,
-            analysis_output=analysis_output
+            analysis_output=analysis_output,
+            analysis_mode=analysis_mode
         )
         
         return {"assistant_message": assistant_message}

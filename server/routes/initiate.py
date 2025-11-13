@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 import logging
 from pydantic import BaseModel
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from ..services.llm import OpenAILLM
 
 router = APIRouter()
@@ -15,15 +15,13 @@ class InitiateRequest(BaseModel):
 
 
 class InitiateResponse(BaseModel):
-    clarifying_question: Optional[str]
-    mitigation_plan: Dict[str, Any]
-    variations: Optional[List[Dict[str, Any]]] = None
+    message: str
     success: bool
 
 
 @router.post("/", response_model=InitiateResponse)
 async def initiate_prompt(request: InitiateRequest):
-    """Initiate refinement: single clarifying question + mitigation plan + 5 prompt variations."""
+    """Initiate refinement: single clarifying question + mitigation plan as formatted markdown."""
     try:
         if not request.prompt or not request.prompt.strip():
             raise HTTPException(status_code=400, detail="Prompt is required")
@@ -40,16 +38,15 @@ async def initiate_prompt(request: InitiateRequest):
             request.analysis_mode,
         )
 
-        result = await llm_service.initiate(
+        # Get markdown message from initiator
+        message = await llm_service.initiate(
             prompt=request.prompt,
             analysis_output=request.analysis_output,
             analysis_mode=request.analysis_mode
         )
 
         return InitiateResponse(
-            clarifying_question=result.get("clarifying_question"),
-            mitigation_plan=result.get("mitigation_plan", {}),
-            variations=result.get("variations", []),
+            message=message,
             success=True
         )
     except Exception as e:
