@@ -360,7 +360,7 @@ function App() {
       const id = String(Date.now());
       const placeholder: ChatMessage = {
         role: "assistant",
-        content: "Thinking...",
+        content: "",
         timestamp: new Date(),
         id,
       };
@@ -1075,7 +1075,7 @@ function App() {
                           )}
                         </button>
                       </div>
-                      <ScrollArea className={analysisResultsExpanded ? "h-auto max-h-[600px]" : "h-[150px]"}>
+                      <ScrollArea className={analysisResultsExpanded ? "h-auto" : "h-[150px]"}>
                         <div className={`${!analysisResultsExpanded ? 'relative' : ''} pt-2`}>
                           {renderAnnotated(analysis.annotated_prompt, analysis, riskLevelFilter)}
                           {!analysisResultsExpanded && (
@@ -1142,7 +1142,7 @@ function App() {
                             {(() => {
                               const promptPRD = typeof riskAssessment?.prompt?.prompt_PRD === 'number' ? riskAssessment.prompt.prompt_PRD : 0;
                               const metaPRD = typeof riskAssessment?.meta?.meta_PRD === 'number' ? riskAssessment.meta.meta_PRD : 0;
-                              const maxDisplay = 0.30;
+                              const maxDisplay = 0.40;
                               const promptPercentage = Math.min((promptPRD / maxDisplay) * 100, 100);
                               const metaPercentage = Math.min((metaPRD / maxDisplay) * 100, 100);
                               
@@ -1155,9 +1155,9 @@ function App() {
                                     }}>
                                       <div className="absolute inset-0 flex items-center justify-between px-3 text-[11px] font-bold text-white/90">
                                         <span className="drop-shadow">0.00</span>
-                                        <span className="drop-shadow">0.05</span>
-                                        <span className="drop-shadow">0.15</span>
-                                        <span className="drop-shadow">0.30+</span>
+                                        <span className="drop-shadow">0.10</span>
+                                        <span className="drop-shadow">0.30</span>
+                                        <span className="drop-shadow">0.40+</span>
                                       </div>
                                     </div>
                                     

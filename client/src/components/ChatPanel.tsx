@@ -88,124 +88,174 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onReanal
   };
 
   const formatMessage = (content: string) => {
-    // Enhanced markdown-to-HTML formatting for better readability
+    // Enhanced markdown-to-HTML formatting with visual hierarchy
     let formatted = content
-      // Handle code blocks first (triple backticks)
-      .replace(/```([\s\S]*?)```/g, '<pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg my-3 overflow-x-auto border"><code class="text-sm font-mono">$1</code></pre>')
+      // Handle code blocks first (triple backticks with optional language)
+      .replace(/```(\w*)\n?([\s\S]*?)```/g, '<div class="relative group"><div class="absolute right-2 top-2 text-xs text-gray-400 font-mono">$1</div><pre class="bg-slate-900 text-slate-50 p-3 rounded-xl my-1 overflow-x-auto shadow-sm border border-slate-800"><code class="text-sm font-mono leading-relaxed">$2</code></pre></div>')
       
       // Handle inline code (single backticks)
-      .replace(/`([^`]+)`/g, '<code class="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded text-sm font-mono">$1</code>')
+      .replace(/`([^`]+)`/g, '<code class="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded-md text-sm font-mono border border-purple-100 dark:border-purple-800/50">$1</code>')
       
-      // Handle blockquotes
-      .replace(/^> (.+)$/gm, '<blockquote class="border-l-4 border-gray-300 dark:border-gray-600 pl-4 py-2 my-2 bg-gray-50 dark:bg-gray-800/50 italic">$1</blockquote>')
+      // Handle blockquotes with a more distinct visual style
+      .replace(/^> (.+)$/gm, '<div class="flex gap-3 my-1 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-r-xl border-l-4 border-blue-500"><div class="text-blue-500"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></div><div class="italic text-gray-800 dark:text-gray-100">$1</div></div>')
       
-      // Handle special purple headers for key sections
-      .replace(/^(Improved Prompt:)$/gm, '<h2 class="text-xl font-bold mt-4 mb-2 text-purple-600 dark:text-purple-400">$1</h2>')
-      .replace(/^(Explanations:)$/gm, '<h2 class="text-xl font-bold mt-4 mb-2 text-purple-600 dark:text-purple-400">$1</h2>')
+      // Handle special purple headers for key sections with icons and boxes
+      .replace(/^(Improved Prompt:?)$/gm, '<div class="flex items-center gap-2 mt-4 mb-2 pb-2 border-b-2 border-purple-100 dark:border-purple-900/50"><span class="p-1.5 bg-purple-100 dark:bg-purple-900/50 rounded-lg text-purple-600 dark:text-purple-400"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></span><h2 class="text-xl font-bold text-purple-700 dark:text-purple-300">Improved Prompt</h2></div>')
+      .replace(/^(Explanations:?)$/gm, '<div class="flex items-center gap-2 mt-4 mb-2 pb-2 border-b-2 border-blue-100 dark:border-blue-900/50"><span class="p-1.5 bg-blue-100 dark:bg-blue-900/50 rounded-lg text-blue-600 dark:text-blue-400"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span><h2 class="text-xl font-bold text-blue-700 dark:text-blue-300">Explanations</h2></div>')
       
-      // Handle regular headers
-      .replace(/^### (.*$)/gm, '<h3 class="text-lg font-semibold mt-4 mb-2 text-gray-900 dark:text-gray-100">$1</h3>')
-      .replace(/^## (.*$)/gm, '<h2 class="text-xl font-semibold mt-4 mb-2 text-gray-900 dark:text-gray-100">$1</h2>')
-      .replace(/^# (.*$)/gm, '<h1 class="text-2xl font-bold mt-4 mb-2 text-gray-900 dark:text-gray-100">$1</h1>')
+      // Handle regular headers with better spacing and visual weight
+      .replace(/^#### (.*$)/gm, '<h4 class="text-base font-bold mt-2 mb-1 text-gray-800 dark:text-gray-200 flex items-center gap-2"><span class="w-1 h-4 bg-slate-300 rounded-full"></span>$1</h4>')
+      .replace(/^### (.*$)/gm, '<h3 class="text-lg font-bold mt-3 mb-1 text-gray-800 dark:text-gray-200 border-b border-slate-100 dark:border-slate-800 pb-1">$1</h3>')
+      .replace(/^## (.*$)/gm, '<h2 class="text-xl font-bold mt-4 mb-2 text-gray-900 dark:text-gray-100 border-b border-slate-200 dark:border-slate-700 pb-2">$1</h2>')
+      .replace(/^# (.*$)/gm, '<h1 class="text-2xl font-extrabold mt-4 mb-3 text-gray-900 dark:text-gray-100 border-b-2 border-slate-200 dark:border-slate-700 pb-3">$1</h1>')
       
-      // Handle bold text (both **text** and __text__)
-      .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>')
-      .replace(/__(.*?)__/g, '<strong class="font-semibold">$1</strong>')
+      // Handle bold + italic
+      .replace(/\*\*\*(.+?)\*\*\*/g, '<strong class="font-bold text-gray-900 dark:text-gray-100"><em class="italic">$1</em></strong>')
+      .replace(/___(.+?)___/g, '<strong class="font-bold text-gray-900 dark:text-gray-100"><em class="italic">$1</em></strong>')
       
-      // Handle italic text (both *text* and _text_, but not inside other formatting)
-      .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em class="italic">$1</em>')
-      .replace(/(?<!_)_([^_\n]+)_(?!_)/g, '<em class="italic">$1</em>');
+      // Handle bold text
+      .replace(/\*\*(.+?)\*\*/g, '<strong class="font-bold text-gray-900 dark:text-gray-100">$1</strong>')
+      .replace(/__(.+?)__/g, '<strong class="font-bold text-gray-900 dark:text-gray-100">$1</strong>')
+      
+      // Handle italic text
+      .replace(/\*(.+?)\*/g, '<em class="italic text-gray-800 dark:text-gray-200">$1</em>')
+      .replace(/_(.+?)_/g, '<em class="italic text-gray-800 dark:text-gray-200">$1</em>');
 
-    // Process lists and sections properly by working with lines
+    // Process lists with enhanced visual structure
     const lines = formatted.split('\n');
     const processedLines: string[] = [];
-    let inUnorderedList = false;
-    let inOrderedList = false;
-    let orderedListCounter = 1;
+    
+    interface ListContext {
+      type: 'ul' | 'ol';
+      indent: number;
+    }
+    
+    const listStack: ListContext[] = [];
+    let skippedEmptyLine = false;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      const isUnorderedItem = /^[\s]*[-*+]\s(.+)$/.test(line);
-      const isOrderedItem = /^[\s]*\d+\.\s(.+)$/.test(line);
-      const isNumberedSection = /^[\s]*\d+\.\s([^:]*:)/.test(line); // Section headers ending with ':'
+      
+      // Handle empty lines first to control spacing
+      if (!line.trim()) {
+        if (listStack.length > 0) {
+          skippedEmptyLine = true;
+        } else {
+          processedLines.push('');
+        }
+        continue;
+      }
+
+      // Measure indentation
+      const indentMatch = line.match(/^(\s*)/);
+      const indent = indentMatch ? indentMatch[1].replace(/\t/g, '  ').length : 0;
+      
+      // Check what type of line this is
+      const unorderedMatch = line.match(/^(\s*)[-*+]\s(.+)$/);
+      const orderedMatch = line.match(/^(\s*)(\d+)\.\s(.+)$/);
+      const isNumberedSection = orderedMatch && orderedMatch[3].match(/^[^:]*:$/);
 
       if (isNumberedSection) {
-        // Close any open lists first
-        if (inUnorderedList) {
-          processedLines.push('</ul>');
-          inUnorderedList = false;
+        // Close all open lists
+        while (listStack.length > 0) {
+          const ctx = listStack.pop()!;
+          if (ctx.type === 'ul') processedLines.push('</ul>');
+          else if (ctx.type === 'ol') processedLines.push('</ol>');
         }
-        if (inOrderedList) {
-          processedLines.push('</ol>');
-          inOrderedList = false;
+        if (skippedEmptyLine) processedLines.push('');
+        skippedEmptyLine = false;
+        
+        // Convert numbered sections to styled cards/boxes
+        const sectionNum = orderedMatch![2];
+        const content = orderedMatch![3];
+        processedLines.push(`
+          <div class="mt-2 mb-1 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+            <div class="font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+              <span class="flex items-center justify-center w-5 h-5 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300 text-xs border border-purple-200 dark:border-purple-800">${sectionNum}</span>
+              <span>${content}</span>
+            </div>
+          </div>
+        `);
+        
+      } else if (unorderedMatch || (orderedMatch && !isNumberedSection)) {
+        // List item - consume skipped line (don't output it) to keep list tight
+        skippedEmptyLine = false;
+
+        const listType = unorderedMatch ? 'ul' : 'ol';
+        const content = unorderedMatch ? unorderedMatch[2] : orderedMatch![3];
+        
+        // Close lists with greater indentation
+        while (listStack.length > 0 && listStack[listStack.length - 1].indent >= indent) {
+          const ctx = listStack.pop()!;
+          if (ctx.type === 'ul') processedLines.push('</ul>');
+          else if (ctx.type === 'ol') processedLines.push('</ol>');
         }
         
-        // Convert numbered sections to styled headers with consistent numbering
-        const content = line.replace(/^[\s]*\d+\.\s(.+)$/, '$1');
-        processedLines.push(`<div class="font-semibold text-gray-900 dark:text-gray-100 mt-3 mb-1">${orderedListCounter}. ${content}</div>`);
-        orderedListCounter++;
-      } else if (isUnorderedItem) {
-        if (!inUnorderedList) {
-          if (inOrderedList) {
-            processedLines.push('</ol>');
-            inOrderedList = false;
+        // Open new list if needed
+        const currentContext = listStack[listStack.length - 1];
+        if (!currentContext || currentContext.type !== listType || currentContext.indent < indent) {
+          const marginLeft = Math.floor(indent / 2) + 2;
+          if (listType === 'ul') {
+            // Enhanced unordered list styling - ultra tight spacing
+            processedLines.push(`<ul class="list-none ml-${marginLeft} my-0 space-y-0">`);
+          } else {
+            // Enhanced ordered list styling - ultra tight spacing
+            processedLines.push(`<ol class="list-none ml-${marginLeft} my-0 space-y-0">`);
           }
-          processedLines.push('<ul class="list-disc ml-4 mb-1 space-y-0">');
-          inUnorderedList = true;
+          listStack.push({ type: listType, indent });
         }
-        const content = line.replace(/^[\s]*[-*+]\s(.+)$/, '$1');
-        processedLines.push(`<li class="ml-2">${content}</li>`);
-      } else if (isOrderedItem && !isNumberedSection) {
-        // Regular ordered list items (not section headers)
-        if (!inOrderedList) {
-          if (inUnorderedList) {
-            processedLines.push('</ul>');
-            inUnorderedList = false;
-          }
-          processedLines.push('<ol class="list-decimal ml-4 mb-2 space-y-0.5">');
-          inOrderedList = true;
+        
+        // Styled list items - with breathing room
+        if (listType === 'ul') {
+          processedLines.push(`<li class="flex items-start gap-2 mb-2 leading-normal"><span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-purple-500 flex-shrink-0"></span><span class="text-gray-800 dark:text-gray-100">${content}</span></li>`);
+        } else {
+          processedLines.push(`<li class="flex items-start gap-2 mb-2 leading-normal"><span class="font-mono text-xs text-gray-500 font-bold pt-0.5 select-none flex-shrink-0">${orderedMatch![2]}.</span><span class="text-gray-800 dark:text-gray-100">${content}</span></li>`);
         }
-        const content = line.replace(/^[\s]*\d+\.\s(.+)$/, '$1');
-        processedLines.push(`<li class="ml-2">${content}</li>`);
+        
       } else {
-        // Regular content - close any open lists
-        if (inUnorderedList) {
-          processedLines.push('</ul>');
-          inUnorderedList = false;
+        // Regular content - close all open lists
+        if (listStack.length > 0) {
+          while (listStack.length > 0) {
+            const ctx = listStack.pop()!;
+            if (ctx.type === 'ul') processedLines.push('</ul>');
+            else if (ctx.type === 'ol') processedLines.push('</ol>');
+          }
+          // If we skipped an empty line before this paragraph, restore it for separation
+          if (skippedEmptyLine) processedLines.push('');
         }
-        if (inOrderedList) {
-          processedLines.push('</ol>');
-          inOrderedList = false;
-        }
+        skippedEmptyLine = false;
+        
         processedLines.push(line);
       }
     }
 
     // Close any remaining open lists
-    if (inUnorderedList) {
-      processedLines.push('</ul>');
-    }
-    if (inOrderedList) {
-      processedLines.push('</ol>');
+    while (listStack.length > 0) {
+      const ctx = listStack.pop()!;
+      if (ctx.type === 'ul') processedLines.push('</ul>');
+      else if (ctx.type === 'ol') processedLines.push('</ol>');
     }
 
     formatted = processedLines.join('\n');
 
-    // Handle line breaks (double newlines become paragraphs, single newlines become <br>)
+    // Handle line breaks and paragraphs with better typography
     formatted = formatted
       .split('\n\n').map(paragraph => {
-        if (paragraph.trim()) {
+        const trimmed = paragraph.trim();
+        if (trimmed) {
           // Don't wrap if it's already a block element
-          if (/^<(h[1-6]|pre|blockquote|ul|ol)/.test(paragraph.trim())) {
-            return paragraph.replace(/\n/g, '<br>');
+          if (/^<(h[1-6]|pre|blockquote|ul|ol|div)/.test(trimmed)) {
+            // For block elements, we don't want to replace internal newlines with <br>
+            // as it breaks the layout (especially for lists)
+            return trimmed;
           }
-          return `<p class="mb-3">${paragraph.replace(/\n/g, '<br>')}</p>`;
+          return `<p class="mb-2 leading-relaxed text-gray-800 dark:text-gray-100">${paragraph.replace(/\n/g, '<br>')}</p>`;
         }
         return '';
       }).join('')
       
-      // Handle links (basic URL detection)
-      .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>');
+      // Handle links
+      .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" class="text-blue-600 dark:text-blue-400 hover:underline font-medium inline-flex items-center gap-1" target="_blank" rel="noopener noreferrer">$1 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>');
     
     return { __html: formatted };
   };
@@ -404,13 +454,25 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onReanal
                         animate={{ opacity: 1 }}
                         className="flex items-center gap-3"
                       >
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                        >
-                          <Loader2 className="w-4 h-4 text-purple-600" />
-                        </motion.div>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Crafting response...</span>
+                        <div className="flex gap-1">
+                          {[0, 1, 2].map((i) => (
+                            <motion.div
+                              key={i}
+                              className="w-2 h-2 bg-purple-600 rounded-full"
+                              animate={{
+                                y: [0, -8, 0],
+                                opacity: [0.4, 1, 0.4]
+                              }}
+                              transition={{
+                                duration: 0.6,
+                                repeat: Infinity,
+                                delay: i * 0.15,
+                                ease: "easeInOut"
+                              }}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Thinking...</span>
                       </motion.div>
                     ) : (
                       <div className="space-y-3">

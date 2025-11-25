@@ -109,15 +109,15 @@ export function ExportDialog({
       const promptPRD = typeof riskAssessment.prompt?.prompt_PRD === 'number' ? riskAssessment.prompt.prompt_PRD : 0;
       const metaPRD = typeof riskAssessment.meta?.meta_PRD === 'number' ? riskAssessment.meta.meta_PRD : 0;
       
-      // Gauge displays range 0.00 to 0.30 (Critical threshold)
-      // Convert PRD scores to gauge positioning (0.0-0.30 -> 0-100%)
-      const maxDisplay = 0.30;
+      // Gauge displays range 0.00 to 0.40 (Critical threshold)
+      // Convert PRD scores to gauge positioning (0.0-0.40 -> 0-100%)
+      const maxDisplay = 0.40;
       const promptPRDPercent = Math.min((promptPRD / maxDisplay) * 100, 100);
       const metaPRDPercent = Math.min((metaPRD / maxDisplay) * 100, 100);
       
       // Calculate overall risk score as average (median) of both PRD scores
       const riskScoreDecimal = (promptPRD + metaPRD) / 2;
-      const riskLevel = riskScoreDecimal >= 0.30 ? 'Critical' : riskScoreDecimal >= 0.15 ? 'High' : riskScoreDecimal >= 0.05 ? 'Medium' : 'Low';
+      const riskLevel = riskScoreDecimal >= 0.40 ? 'Critical' : riskScoreDecimal >= 0.30 ? 'High' : riskScoreDecimal >= 0.10 ? 'Medium' : 'Low';
       
       // Get actual token counts from risk_tokens array
       const allRiskTokens = analysis.risk_tokens || [];
@@ -739,7 +739,7 @@ export function ExportDialog({
               <div class="section-content">
                 <p><strong>What is Echo?</strong> Echo is an AI-powered hallucination detection system that analyzes prompts using PRD (Prompt Risk Detection) methodology. It identifies potential risks across 5 key pillars: Referential Ambiguity, Context Sufficiency, Instruction Structure, Verifiability & Factuality, and Reasoning & Uncertainty Handling.</p>
                 
-                <p><strong>PRD Scores:</strong> Prompt PRD and Meta PRD are decimal scores (0.00-1.00+) measuring different risk aspects. Low: 0.00-0.05, Medium: 0.05-0.15, High: 0.15-0.30, Critical: 0.30+. The gauge displays scores up to 0.30+ for clarity. Overall risk is the average of both scores.</p>
+                <p><strong>PRD Scores:</strong> Prompt PRD and Meta PRD are decimal scores (0.00-1.00, capped) measuring different risk aspects. Low: 0.00-0.10, Medium: 0.10-0.30, High: 0.30-0.40, Critical: 0.40+. The gauge displays scores up to 0.40+ for clarity. Overall risk is the average of both scores.</p>
                 
                 <p><strong>Risk Tokens:</strong> Individual words or phrases flagged for potential issues, categorized by severity (Critical, High, Medium, Low) and classification type.</p>
                 
@@ -772,7 +772,7 @@ export function ExportDialog({
             <div class="section-title" style="margin-bottom: 20px;">📈 Risk Assessment Overview</div>
             
             <div class="chart-container">
-              <div class="chart-title">PRD Score Gauge (Prompt Risk Detection) - Range 0.00 to 0.30+</div>
+              <div class="chart-title">PRD Score Gauge (Prompt Risk Detection) - Range 0.00 to 0.40+</div>
               <div class="prd-gauge-container">
                 <div class="gauge-wrapper">
                   <div class="gauge-track">
@@ -812,9 +812,9 @@ export function ExportDialog({
                 </div>
                 <div class="gauge-labels">
                   <span>0.00</span>
-                  <span>0.05</span>
-                  <span>0.15</span>
-                  <span>0.30+</span>
+                  <span>0.10</span>
+                  <span>0.30</span>
+                  <span>0.40+</span>
                 </div>
                 <div class="gauge-legend">
                   <div class="gauge-legend-item">
@@ -826,7 +826,7 @@ export function ExportDialog({
                     <span>Meta PRD: ${metaPRD.toFixed(4)}</span>
                   </div>
                   <div class="gauge-legend-item">
-                    <div class="gauge-legend-color" style="background: ${riskScoreDecimal >= 0.30 ? '#ef4444' : riskScoreDecimal >= 0.15 ? '#ea580c' : riskScoreDecimal >= 0.05 ? '#eab308' : '#10b981'};"></div>
+                    <div class="gauge-legend-color" style="background: ${riskScoreDecimal >= 0.40 ? '#ef4444' : riskScoreDecimal >= 0.30 ? '#ea580c' : riskScoreDecimal >= 0.10 ? '#eab308' : '#10b981'};"></div>
                     <span>Overall Risk: ${riskScoreDecimal.toFixed(4)}</span>
                   </div>
                 </div>

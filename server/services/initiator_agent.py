@@ -113,7 +113,7 @@ class InitiatorAgent:
   <output_contract>
       <output_format>
         - Use elegant markdown to structure your output in a way that is readable and easy to follow for the user. 
-    	- Use structured formats (headings, bullet points, numbered lists) to organize content for better readability and accessibility.
+    	  - Use structured formats (headings, bullet points, numbered lists) to organize content for better readability and accessibility.
         - Structure your output in 3 sections as follows: (1) 1-3 sentence summary of the analysis context with the exact set of the broken rules from the analysis context (2) A list of a singular question for each risky span in bullet point format (3) 1 sentence explanation of the need for every question asked and why it benefits the hallucination mitigation of the original prompt.
         - Keep each question and its rationale within two short sentences for readability and flow.
         - End the output with a smiling emoji and an invitation for answering the question and collaborating on the prompt iterative refinement.

@@ -301,9 +301,113 @@ class AnalyzerAgent:
         
         # Normalize by token length
         prd = total_risk / total_tokens
-        prd_rounded = round(prd, 4)
+        
+        # Cap at 1.0
+        prd_capped = min(prd, 1.0)
+        prd_rounded = round(prd_capped, 4)
         
         print(f"  Result (raw): {prd}")
+        if prd > 1.0:
+            print(f"  Result (capped at 1.0): {prd_capped}")
+        print(f"  Result (rounded to 4 decimals): {prd_rounded}")
+        print("="*80)
+        
+        return prd_rounded
+    
+    def _calculate_meta_prd(self, text: str, violations: List[Dict[str, Any]]) -> float:
+        """
+        Compute Meta-level Prompt Risk Density (PRD).
+        
+        Meta violations don't have specific text spans since they're about overall
+        prompt structure (e.g., multi-step fusion, continuity issues). Each violation
+        is counted with a fixed span of 1 token.
+        
+        Args:
+            text (str): The original prompt text (for token count).
+            violations (list of dicts): Each violation must include:
+                - severity (str: "medium", "high", "critical")
+        
+        Returns:
+            float: Meta PRD score normalized by token length, rounded to 4 decimal places.
+        """
+        # Define severity weights
+        SEVERITY_WEIGHTS = {
+            "medium": 1,
+            "high": 2,
+            "critical": 3
+        }
+        
+        # Use tiktoken for accurate OpenAI token counting
+        try:
+            encoding = tiktoken.encoding_for_model("gpt-4")
+            total_tokens = len(encoding.encode(text))
+        except Exception as e:
+            # Fallback to whitespace split if tiktoken fails
+            print(f"Warning: tiktoken failed ({e}), using whitespace tokenization")
+            total_tokens = len(text.split())
+        
+        print("="*80)
+        print("META PRD CALCULATION - DETAILED BREAKDOWN")
+        print("="*80)
+        print(f"Total tokens in text: {total_tokens}")
+        print(f"Number of meta violations: {len(violations)}")
+        print("-"*80)
+        
+        if total_tokens == 0:
+            print("WARNING: No tokens found in text. Returning Meta PRD = 0.0")
+            print("="*80)
+            return 0.0
+        
+        # Sum risk weights from violations with detailed logging
+        total_risk = 0
+        print("META VIOLATION DETAILS:")
+        print("-"*80)
+        
+        for idx, violation in enumerate(violations, 1):
+            # Extract violation details
+            severity = violation.get("severity", "medium")
+            severity_weight = SEVERITY_WEIGHTS.get(severity, 1)
+            rule_id = violation.get("rule_id", "Unknown")
+            pillar = violation.get("pillar", "N/A")
+            explanation = violation.get("explanation", "N/A")
+            
+            # Meta violations have fixed span of 1 (they apply to the whole prompt)
+            span_tokens = 1
+            
+            # Weight multiplied by fixed span
+            violation_risk = severity_weight * span_tokens
+            
+            # Add to running total
+            total_risk += violation_risk
+            
+            # Log each violation
+            print(f"\nMeta Violation #{idx}:")
+            print(f"  Rule ID: {rule_id}")
+            print(f"  Pillar: {pillar}")
+            print(f"  Explanation: {explanation[:150]}...")  # Truncate long explanations
+            print(f"  Severity: {severity}")
+            print(f"  Severity Weight: {severity_weight}")
+            print(f"  Span (fixed for meta): {span_tokens} token")
+            print(f"  Violation Risk (weight × span): {severity_weight} × {span_tokens} = {violation_risk}")
+            print(f"  Running Total Risk: {total_risk}")
+        
+        print("-"*80)
+        print("SUMMARY:")
+        print(f"  Total Risk Score (sum of all violation risks): {total_risk}")
+        print(f"  Total Tokens: {total_tokens}")
+        print(f"  Formula: Meta PRD = Total Risk / Total Tokens")
+        print(f"  Calculation: Meta PRD = {total_risk} / {total_tokens}")
+        
+        # Normalize by token length
+        prd = total_risk / total_tokens
+        
+        # Cap at 1.0
+        prd_capped = min(prd, 1.0)
+        prd_rounded = round(prd_capped, 4)
+        
+        print(f"  Result (raw): {prd}")
+        if prd > 1.0:
+            print(f"  Result (capped at 1.0): {prd_capped}")
         print(f"  Result (rounded to 4 decimals): {prd_rounded}")
         print("="*80)
         
@@ -513,8 +617,8 @@ class AnalyzerAgent:
                     ],
                     max_completion_tokens=self.max_tokens,
                     temperature=self.temperature,
-                    # Low reasoning effort for fast, cost-effective structured output
-                    reasoning_effort="low",
+                    # Medium reasoning effort for balanced speed and quality
+                    reasoning_effort="medium",
                 ),
                 timeout=self.timeout
             )
@@ -647,7 +751,7 @@ class AnalyzerAgent:
                 if "meta" in risk_assessment:
                     meta_violations = risk_assessment["meta"].get("meta_violations", [])
                     print("\n" + "🟣 CALCULATING META-LEVEL PRD 🟣")
-                    meta_prd = self._calculate_prd(user_prompt, meta_violations)
+                    meta_prd = self._calculate_meta_prd(user_prompt, meta_violations)
                     parsed_response["risk_assessment"]["meta"]["meta_PRD"] = meta_prd
                     print(f"✅ Meta PRD Result: {meta_prd}\n")
                 

@@ -47,7 +47,14 @@ async def analyze_prompt(request: AnalyzeRequest):
         # Convert risk tokens to Pydantic models if present
         risk_tokens = None
         if "risk_tokens" in result and result["risk_tokens"]:
-            risk_tokens = [RiskToken(**token) for token in result["risk_tokens"]]
+            # Normalize tokens to ensure classification is a string
+            normalized_tokens = []
+            for token in result["risk_tokens"]:
+                # Convert classification to string if it's a list
+                if isinstance(token.get("classification"), list):
+                    token["classification"] = ", ".join(str(x) for x in token["classification"])
+                normalized_tokens.append(token)
+            risk_tokens = [RiskToken(**token) for token in normalized_tokens]
         
         return AnalyzeResponse(
             annotated_prompt=result["annotated_prompt"],
