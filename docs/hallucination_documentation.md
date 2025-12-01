@@ -1,1761 +1,863 @@
-# Hallucination Detection Guidelines **Reference**# Hallucination Detection Guidelines Reference# Hallucination Detection Documentation
+<div align="center">
 
+# Echo: Hallucination Risk Taxonomy
 
+### A Comprehensive Classification Framework for User-Sided Prompt Vulnerabilities
 
-This document presents the comprehensive taxonomy of hallucination detection rules used by Echo. These guidelines help identify potential weaknesses in prompts that could lead to factual inaccuracies, ambiguity, or unreliable outputs.
+*Mohamed Nejjar — Bachelor Thesis: "Mitigating Hallucination Potential in User Prompts Through AI-Guided Iterative Refinement"*
 
-
-
----This document presents the comprehensive taxonomy of hallucination detection rules used by Echo. These guidelines help identify potential weaknesses in prompts that could lead to factual inaccuracies, ambiguity, or unreliable outputs.## Overview
-
-
-
-## Overview
-
-
-
-Echo's detection system is built on a multi-layered taxonomy organized into **12 pillars** (A–L). Each pillar addresses a specific category of prompt-level or meta-level risks. Within each pillar are **individual rules** with clearly defined:---This document provides comprehensive information about hallucination detection in AI language models, the methodologies used in Echo Hallucination Detection, and best practices for prompt engineering to minimize hallucination risks.
-
-
-
-- **Detection Patterns**: Linguistic or structural signals indicating risk
-
-- **Severity Levels**: Critical, High, Medium, Low
-
-- **Examples**: Risky formulations vs. safer alternatives## 📚 Overview## Table of Contents
-
-- **Mitigation Strategies**: How to fix or avoid the issue
-
-- [What are AI Hallucinations?](#what-are-ai-hallucinations)
+</div>
 
 ---
 
-Echo's detection system is built on a multi-layered taxonomy organized into **12 pillars** (A–L). Each pillar addresses a specific category of prompt-level or meta-level risks. Within each pillar are **individual rules** with clearly defined:- [Types of Hallucinations](#types-of-hallucinations)
+## Abstract
 
-## The 12 Pillars
+This document presents Echo's **12-Pillar Hallucination Risk Taxonomy**, a systematic classification of prompt-level and meta-level characteristics that contribute to LLM hallucination. Unlike existing frameworks that focus primarily on model-generated errors, this taxonomy addresses the **user-sided** dimension of hallucination—risk factors embedded in the prompt itself that elevate the probability of erroneous generation.
 
-- [Detection Methodologies](#detection-methodologies)
-
-### Pillar A: Referential Grounding
-
-**Class:** Prompt-Level- 🔍 **Detection Patterns**: Linguistic or structural signals indicating risk- [Risk Assessment Criteria](#risk-assessment-criteria)
-
-
-
-Ensures all references in prompts are explicitly defined and unambiguous.- ⚠️ **Severity Levels**: Critical, High, Medium, Low- [Prompt Engineering Best Practices](#prompt-engineering-best-practices)
-
-
-
-#### A1: Ambiguous Referents | CRITICAL- 📝 **Examples**: Risky formulations (❌) vs. safer alternatives (✅)- [Echo's Detection Algorithm](#echos-detection-algorithm)
-
-
-
-**Detection Patterns:**- 🛡️ **Mitigation Strategies**: How to fix or avoid the issue- [Interpreting Results](#interpreting-results)
-
-- Pronouns without clear antecedents: *it, they, this, that, these, those*
-
-- Deictic references missing grounding: *here, there, now, then*- [Mitigation Strategies](#mitigation-strategies)
-
-- Undefined entities: *"the thing"*, *"the issue"*, *"the document"*
+The framework distinguishes between **prompt-level risks** (token-addressable, highlightable) and **meta-level risks** (structural, non-localizable), each further subdivided by their potential to induce **faithfulness** or **factuality** violations.
 
 ---
 
-**Examples:**
+## 1. Theoretical Foundation
 
-- ❌ *"It should be summarized."* (What is "it"?)## What are AI Hallucinations?
+### 1.1 The Dual-Actor Model of Hallucination
 
-- ❌ *"Analyze this for me."* (What is "this"?)
+Traditional hallucination research focuses on LLM-sided causes:
 
-- ✅ *"The Q3 financial report should be summarized."*## 🏛️ The 12 Pillars
+```
+TRADITIONAL MODEL (LLM-Centric):
 
+┌───────────────────────────────────────────────────────────────┐
+│                   HALLUCINATION SOURCES                       │
+├───────────────────────────────────────────────────────────────┤
+│                                                               │
+│   ┌─────────────────────────────────────┐                    │
+│   │         LLM-SIDED CAUSES            │                    │
+│   ├─────────────────────────────────────┤                    │
+│   │ • Training data biases              │                    │
+│   │ • Knowledge cutoff limitations      │                    │
+│   │ • Parametric memorization gaps      │                    │
+│   │ • Attention pattern failures        │                    │
+│   │ • Decoding strategy artifacts       │                    │
+│   └─────────────────────────────────────┘                    │
+│                                                               │
+│   USER CONTRIBUTION: Not systematically addressed             │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+```
 
+**Echo's contribution** extends this to a dual-actor model:
 
-**Mitigation:** Replace all pronouns with explicit nouns. Use proper names, titles, or descriptive phrases.AI hallucinations refer to instances where language models generate information that appears plausible but is factually incorrect, fabricated, or not grounded in the provided context. These can range from subtle inaccuracies to completely fabricated facts, names, dates, or concepts.
+```
+ECHO MODEL (Dual-Actor):
 
+┌───────────────────────────────────────────────────────────────┐
+│                   HALLUCINATION SOURCES                       │
+├───────────────────────────────────────────────────────────────┤
+│                                                               │
+│   ┌─────────────────────┐     ┌─────────────────────────┐    │
+│   │   LLM-SIDED (Rx)    │     │   USER-SIDED (Tx)       │    │
+│   ├─────────────────────┤     ├─────────────────────────┤    │
+│   │ Training artifacts  │     │ PROMPT-LEVEL            │    │
+│   │ Parametric limits   │     │ • Ambiguous referents   │    │
+│   │ Attention failures  │     │ • Vague quantifiers     │    │
+│   │                     │     │ • Temporal vagueness    │    │
+│   │                     │     │                         │    │
+│   │                     │     │ META-LEVEL              │    │
+│   │                     │     │ • Missing context       │    │
+│   │                     │     │ • Conflicting goals     │    │
+│   │                     │     │ • Structural confusion  │    │
+│   └─────────────────────┘     └─────────────────────────┘    │
+│                                                               │
+│   Echo focuses on user-sided risks: preventable, addressable  │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+```
 
+### 1.2 Prompt-Level vs Meta-Level Distinction
 
----### 🔸 **Pillar A: Referential Grounding**
+| Dimension | Prompt-Level | Meta-Level |
+|-----------|-------------|------------|
+| **Localizability** | Can be highlighted in text | Cannot be localized to tokens |
+| **Addressability** | Fix specific words/phrases | Requires structural rewrite |
+| **Example** | "Analyze *this*" → fix pronoun | Missing domain context → add framing |
+| **Visual Indicator** | Colored highlight spans | Descriptive cards (no highlight) |
+| **PRD Contribution** | `prompt_PRD` calculation | `meta_PRD` calculation |
 
+### 1.3 Faithfulness vs Factuality Subdivision
 
+Within each level, risks further divide by hallucination type:
 
-#### A2: Canonical Naming Drift | HIGH*Class: Prompt-Level*### Why Do Hallucinations Occur?
+| Type | Definition | Example Risk |
+|------|------------|--------------|
+| **Faithfulness** | LLM diverges from user-provided context | User provides data, LLM invents additional data |
+| **Factuality** | LLM generates claims contradicting world knowledge | LLM fabricates historical dates or scientific facts |
 
+```
+COMPLETE TAXONOMY TREE:
 
+                    HALLUCINATION RISK
+                           │
+            ┌──────────────┴──────────────┐
+            │                             │
+       LLM-SIDED                     USER-SIDED ←── Echo's focus
+       (Out of scope)                     │
+                           ┌──────────────┴──────────────┐
+                           │                             │
+                    PROMPT-LEVEL                    META-LEVEL
+                    (Pillars A-F)                  (Pillars G-L)
+                           │                             │
+                    ┌──────┴──────┐             ┌────────┴────────┐
+                    │             │             │                 │
+              Faithfulness   Factuality    Faithfulness      Factuality
+               Risks          Risks          Risks            Risks
+```
+
+---
+
+## 2. The 12-Pillar Framework
+
+### 2.1 Overview
+
+| Pillar | Name | Class | Primary Risk Type |
+|--------|------|-------|-------------------|
+| **A** | Referential Grounding | Prompt-Level | Faithfulness |
+| **B** | Quantification Constraints | Prompt-Level | Factuality |
+| **C** | Context-Domain | Meta-Level | Faithfulness |
+| **D** | Premises-Evidence | Prompt-Level | Factuality |
+| **E** | Numbers-Units | Prompt-Level | Factuality |
+| **F** | Retrieval-Anchoring | Prompt-Level | Faithfulness |
+| **G** | Injection-Layering | Meta-Level | Faithfulness |
+| **H** | Style-Bias-Role | Prompt-Level | Both |
+| **I** | Reasoning-Uncertainty | Prompt-Level | Factuality |
+| **J** | Prompt-Structure | Meta-Level | Both |
+| **K** | Instruction-Structure-MultiStep | Meta-Level | Faithfulness |
+| **L** | Contextual-Integrity | Prompt-Level | Faithfulness |
+
+---
+
+## 3. Pillar A: Referential Grounding
+
+**Class:** Prompt-Level | **Risk Type:** Faithfulness
+
+Ensures all references in prompts are explicitly defined and unambiguous. Unclear referents force the LLM to *assume* context, introducing invented specifics.
+
+### A1: Ambiguous Referents 🔴 CRITICAL
 
 **Detection Patterns:**
+- Pronouns without clear antecedents: `it`, `they`, `this`, `that`, `these`, `those`
+- Deictic references missing grounding: `here`, `there`, `now`, `then`
+- Undefined entities: `the thing`, `the issue`, `the document`
 
-- Multiple different names for the same entity within one prompt
+**Risk Mechanism:**
+The LLM cannot resolve the referent and will substitute a contextually plausible—but potentially fabricated—entity.
 
-- Synonym substitution that creates ambiguity (*"the model"* vs. *"the system"* vs. *"the algorithm"*)Ensures all references in prompts are explicitly defined and unambiguous.1. **Training Data Limitations**: Models may have learned patterns from incomplete or incorrect data
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "It should be summarized." | "The Q3 financial report should be summarized." |
+| "Analyze this for me." | "Analyze the customer churn data from 2024." |
+| "They need to be reviewed." | "The three proposed designs need to be reviewed." |
 
+**Mitigation Strategy:**
+Replace all pronouns with explicit nouns. Use proper names, titles, or descriptive phrases. Never assume context is "obvious."
+
+---
+
+### A2: Canonical Naming Drift ⚠️ HIGH
+
+**Detection Patterns:**
+- Multiple names for same entity within one prompt
+- Synonym substitution creating ambiguity: `the model` vs `the system` vs `the algorithm`
 - Inconsistent capitalization or abbreviation
 
-2. **Overgeneralization**: Models may extrapolate beyond their training data inappropriately
+**Risk Mechanism:**
+The LLM may interpret different names as referring to different entities, causing contradictory statements or confusion in multi-entity comparisons.
 
-**Examples:**
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Analyze the dataset. Evaluate the data. Critique the corpus." | "Analyze the IMDB dataset. Then evaluate the IMDB dataset. Finally, critique the IMDB dataset." |
 
-- ❌ *"Analyze the dataset. Then, evaluate the data. Finally, critique the corpus."*#### **A1: Ambiguous Referents** 🚨 **CRITICAL**3. **Context Confusion**: Ambiguous prompts can lead to multiple valid interpretations
-
-- ✅ *"Analyze the IMDB dataset. Then, evaluate the IMDB dataset. Finally, critique the IMDB dataset."*
-
-4. **Knowledge Cutoff**: Information beyond the training data cutoff date may be fabricated
-
-**Mitigation:** Choose one canonical name per entity and use it consistently throughout the prompt.
-
-**Detection Patterns:**5. **Prompt Engineering Issues**: Poorly structured prompts increase hallucination likelihood
+**Mitigation Strategy:**
+Choose one canonical name per entity and use it consistently throughout the prompt.
 
 ---
 
-- Pronouns without clear antecedents: *it, they, this, that, these, those*
+## 4. Pillar B: Quantification Constraints
 
-### Pillar B: Quantification Constraints
+**Class:** Prompt-Level | **Risk Type:** Factuality
 
-**Class:** Prompt-Level- Deictic references missing grounding: *here, there, now, then*## Types of Hallucinations
+Addresses vague or underspecified quantifiers that leave interpretation to the model, enabling fabricated specifics.
 
-
-
-Addresses vague or underspecified quantifiers that leave interpretation to the model.- Undefined entities: *"the thing"*, *"the issue"*, *"the document"*
-
-
-
-#### B1: Relative Descriptors | HIGH### 1. Factual Hallucinations
-
-
-
-**Detection Patterns:****Examples:****Definition**: Generation of false factual information
-
-- Vague scalar adjectives: *few, many, some, several, most, often, rarely, recently*
-
-- Comparative terms without baselines: *better, worse, faster, slower*- ❌ *"It should be summarized."* (What is "it"?)
-
-- Frequency/degree terms without anchors: *sometimes, usually, occasionally*
-
-- ❌ *"Analyze this for me."* (What is "this"?)**Examples**:
-
-**Examples:**
-
-- ❌ *"List some key findings."* (How many is "some"?)- ❌ *"They need to be reviewed."* (Who are "they"?)- Incorrect dates, names, or historical events
-
-- ❌ *"Identify recent studies."* (How recent?)
-
-- ✅ *"List 3-5 key findings."*- ✅ *"The Q3 financial report should be summarized."*- Non-existent research papers or citations
-
-- ✅ *"Identify studies published after 2020."*
-
-- False statistical data or numbers
-
-**Mitigation:** Replace vague quantifiers with exact numbers, ranges, or explicit comparison points.
-
-**Mitigation:**- Invented geographical information
-
----
-
-Replace all pronouns with explicit nouns. Use proper names, titles, or descriptive phrases.
-
-#### B2: Temporal Vagueness | HIGH
-
-**Risk Level**: High - Can spread misinformation
+### B1: Relative Descriptors ⚠️ HIGH
 
 **Detection Patterns:**
+- Vague scalar adjectives: `few`, `many`, `some`, `several`, `most`, `often`, `rarely`, `recently`
+- Comparative terms without baselines: `better`, `worse`, `faster`, `slower`
+- Frequency/degree terms without anchors: `sometimes`, `usually`, `occasionally`
 
-- Unanchored time references: *now, then, soon, later, recently, formerly*---
+**Risk Mechanism:**
+The LLM must invent specific quantities to satisfy the request, leading to fabricated statistics.
 
-- Relative periods without dates: *last week, next month, this year*
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "List some key findings." | "List 3-5 key findings." |
+| "Identify recent studies." | "Identify studies published after 2020." |
+| "The model performed better." | "The model improved accuracy by 12% over baseline." |
 
-- Implicit event sequencing: *before, after, during*### 2. Contextual Hallucinations
-
-
-
-**Examples:**#### **A2: Canonical Naming Drift** ⚠️ **HIGH****Definition**: Information that doesn't align with the provided context
-
-- ❌ *"Summarize recent developments."*
-
-- ✅ *"Summarize developments from January 2023 to December 2024."*
-
-
-
-**Mitigation:** Use absolute dates, timestamps, or explicit time ranges.**Detection Patterns:****Examples**:
-
-
-
----- Multiple different names for the same entity within one prompt- Contradicting information provided in the prompt
-
-
-
-#### B3: Underspecified Scope | MEDIUM- Synonym substitution that creates ambiguity (*"the model"* vs. *"the system"* vs. *"the algorithm"*)- Assuming context not explicitly stated
-
-
-
-**Detection Patterns:**- Inconsistent capitalization or abbreviation- Mixing up different contexts or scenarios
-
-- Open-ended list requests: *"all relevant...", "key points"*
-
-- Vague boundaries: *"main ideas", "important factors"*
-
-- Missing cardinality: *"list examples"* (how many?)
-
-**Examples:****Risk Level**: Medium to High - Can lead to misunderstandings
-
-**Examples:**
-
-- ❌ *"List all relevant papers."* (Could be thousands!)- ❌ *"Analyze **the dataset**. Then, evaluate **the data**. Finally, critique **the corpus**."*
-
-- ✅ *"List the 5 most-cited papers from 2020-2024."*
-
-- ❌ *"The **GPT model** was tested. **The system** showed improvement. **It** outperformed baselines."*### 3. Logical Hallucinations
-
-**Mitigation:** Set explicit limits (top N, first M, up to X results).
-
-- ✅ *"Analyze **the IMDB dataset**. Then, evaluate **the IMDB dataset**. Finally, critique **the IMDB dataset**."***Definition**: Conclusions that don't follow from the given premises
+**Mitigation Strategy:**
+Replace vague quantifiers with exact numbers, ranges, or explicit comparison points.
 
 ---
 
+### B2: Temporal Vagueness ⚠️ HIGH
 
+**Detection Patterns:**
+- Unanchored time references: `now`, `then`, `soon`, `later`, `recently`, `formerly`
+- Relative periods without dates: `last week`, `next month`, `this year`
+- Implicit event sequencing: `before`, `after`, `during`
 
-### Pillar C: Context-Domain
+**Risk Mechanism:**
+The LLM cannot determine the intended time period and may fabricate temporal context.
 
-**Class:** Meta-Level**Mitigation:****Examples**:
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Summarize recent developments." | "Summarize developments from January 2023 to December 2024." |
+| "What happened then?" | "What events occurred during Q3 2024?" |
 
+**Mitigation Strategy:**
+Use absolute dates, timestamps, or explicit time ranges.
 
+---
 
-Ensures prompts provide sufficient contextual grounding for the task.Choose one canonical name per entity and use it consistently throughout the prompt.- Illogical cause-and-effect relationships
+### B3: Underspecified Scope 🟡 MEDIUM
 
+**Detection Patterns:**
+- Open-ended list requests: `all relevant...`, `key points`
+- Vague boundaries: `main ideas`, `important factors`
+- Missing cardinality: `list examples` (how many?)
 
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "List all relevant papers." | "List the 5 most-cited papers from 2020-2024." |
+| "Summarize the main points." | "Summarize 3 key takeaways for executives." |
 
-#### C1: Missing Essentials | CRITICAL- Contradictory statements within the same response
+**Mitigation Strategy:**
+Set explicit limits (top N, first M, up to X results).
 
+---
 
+## 5. Pillar C: Context-Domain
 
-**Detection Patterns:**---- Invalid reasoning chains
+**Class:** Meta-Level | **Risk Type:** Faithfulness
 
+Ensures prompts provide sufficient contextual grounding. Missing context forces the LLM to invent domain-specific details.
+
+### C1: Missing Essentials 🔴 CRITICAL
+
+**Detection Patterns:**
 - Tasks missing **who** (actor/subject)
-
 - Tasks missing **what** (object/topic)
-
 - Tasks missing **when** (timeframe)
+- Tasks missing **where** (location/domain)
+- Deictic placeholders without grounding: `do this`, `like that`, `as above`
 
-- Tasks missing **where** (location/domain)### 🔸 **Pillar B: Quantification Constraints****Risk Level**: Medium - Can mislead decision-making
+**Risk Mechanism:**
+Incomplete context creates degrees of freedom the LLM fills with assumptions.
 
-- Tasks missing explicit constraints (scope, audience, format)
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Analyze this." | "Analyze the 2023 climate report for executive stakeholders, focusing on carbon emission trends." |
+| "Summarize for me." | "Summarize this FDA regulation document for a pharmaceutical compliance team." |
 
-- Deictic placeholders without grounding: *"do this", "like that", "as above"**Class: Prompt-Level*
-
-
-
-**Examples:**### 4. Creative Hallucinations
-
-- ❌ *"Analyze this."* (Missing object)
-
-- ❌ *"Summarize for me."* (Missing subject)Addresses vague or underspecified quantifiers that leave interpretation to the model.**Definition**: Fabricated creative content presented as factual
-
-- ✅ *"Analyze the 2023 climate report for executive stakeholders, focusing on carbon emission trends."*
-
-
-
-**Mitigation:** Answer the 5 W's explicitly: Who, What, When, Where, Why (+ How).
-
-#### **B1: Relative Descriptors** ⚠️ **HIGH****Examples**:
+**Mitigation Strategy:**
+Answer the 5 W's explicitly: Who, What, When, Where, Why (+ How).
 
 ---
 
-- Invented quotes attributed to real people
-
-#### C2: Domain-Scoping-Missing | HIGH
-
-**Detection Patterns:**- Fictional events presented as historical
+### C2: Domain-Scoping-Missing ⚠️ HIGH
 
 **Detection Patterns:**
-
-- No audience specified (expert vs. beginner)- Vague scalar adjectives: *few, many, some, several, most, often, rarely, recently*- Made-up technical specifications
-
-- No discipline specified (law, medicine, CS, history, etc.)
-
-- No dataset or corpus identified when task depends on one- Comparative terms without baselines: *better, worse, faster, slower*
-
+- No audience specified (expert vs. beginner)
+- No discipline specified (law, medicine, CS, history)
+- No dataset or corpus identified when task depends on one
 - No jurisdiction/context in legal/policy tasks
+- No perspective in evaluative tasks (`good/bad` without frame)
 
-- No perspective in evaluative/ethical tasks (*"good/bad"* without frame)- Frequency/degree terms without anchors: *sometimes, usually, occasionally***Risk Level**: Medium - Context-dependent severity
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Summarize the law." | "Summarize U.S. copyright law (17 U.S.C. § 107) for non-lawyers." |
+| "Explain relativity." | "Explain special relativity for undergraduate physics students." |
 
+**Mitigation Strategy:**
+Specify domain, audience level, jurisdiction, and relevant constraints.
 
+---
 
-**Examples:**
+## 6. Pillar D: Premises-Evidence
 
-- ❌ *"Summarize the law."* (Which law? Which jurisdiction?)
+**Class:** Prompt-Level | **Risk Type:** Factuality
 
-- ✅ *"Summarize U.S. copyright law (17 U.S.C. § 107) for non-lawyers."***Examples:**## Detection Methodologies
+Flags prompts embedding false, unverified, or biased premises that the LLM may propagate.
 
-
-
-**Mitigation:** Specify domain, audience level, jurisdiction, and relevant constraints.- ❌ *"List **some** key findings."* (How many is "some"?)
-
-
-
----- ❌ *"Identify **recent** studies."* (How recent?)### Traditional Approaches
-
-
-
-### Pillar D: Premises-Evidence- ❌ *"The model performed **better**."* (Better than what?)
-
-**Class:** Prompt-Level
-
-- ✅ *"List **3-5** key findings."*#### 1. Fact-Checking Against Knowledge Bases
-
-Flags prompts embedding false, unverified, or biased premises.
-
-- ✅ *"Identify studies published **after 2020**."*- Cross-reference generated content with verified databases
-
-#### D1: False-or-Unverified-Premise | CRITICAL
-
-- Limited by knowledge base coverage and recency
+### D1: False-or-Unverified-Premise 🔴 CRITICAL
 
 **Detection Patterns:**
-
-- Prompts embedding unverified factual assumptions**Mitigation:**- High precision but low recall
-
+- Prompts embedding unverified factual assumptions
 - False historical/scientific claims in task setup
-
-- Unsupported absolute claims: *obviously, clearly, everyone knows*Replace vague quantifiers with exact numbers, ranges, or explicit comparison points.
-
+- Unsupported absolute claims: `obviously`, `clearly`, `everyone knows`
 - Cause-effect stated as fact without evidence
 
-#### 2. Consistency Analysis
+**Risk Mechanism:**
+The LLM tends to accept premise framing and elaborate on false foundations.
 
-**Examples:**
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Since Einstein invented the iPhone, explain its impact." | "Explain the development history and impact of the iPhone." |
+| "Everyone knows LLMs are unbiased — discuss." | "Examine evidence for and against claims of bias in LLMs." |
 
-- ❌ *"Since Einstein invented the iPhone, explain its impact."*---- Check for internal contradictions within responses
-
-- ❌ *"Everyone knows LLMs are unbiased — discuss."*
-
-- ✅ *"Some claim vaccines cause autism. Evaluate the scientific evidence."*- Compare multiple generations for the same prompt
-
-
-
-**Mitigation:** Remove false premises. Frame controversial claims as claims, not facts.#### **B2: Temporal Vagueness** ⚠️ **HIGH**- Effective for logical hallucinations
-
-
+**Mitigation Strategy:**
+Remove false premises. Frame controversial claims as claims, not facts.
 
 ---
 
+### D2: Leading-Opinion-Framing 🔴 CRITICAL
 
-
-#### D2: Leading-Opinion-Framing | CRITICAL**Detection Patterns:**#### 3. Confidence Scoring
-
-
-
-**Detection Patterns:**- Unanchored time references: *now, then, soon, later, recently, formerly*- Analyze model confidence in generated tokens
-
+**Detection Patterns:**
 - User inserts bias while asking for model's stance
+- Loaded questions embedding subjective framing
+- Prompts nudging toward agreement: `don't you think`, `isn't it true`
 
-- Loaded questions embedding subjective framing- Relative periods without dates: *last week, next month, this year*- Lower confidence may indicate potential hallucinations
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Since climate change is fake, what do you think?" | "Summarize the scientific consensus on climate change." |
+| "Don't you agree AI is dangerous?" | "Compare arguments for and against AI safety concerns." |
 
-- Prompts nudging toward agreement (*"don't you think", "isn't it true"*)
-
-- Implicit event sequencing: *before, after, during*- Requires access to model internals
-
-**Examples:**
-
-- ❌ *"Since climate change is fake, what do you think?"*
-
-- ✅ *"Compare the pros and cons of X and Y objectively."*
-
-**Examples:**### Advanced Approaches
-
-**Mitigation:** Use neutral framing. Ask for objective analysis instead of agreement.
-
-- ❌ *"Summarize **recent** developments."*
+**Mitigation Strategy:**
+Use neutral framing. Ask for objective analysis instead of agreement.
 
 ---
 
-- ❌ *"Explain what happened **then**."*#### 1. Multi-Model Verification
+## 7. Pillar E: Numbers-Units
 
-### Pillar E: Numbers-Units
+**Class:** Prompt-Level | **Risk Type:** Factuality
 
-**Class:** Prompt-Level- ❌ *"Analyze trends over **the past few years**."*- Use multiple models to generate responses
+Ensures all numerical values include necessary units and context to prevent fabricated specifications.
 
+### E1: Unitless-Number ⚠️ HIGH
 
-
-Ensures all numerical values include necessary units and context.- ✅ *"Summarize developments from **January 2023 to December 2024**."*- Compare outputs for consensus
-
-
-
-#### E1: Unitless-Number | HIGH- Higher consensus suggests lower hallucination risk
-
-
-
-**Detection Patterns:****Mitigation:**
-
+**Detection Patterns:**
 - Bare numbers for physical quantities (temperature, mass, distance, time, frequency, storage)
+- Mention of quantities without measurement metrics
 
-- Mention of quantities without measurement metricsUse absolute dates, timestamps, or explicit time ranges.#### 2. Retrieval-Augmented Generation (RAG)
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Increase temperature to 37." | "Increase temperature to 37°C." |
+| "The file is 500." | "The file is 500 MB." |
 
-
-
-**Examples:**- Ground responses in retrieved relevant documents
-
-- ❌ *"Increase temperature to 37."* (Celsius? Fahrenheit?)
-
-- ✅ *"Increase temperature to 37°C."*---- Reduces factual hallucinations significantly
-
-
-
-**Mitigation:** Always include units (kg, m, s, °C, MB, etc.).- Requires comprehensive knowledge bases
-
-
-
----#### **B3: Underspecified Scope** 🔶 **MEDIUM**
-
-
-
-#### E2: Percent-No-Baseline | HIGH#### 3. Prompt-Based Detection
-
-
-
-**Detection Patterns:****Detection Patterns:**- Design prompts to elicit self-verification
-
-- % values without a base/denominator or reference point
-
-- Open-ended list requests: *"all relevant...", "key points"*- Ask models to identify potential inaccuracies
-
-**Examples:**
-
-- ❌ *"Reduce errors by 20%."* (20% of what baseline?)- Vague boundaries: *"main ideas", "important factors"*- Meta-cognitive approach to hallucination detection
-
-- ✅ *"Reduce errors by 20% relative to the 2023 baseline (currently 500 errors/month)."*
-
-- Missing cardinality: *"list examples"* (how many?)
-
-**Mitigation:** Specify the baseline or reference point for all percentages.
-
-## Risk Assessment Criteria
+**Mitigation Strategy:**
+Always include units (kg, m, s, °C, MB, etc.).
 
 ---
 
-**Examples:**
-
-#### E3: Currency-Unspecified | MEDIUM
-
-- ❌ *"List **all** relevant papers."* (Could be thousands!)Echo Hallucination Detection evaluates prompts based on several key criteria:
+### E2: Percent-No-Baseline ⚠️ HIGH
 
 **Detection Patterns:**
+- Percentage values without a base/denominator or reference point
 
-- Money amounts without currency/region- ❌ *"Summarize the **main** points."* (How many points?)
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Reduce errors by 20%." | "Reduce errors by 20% relative to the 2023 baseline (currently 500 errors/month)." |
 
-
-
-**Examples:**- ✅ *"List the **5 most-cited** papers from 2020-2024."*### 1. Ambiguous References (High Risk Factor)
-
-- ❌ *"Budget is $5,000."* (USD? CAD? AUD?)
-
-- ✅ *"Budget is $5,000 USD."***Description**: Pronouns, demonstratives, or unclear subject references
-
-
-
-**Mitigation:** Always include currency code (USD, EUR, GBP, etc.).**Mitigation:**
-
-
-
----Set explicit limits (top N, first M, up to X results).**Examples**:
-
-
-
-#### E4: Time-No-Zone-or-Unit | MEDIUM- "Analyze this data" (without specifying what "this" refers to)
-
-
-
-**Detection Patterns:**---- "How does it work?" (unclear subject)
-
-- Times/durations missing needed unit/timezone when relevant
-
-- "The recent study shows..." (which study?)
-
-**Examples:**
-
-- ❌ *"Run at 3 pm."* (Which timezone?)### 🔸 **Pillar C: Context-Domain**
-
-- ✅ *"Run at 3 pm EST."*
-
-*Class: Meta-Level***Risk Impact**: High - Can lead to fabricated specifics
-
-**Mitigation:** Include timezone for absolute times, units for durations.
-
-
+**Mitigation Strategy:**
+Specify the baseline or reference point for all percentages.
 
 ---
 
-Ensures prompts provide sufficient contextual grounding for the task.**Mitigation**:
-
-### Pillar F: Retrieval-Anchoring
-
-**Class:** Prompt-Level- Use specific nouns instead of pronouns
-
-
-
-Ensures retrieval requests specify source type and document identifiers.#### **C1: Missing Essentials** 🚨 **CRITICAL**- Provide clear antecedents for references
-
-
-
-#### F1: Source-Class-Unspecified | HIGH- Include relevant context or identifiers
-
-
-
-**Detection Patterns:****Detection Patterns:**
-
-- *"look up", "search", "check", "find"* with no source type
-
-- Tasks missing **who** (actor/subject)### 2. Vague Quantifiers (Medium-High Risk Factor)
-
-**Examples:**
-
-- ❌ *"Look up the latest GDP numbers."* (From where?)- Tasks missing **what** (object/topic)**Description**: Imprecise numerical or quantity terms
-
-- ✅ *"Look up the latest GDP numbers from the World Bank Open Data portal."*
-
-- Tasks missing **when** (timeframe)
-
-**Mitigation:** Specify source type, repository, or database.
-
-- Tasks missing **where** (location/domain)**Examples**:
-
----
-
-- Tasks missing explicit constraints (scope, audience, format)- "Many people believe..."
-
-#### F2: Document-Anchor-Missing | CRITICAL
-
-- Deictic placeholders without grounding: *"do this", "like that", "as above"*- "Recent research suggests..."
+### E3: Currency-Unspecified 🟡 MEDIUM
 
 **Detection Patterns:**
+- Money amounts without currency/region
 
-- Mentions of *"the paper/report/dataset/benchmark"* without an identifier (title/DOI/ID)- "Significant improvements..."
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Budget is $5,000." | "Budget is $5,000 USD." |
 
+**Mitigation Strategy:**
+Always include currency code (USD, EUR, GBP, etc.).
 
+---
 
-**Examples:****Examples:**- "A lot of data indicates..."
+### E4: Time-No-Zone-or-Unit 🟡 MEDIUM
 
-- ❌ *"Compare results for the dataset and the benchmark; the model underperformed."*
+**Detection Patterns:**
+- Times/durations missing needed unit/timezone
 
-- ✅ *"Compare results for ImageNet (Deng et al., 2009) and COCO 2017; ResNet-50 underperformed."*- ❌ *"Analyze this."* (Missing object)
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Run at 3 pm." | "Run at 3 pm EST." |
+| "Wait 30 minutes." | "Wait 30 minutes (wall-clock time)." |
 
+**Mitigation Strategy:**
+Include timezone for absolute times, units for durations.
 
+---
 
-**Mitigation:** Use titles, DOIs, URLs, or unique identifiers for all referenced documents.- ❌ *"Summarize for me."* (Missing subject)**Risk Impact**: Medium-High - May generate fabricated statistics
+## 8. Pillar F: Retrieval-Anchoring
 
+**Class:** Prompt-Level | **Risk Type:** Faithfulness
 
+Ensures retrieval requests specify source type and document identifiers to prevent citation fabrication.
 
----- ❌ *"Write about the war."* (Missing timeframe/location)
+### F1: Source-Class-Unspecified ⚠️ HIGH
 
+**Detection Patterns:**
+- `look up`, `search`, `check`, `find` with no source type
 
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Look up the latest GDP numbers." | "Look up the latest GDP numbers from the World Bank Open Data portal." |
 
-### Pillar G: Injection-Layering- ❌ *"Do it like that."* (Deictic with no grounding)**Mitigation**:
+**Mitigation Strategy:**
+Specify source type, repository, or database.
 
-**Class:** Meta-Level
+---
 
-- ✅ *"Analyze **the 2023 climate report** for **executive stakeholders**, focusing on **carbon emission trends**."*- Specify exact numbers when possible
+### F2: Document-Anchor-Missing 🔴 CRITICAL
+
+**Detection Patterns:**
+- Mentions of `the paper/report/dataset/benchmark` without identifier (title/DOI/ID)
+
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Compare results for the dataset and the benchmark; the model underperformed." | "Compare results for ImageNet (Deng et al., 2009) and COCO 2017; ResNet-50 underperformed." |
+
+**Mitigation Strategy:**
+Use titles, DOIs, URLs, or unique identifiers for all referenced documents.
+
+---
+
+## 9. Pillar G: Injection-Layering
+
+**Class:** Meta-Level | **Risk Type:** Faithfulness
 
 Detects contradictions, duplications, and context breaks in dialogue continuity.
 
-- Use ranges when exact numbers aren't available
-
-#### G1: Continuity | CRITICAL
-
-**Mitigation:**- Provide sources for quantitative claims
+### G1: Continuity 🔴 CRITICAL
 
 **Detection Patterns:**
-
-- Prompts contradicting earlier user/system instructionsAnswer the 5 W's explicitly: Who, What, When, Where, Why (+ How).
-
+- Prompts contradicting earlier user/system instructions
 - Tasks requiring knowledge of prior context not included
+- Prompts explicitly invalidating earlier commitments: `ignore previous instructions`
 
-- Prompts explicitly invalidating earlier commitments (*"ignore previous instructions"*)### 3. Temporal Ambiguity (Medium Risk Factor)
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Earlier you said X, now ignore that." | "Update the previous constraint from X to Y for clarity." |
+| "Forget all previous instructions." | "Building on the earlier context, add the following refinement: ..." |
 
+**Mitigation Strategy:**
+Avoid contradictory instructions. Use additive refinement instead of negation.
 
+---
 
-**Examples:**---**Description**: Unclear time references or requests for current information
+### G2: Instruction-Deduplication 🔴 CRITICAL
 
-- ❌ *"Earlier you said X, now ignore that."*
-
-- ✅ *"Update the previous constraint from X to Y for clarity."*
-
-
-
-**Mitigation:** Avoid contradictory instructions. Use additive refinement instead of negation.#### **C2: Domain-Scoping-Missing** ⚠️ **HIGH****Examples**:
-
-
-
----- "What's the latest news on..."
-
-
-
-#### G2: Instruction-Deduplication | CRITICAL**Detection Patterns:**- "Current market trends..."
-
-
-
-**Detection Patterns:**- No audience specified (expert vs. beginner)- "Recently published papers..."
-
+**Detection Patterns:**
 - Repeated identical instructions in same prompt
+- Conflicting duplicates (same directive expressed in multiple incompatible ways)
 
-- Conflicting duplicates (same directive expressed in multiple incompatible ways)- No discipline specified (law, medicine, CS, history, etc.)
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Write a summary. Translate the text to French after you summarize it." | "Write a summary. Then, translate that summary to French." |
+| "Give a short summary and also provide a detailed summary." | "Provide a medium-length summary (150-200 words)." |
 
+**Mitigation Strategy:**
+Remove duplicates. Consolidate conflicting instructions into one clear directive.
 
+---
 
-**Examples:**- No dataset or corpus identified when task depends on one**Risk Impact**: Medium - May fabricate recent events
+## 10. Pillar H: Style-Bias-Role
 
-- ❌ *"Write a summary. Translate the text to French after you summarize it."* (Redundant)
-
-- ✅ *"Write a summary. Then, translate that summary to French."*- No jurisdiction/context in legal/policy tasks
-
-
-
-**Mitigation:** Remove duplicates. Consolidate conflicting instructions into one clear directive.- No perspective in evaluative/ethical tasks (*"good/bad"* without frame)**Mitigation**:
-
-
-
----- Specify exact dates or time periods
-
-
-
-### Pillar H: Style-Bias-Role**Examples:**- Acknowledge knowledge cutoff dates
-
-**Class:** Prompt-Level
-
-- ❌ *"Summarize the law."* (Which law? Which jurisdiction?)- Frame questions in past tense when appropriate
+**Class:** Prompt-Level | **Risk Type:** Both (Faithfulness & Factuality)
 
 Flags stylistic distortions, stereotypes, and unsafe role-play requests.
 
-- ❌ *"Explain relativity."* (For a physicist or a 5th grader?)
-
-#### H1: Style-Inflation | HIGH
-
-- ❌ *"Analyze the dataset."* (Which dataset?)### 4. Context Completeness (Medium Risk Factor)
+### H1: Style-Inflation ⚠️ HIGH
 
 **Detection Patterns:**
-
-- Overly creative/flowery style requested where factual accuracy is needed- ✅ *"Summarize **U.S. copyright law (17 U.S.C. § 107)** for **non-lawyers**."***Description**: Insufficient background information for comprehensive answers
-
+- Overly creative/flowery style requested where factual accuracy is needed
 - Instructions mixing factual with entertainment genres (poem, story, rap, song)
 
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Explain the law in a funny poem." | "Explain the law clearly and accurately." |
+| "Describe the 2008 crisis as a rap battle." | "Describe the 2008 financial crisis in plain language." |
 
-
-**Examples:**
-
-- ❌ *"Explain the law in a funny poem."***Mitigation:****Examples**:
-
-- ✅ *"Explain the law clearly and accurately."*
-
-Specify domain, audience level, jurisdiction, and relevant constraints.- Technical questions without domain context
-
-**Mitigation:** Use factual, neutral tone for analytical tasks. Avoid genre mixing.
-
-- Requests for specific information without identifiers
+**Mitigation Strategy:**
+Use factual, neutral tone for analytical tasks. Avoid genre mixing.
 
 ---
 
----- Comparative questions without baselines
-
-#### H2: Bias-Stereotypes | CRITICAL
-
-
+### H2: Bias-Stereotypes 🔴 CRITICAL
 
 **Detection Patterns:**
-
-- Biased/loaded phrasing targeting groups (gender, race, nationality, religion, age, disability)### 🔸 **Pillar D: Premises-Evidence****Risk Impact**: Medium - May assume missing context
-
+- Biased/loaded phrasing targeting groups (gender, race, nationality, religion, age, disability)
 - Stereotypical framing of professions, demographics, or cultures
 
-*Class: Prompt-Level*
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Why are women bad drivers?" | "What factors influence driving safety across demographics?" |
+| "Asians are good at math, explain why." | "What factors influence mathematical performance across populations?" |
 
-**Examples:**
-
-- ❌ *"Why are women bad drivers?"***Mitigation**:
-
-- ✅ *"What factors influence driving safety across demographics?"*
-
-Flags prompts embedding false, unverified, or biased premises.- Provide comprehensive background information
-
-**Mitigation:** Use neutral, non-stereotypical language. Frame questions objectively.
-
-- Include relevant context and constraints
+**Mitigation Strategy:**
+Use neutral, non-stereotypical language. Frame questions objectively.
 
 ---
 
-#### **D1: False-or-Unverified-Premise** 🚨 **CRITICAL**- Specify the scope and domain explicitly
-
-#### H3: Unsafe-Roleplay | CRITICAL
-
-
+### H3: Unsafe-Roleplay 🔴 CRITICAL
 
 **Detection Patterns:**
+- Prompts asking model to roleplay as a human/fictional persona
+- Instructions involving emotional simulation: `pretend`, `imagine`, `act as`
+- Requests to simulate unethical/unsafe personas
 
-- Prompts asking model to roleplay as a human/fictional persona**Detection Patterns:**### 5. Instruction Clarity (Low-Medium Risk Factor)
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Pretend you are my dead grandmother." | "Explain the concept I'm asking about." |
+| "Act as an expert lawyer and give legal advice." | "Summarize general legal principles related to X. (Note: This is not legal advice.)" |
 
-- Instructions involving emotional simulation (*pretend, imagine, act as*)
-
-- Prompts embedding unverified factual assumptions**Description**: Unclear or ambiguous task instructions
-
-**Examples:**
-
-- ❌ *"Pretend you are my dead grandmother."*- False historical/scientific claims in task setup
-
-- ✅ *"Explain the legal principles behind X."* (No role-play)
-
-- Unsupported absolute claims: *obviously, clearly, everyone knows***Examples**:
-
-**Mitigation:** Avoid role-play. Request factual explanations instead of persona simulation.
-
-- Cause-effect stated as fact without evidence- "Explain everything about..."
+**Mitigation Strategy:**
+Avoid role-play. Request factual explanations instead of persona simulation.
 
 ---
 
-- "Write something about..."
+## 11. Pillar I: Reasoning-Uncertainty
 
-### Pillar I: Reasoning-Uncertainty
+**Class:** Prompt-Level | **Risk Type:** Factuality
 
-**Class:** Prompt-Level**Examples:**- Multiple conflicting instructions in one prompt
+Ensures prompts allow for uncertainty and avoid subjective framing.
 
+### I1: Uncertainty-Permission 🔴 CRITICAL
 
-
-Ensures prompts allow for uncertainty and avoid subjective framing.- ❌ *"Since **Einstein invented the iPhone**, explain its impact."*
-
-
-
-#### I1: Uncertainty-Permission | CRITICAL- ❌ *"**Everyone knows** LLMs are unbiased — discuss."***Risk Impact**: Low-Medium - May interpret instructions incorrectly
-
-
-
-**Detection Patterns:**- ❌ *"Explain why **vaccines always cause autism**."*
-
+**Detection Patterns:**
 - Prompts with inherently ambiguous/unknown information but requiring definitive answer
+- No option to say `I don't know`, `cannot be determined`, or express confidence bounds
 
-- No option to say *"I don't know"*, *"cannot be determined"*, or express confidence bounds- ✅ *"Some claim vaccines cause autism. Evaluate the scientific evidence."***Mitigation**:
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Who was the king of Mars?" | "Are there any historical claims about Martian civilizations, and what is their scientific status?" |
+| "What will definitely happen in 2050?" | "What are current projections for 2050, with associated confidence levels?" |
 
-
-
-**Examples:**- Use clear, specific task descriptions
-
-- ❌ *"Who was the king of Mars?"*
-
-- ✅ *"What are the current scientific estimates for the number of potentially habitable exoplanets?"***Mitigation:**- Break complex tasks into smaller components
-
-
-
-**Mitigation:** Allow for uncertainty. Frame speculative questions as estimates or hypotheticals.Remove false premises. Frame controversial claims as claims, not facts.- Prioritize instructions when multiple tasks are requested
-
-
+**Mitigation Strategy:**
+Allow for uncertainty. Frame speculative questions as estimates or hypotheticals.
 
 ---
 
+### I2: Subjective-Framing-Risk 🔴 CRITICAL
 
+**Detection Patterns:**
+- Prompts explicitly asking for model's `opinion`, `belief`, `feelings`
+- Requests for subjective preferences framed as factual questions
 
-#### I2: Subjective-Framing-Risk | CRITICAL---### 6. Factual Specificity (High Risk Factor)
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "What is your opinion on democracy?" | "Summarize different perspectives on democracy from political science literature." |
+| "Do you believe AI is dangerous?" | "What arguments exist for and against AI safety concerns?" |
 
+**Mitigation Strategy:**
+Ask for objective summaries of perspectives instead of personal opinions.
 
+---
 
-**Detection Patterns:****Description**: Requests for specific facts that may not be verifiable
+## 12. Pillar J: Prompt-Structure
 
-- Prompts explicitly asking for model's *"opinion", "belief", "feelings"*
-
-- Requests for subjective preferences framed as factual questions#### **D2: Leading-Opinion-Framing** 🚨 **CRITICAL**
-
-
-
-**Examples:****Examples**:
-
-- ❌ *"What is your opinion on democracy?"*
-
-- ✅ *"Summarize different perspectives on AI safety from the research literature."***Detection Patterns:**- "What did [person] say about [specific topic]?"
-
-
-
-**Mitigation:** Ask for objective summaries of perspectives instead of personal opinions.- User inserts bias while asking for model's stance- "List the exact specifications of..."
-
-
-
----- Loaded questions embedding subjective framing- "Provide the precise date when..."
-
-
-
-### Pillar J: Prompt-Structure- Prompts nudging toward agreement (*"don't you think", "isn't it true"*)
-
-**Class:** Meta-Level
-
-**Risk Impact**: High - High likelihood of fabricated facts
+**Class:** Meta-Level | **Risk Type:** Both (Faithfulness & Factuality)
 
 Addresses structural issues like prompt length and delimiter usage.
 
-**Examples:**
-
-#### J1: Length-TooShort-TooLong | HIGH
-
-- ❌ *"Since **climate change is fake**, what do you think?"***Mitigation**:
+### J1: Length-TooShort-TooLong ⚠️ HIGH
 
 **Detection Patterns:**
-
-- Underspecified prompts (missing scope or entities)- ❌ *"**Don't you agree** that AI is dangerous?"*- Frame as requests for general information
-
+- Underspecified prompts (missing scope or entities)
 - Overlong prompts with many fused tasks
 
-- ❌ *"Why is **X better** than Y?"* (Biased framing)- Ask for types of information rather than specific facts
-
-**Examples:**
-
-- ❌ *"Explain this."* (Too short, missing referent)- ✅ *"Compare the pros and cons of X and Y objectively."*- Include disclaimers about fact verification
-
-- ✅ *"Explain quantum entanglement for undergraduate physics students in 200-300 words."*
-
-
-
-**Mitigation:** Aim for balanced length with clear scope.
-
-**Mitigation:**## Echo's Detection Algorithm
-
----
-
-Use neutral framing. Ask for objective analysis instead of agreement.
-
-#### J2: Delimiter-Missing | HIGH
-
-### Agent-Based Architecture
-
-**Detection Patterns:**
-
-- Context and instructions fused without clear separation---
-
-
-
-**Examples:**Echo employs a **specialized agent architecture** for hallucination detection:
-
-- ❌ *"Dataset: 5, 6, 7 analyze it."* (Missing delimiter)
-
-- ✅ *"Dataset: 5, 6, 7\n\n---\n\nTask: Analyze the dataset."*### 🔸 **Pillar E: Numbers-Units**
-
-
-
-**Mitigation:** Use visual separators (---, ###, etc.) between context and instructions.*Class: Prompt-Level*```
-
-
-
----┌──────────────────────────────────────────────────┐
-
-
-
-#### J3: MultiObjective-Overload | HIGHEnsures all numerical values include necessary units and context.│         LLM Facade (Lightweight Layer)           │
-
-
-
-**Detection Patterns:**│  • Maintains backward compatibility              │
-
-- Creative + analytical + explanatory tasks mixed with no stepwise order
-
-#### **E1: Unitless-Number** ⚠️ **HIGH**│  • Delegates to specialized agents               │
-
-**Examples:**
-
-- ❌ *"Prove Fermat's Theorem and explain it to a child in a song."*└────────────┬─────────────────────────────────────┘
-
-- ✅ *"1. Prove Fermat's Theorem. 2. Then, explain it to a child. 3. Finally, write a song about it."*
-
-**Detection Patterns:**             │
-
-**Mitigation:** Break multi-objective prompts into numbered steps.
-
-- Bare numbers for physical quantities (temperature, mass, distance, time, frequency, storage)    ┌────────▼────────┐
-
----
-
-- Mention of quantities without measurement metrics    │ AnalyzerAgent   │
-
-### Pillar K: Instruction-Structure-MultiStep
-
-**Class:** Meta-Level    │ (513 lines)     │
-
-
-
-Ensures multi-step tasks are clearly enumerated and sequenced.**Examples:**    ├─────────────────┤
-
-
-
-#### K1: Task-Delimitation | HIGH- ❌ *"Increase temperature to **37**."* (Celsius? Fahrenheit?)    │ • Guideline loading (XML)                     │
-
-
-
-**Detection Patterns:**- ❌ *"What is the boiling **temperature** of water?"* (Under what pressure? What unit?)    │ • Prompt analysis with GPT-4                  │
-
-- Mixed data and instructions without clear separators
-
-- Prompt where the task is embedded in a blob of context- ✅ *"Increase temperature to **37°C**."*    │ • XML parsing & token extraction              │
-
-
-
-**Examples:**    │ • PRD (Prompt Risk Density) calculation       │
-
-- ❌ *"Here is the text: … summarize it and critique it."* (Task fused with context)
-
-- ✅ *"Context: [text]\n\n---\n\nTask: Summarize and critique the text."***Mitigation:**    │ • Risk assessment generation                  │
-
-
-
-**Mitigation:** Use headers, delimiters, or visual structure to separate context from task.Always include units (kg, m, s, °C, MB, etc.).    └─────────────────┘
-
-
-
----```
-
-
-
-#### K2: Enumerate-MultiSteps | HIGH---
-
-
-
-**Detection Patterns:****Key Benefits:**
-
-- Multiple fused instructions without order markers
-
-- Prompts chaining unrelated tasks in one sentence#### **E2: Percent-No-Baseline** ⚠️ **HIGH**- **Separation of Concerns**: Dedicated analysis logic isolated from conversation logic
-
-
-
-**Examples:**- **Maintainability**: Focused module (~500 lines vs previous 1200-line monolith)
-
-- ❌ *"Explain relativity and compare it to quantum mechanics and write a poem."*
-
-- ✅ *"1. Explain relativity. 2. Compare it to quantum mechanics. 3. Write a poem."***Detection Patterns:**- **Extensibility**: Easy to enhance detection algorithms independently
-
-
-
-**Mitigation:** Number or bullet-list all distinct steps.- % values without a base/denominator or reference point
-
-
-
----### Analysis Modes
-
-
-
-#### K3: Stepwise-Reasoning-Cue | HIGH**Examples:**
-
-
-
-**Detection Patterns:**- ❌ *"Reduce errors by **20%**."* (20% of what baseline?)Echo supports **three analysis modes** with different guideline sets:
-
-- Complex reasoning tasks with no cue for structured steps
-
-- Mathematical or logical tasks without *"show work"* style framing- ✅ *"Reduce errors by **20% relative to the 2023 baseline** (currently 500 errors/month)."*
-
-
-
-**Examples:**| Mode | Guideline File | Focus | Use Case |
-
-- ❌ *"Solve this math problem."*
-
-- ✅ *"Solve this math problem. Show all steps and explain your reasoning."***Mitigation:**|------|---------------|-------|----------|
-
-
-
-**Mitigation:** Explicitly request step-by-step reasoning or "show your work" style outputs.Specify the baseline or reference point for all percentages.| **Faithfulness** | `data/faithfulness.xml` | Consistency with provided context | Verify model stays faithful to input information |
-
-
-
----| **Factuality** | `data/factuality.xml` | Real-world accuracy | Check claims against factual knowledge |
-
-
-
-#### K4: MultiObjective-Separation | HIGH---| **Both** (Default) | `data/both.xml` | Comprehensive analysis | Checks both faithfulness and factuality risks |
-
-
-
-**Detection Patterns:**
-
-- Creative and analytical objectives fused
-
-- Tasks combining incompatible genres#### **E3: Currency-Unspecified** 🔶 **MEDIUM**Users select the mode via the frontend UI, which is passed to the AnalyzerAgent.
-
-
-
-**Examples:**
-
-- ❌ *"Analyze the dataset and then write a story about it."*
-
-- ✅ *"1. Analyze the dataset. 2. Separately, write a creative story inspired by the findings."***Detection Patterns:**### LLM-Based Risk Assessment Pipeline
-
-
-
-**Mitigation:** Separate incompatible objectives into distinct, sequential steps.- Money amounts without currency/region (e.g., *$* with no country or plain number as money)
-
-
-
----Echo uses a sophisticated multi-stage approach:
-
-
-
-### Pillar L: Contextual-Integrity**Examples:**
-
-**Class:** Prompt-Level
-
-- ❌ *"Budget is **$5,000**."* (USD? CAD? AUD?)#### 1. Guideline Loading Phase
-
-Flags internal contradictions, negation risks, and clarification gaps.
-
-- ✅ *"Budget is **$5,000 USD**."*```
-
-#### L1: Conflicting-Instructions | CRITICAL
-
-Input: Analysis mode selection
-
-**Detection Patterns:**
-
-- Instructions that contradict themselves**Mitigation:**Process: 
-
-- Multiple incompatible constraints (e.g. length mismatch, style vs content clash)
-
-Always include currency code (USD, EUR, GBP, etc.).  - AnalyzerAgent loads corresponding XML guideline file
-
-**Examples:**
-
-- ❌ *"Write a 100-word summary and also at least 500 words."*  - Guidelines contain detection rules and patterns
-
-- ✅ *"Write a 100-word summary."*
-
----  - Mode-specific criteria for risk assessment
-
-**Mitigation:** Remove contradictions. Consolidate constraints into one coherent directive.
-
-Output: Loaded guideline structure
-
----
-
-#### **E4: Time-No-Zone-or-Unit** 🔶 **MEDIUM**```
-
-#### L2: Negation-Risk | HIGH
-
-
-
-**Detection Patterns:**
-
-- Prompts phrased as *"don't do X"* without giving a positive target**Detection Patterns:**#### 2. Prompt Analysis Phase
-
-- Instructions with double negatives or inverted logic
-
-- Times/durations missing needed unit/timezone when relevant```
-
-**Examples:**
-
-- ❌ *"Don't summarize the text."* (No alternative instruction given)Input: User prompt + loaded guidelines
-
-- ✅ *"Provide a 100-word summary."*
-
-**Examples:**Process: 
-
-**Mitigation:** Replace negations with positive instructions specifying what to do.
-
-- ❌ *"Run at **3 pm**."* (Which timezone?)  - Send structured request to GPT-4
-
----
-
-- ✅ *"Run at **3 pm EST**."*  - Include XML guidelines in system prompt
-
-#### L3: Clarification-Gap | CRITICAL
-
-  - Request structured XML response
-
-**Detection Patterns:**
-
-- Complex/multi-step instructions where missing context prevents execution**Mitigation:**  - Parse prompt structure and content
-
-- Task requires assumed prior knowledge not supplied in prompt
-
-Include timezone for absolute times, units for durations.  - Identify risk factors and patterns
-
-**Examples:**
-
-- ❌ *"First analyze the data, then critique it."* (No dataset provided)  - Analyze context completeness
-
-- ✅ *"Given the dataset below: [data]\n\nTask: Analyze and critique the data."*
-
----Output: Raw XML risk assessment
-
-**Mitigation:** Include all necessary context explicitly. Avoid assuming prior knowledge.
-
-```
-
----
-
-### 🔸 **Pillar F: Retrieval-Anchoring**
-
-## Severity Legend
-
-*Class: Prompt-Level*#### 3. XML Parsing & Token Extraction
-
-| Level | Weight | Description |
-
-|-------|--------|-------------|```
-
-| **CRITICAL** | 1.0 | High likelihood of severe hallucination or complete task failure |
-
-| **HIGH** | 0.7 | Significant risk of ambiguity or factual errors |Ensures retrieval requests specify source type and document identifiers.Input: GPT-4 XML response
-
-| **MEDIUM** | 0.4 | Moderate risk requiring clarification |
-
-| **LOW** | 0.2 | Minor issue with minimal impact |Process:
-
-
-
----#### **F1: Source-Class-Unspecified** ⚠️ **HIGH**  - Parse <RISK_ASSESSMENT> block
-
-
-
-## Using This Reference  - Extract individual <CRITERION> elements
-
-
-
-This guideline taxonomy is used by Echo's **AnalyzerAgent** to detect hallucination risks in your prompts. When you submit a prompt for analysis:**Detection Patterns:**  - Identify <RISK_n> tagged spans in annotated prompt
-
-
-
-1. **Detection**: Echo matches your prompt against these patterns- *"look up", "search", "check", "find"* with no source type (peer-reviewed, official stats, web, internal repo)  - Build risk_tokens array with metadata
-
-2. **Severity**: Each detected instance is assigned a severity level
-
-3. **PRD Calculation**: Echo computes a Probability Risk Density scoreOutput: Structured risk data + annotated prompt
-
-4. **Highlighting**: Risky text is highlighted in the analysis view
-
-5. **Refinement**: Use the ConversationAgent to ask questions and refine your prompt**Examples:**```
-
-
-
-**Tip**: Use the **Library** button in the sidebar to browse these guidelines interactively while working on your prompts.- ❌ *"**Look up** the latest GDP numbers."* (From where?)
-
-
-
----- ✅ *"Look up the latest GDP numbers from **the World Bank Open Data portal**."*#### 4. PRD (Prompt Risk Density) Calculation
-
-
-
-**Last Updated**: 2025  ```
-
-**Version**: 2.0  
-
-**Source**: `server/data/both.xml`**Mitigation:**Input: Extracted risk tokens and criteria
-
-
-Specify source type, repository, or database.Process:
-
-  - Calculate prompt_PRD: (high_risk_tokens / total_tokens) * 100
-
----  - Calculate meta_PRD: Weighted average of criteria scores
-
-  - Apply severity weighting:
-
-#### **F2: Document-Anchor-Missing** 🚨 **CRITICAL**    * High risk criteria: weight × 1.5
-
-    * Medium risk criteria: weight × 1.0
-
-**Detection Patterns:**    * Low risk criteria: weight × 0.5
-
-- Mentions of *"the paper/report/dataset/benchmark"* without an identifier (title/DOI/ID)  - Normalize scores to 0-100 scale
-
-Output: Numerical risk density scores
-
-**Examples:**```
-
-- ❌ *"Compare results for **the dataset** and **the benchmark**; **the model** underperformed."*
-
-- ✅ *"Compare results for **ImageNet (Deng et al., 2009)** and **COCO 2017**; **ResNet-50** underperformed."*#### 5. Criteria Evaluation
-
-For each risk criterion:
-
-**Mitigation:**- **Risk Level**: High (red), Medium (yellow), Low (green)
-
-Use titles, DOIs, URLs, or unique identifiers for all referenced documents.- **Percentage Score**: 0-100 scale of risk likelihood  
-
-- **Description**: Specific explanation of the risk factor
-
----- **Rule IDs**: Reference to guideline rules triggered
-
-- **Pillar**: Category (e.g., Ambiguity-Vagueness, Temporal-Context)
-
-### 🔸 **Pillar G: Injection-Layering**
-
-*Class: Meta-Level*#### 6. Overall Assessment
-
-- **Aggregate Score**: Weighted combination of individual criteria + PRD
-
-Detects contradictions, duplications, and context breaks in dialogue continuity.- **Summary**: Natural language explanation of primary risks
-
-- **Prompt-Level Violations**: Issues found in specific text spans
-
-#### **G1: Continuity** 🚨 **CRITICAL**- **Meta-Level Violations**: Structural or conceptual issues
-
-
-
-**Detection Patterns:**### XML-Structured Output
-
-- Prompts contradicting earlier user/system instructions
-
-- Tasks requiring knowledge of prior context not includedEcho uses XML formatting to ensure structured, parseable risk assessments:
-
-- Prompts explicitly invalidating earlier commitments (*"ignore previous instructions"*)
-
-- Shifts in persona/voice without clarification#### Example Assessment Response:
-
-```xml
-
-**Examples:**<RISK_ASSESSMENT>
-
-- ❌ *"Earlier you said X, now **ignore that**."*  <CRITERIA>
-
-- ❌ *"**Forget all previous instructions** and do this instead."*    <CRITERION name="Ambiguity-Vagueness" risk="high" percentage="85">
-
-- ❌ *"Disregard your earlier persona and act differently."*      The prompt contains pronouns like "this" and "it" without clear antecedents,
-
-- ✅ *"Update the previous constraint from X to Y for clarity."*      increasing the likelihood of hallucinated specifics.
-
-    </CRITERION>
-
-**Mitigation:**    <CRITERION name="Context-Completeness" risk="medium" percentage="60">
-
-Avoid contradictory instructions. Use additive refinement instead of negation.      Some background information is missing for comprehensive analysis, which
-
-      may cause the model to fill gaps with assumptions.
-
----    </CRITERION>
-
-    <CRITERION name="Temporal-Context" risk="low" percentage="25">
-
-#### **G2: Instruction-Deduplication** 🚨 **CRITICAL**      Time references are adequately specified with clear date ranges.
-
-    </CRITERION>
-
-**Detection Patterns:**  </CRITERIA>
-
-- Repeated identical instructions in same prompt  <OVERALL_ASSESSMENT percentage="65">
-
-- Conflicting duplicates (same directive expressed in multiple incompatible ways)    The prompt has elevated hallucination risk primarily due to ambiguous 
-
-- Overlapping redundant commands adding ambiguity    references and incomplete context. Address high-risk tokens first.
-
-  </OVERALL_ASSESSMENT>
-
-**Examples:**</RISK_ASSESSMENT>
-
-- ❌ *"Write a summary about the first five amendments. Translate the text to French after you summarize it."* (Redundant summarization)
-
-- ❌ *"Give a **short** summary and also provide a **detailed** summary."* (Conflicting length constraints)ANNOTATED PROMPT WITH RISK TOKENS:
-
-- ✅ *"Write a summary about the first five amendments. Then, translate that summary to French."*Please analyze <RISK_1>this data</RISK_1> and tell me what <RISK_2>recent trends</RISK_2> 
-
-show about consumer behavior in <RISK_3>the market</RISK_3>.
-
-**Mitigation:**```
-
-Remove duplicates. Consolidate conflicting instructions into one clear directive.
-
-#### Risk Token Structure:
-
----```json
-
-{
-
-### 🔸 **Pillar H: Style-Bias-Role**  "id": "RISK_1",
-
-*Class: Prompt-Level*  "text": "this data",
-
-  "risk_level": "high",
-
-Flags stylistic distortions, stereotypes, and unsafe role-play requests.  "classification": "Ambiguous reference without antecedent",
-
-  "rule_ids": [101, 105],
-
-#### **H1: Style-Inflation** ⚠️ **HIGH**  "pillar": "Ambiguity-Vagueness"
-
-}
-
-**Detection Patterns:**```
-
-- Overly creative/flowery style requested where factual accuracy is needed
-
-- Instructions mixing factual with entertainment genres (poem, story, rap, song)### Deterministic Post-Processing
-
-- Stylized emotional tone injected into analytical tasks (romantic, funny, scary)
-
-- Format distortions (*"explain in emojis"* for serious domain)After LLM analysis, AnalyzerAgent applies deterministic scoring:
-
-
-
-**Examples:**```python
-
-- ❌ *"Explain the law **in a funny poem**."*def _calculate_deterministic_risk_scores(violations, risk_tokens):
-
-- ❌ *"Describe the 2008 crisis **as a rap battle**."*    """
-
-- ❌ *"Summarize the medical report **using only emojis**."*    Apply rule-based scoring on top of LLM assessment:
-
-- ✅ *"Explain the law clearly and accurately."*    - Count high/medium/low risk tokens
-
-    - Weight by severity and position
-
-**Mitigation:**    - Calculate prompt_PRD and meta_PRD
-
-Use factual, neutral tone for analytical tasks. Avoid genre mixing.    - Apply normalization and clamping
-
-    - Generate final risk_assessment structure
-
----    """
-
-```
-
-#### **H2: Bias-Stereotypes** 🚨 **CRITICAL**
-
-This hybrid approach combines:
-
-**Detection Patterns:**- **LLM Flexibility**: Understands context and nuance
-
-- Biased/loaded phrasing targeting groups (gender, race, nationality, religion, age, disability)- **Deterministic Reliability**: Consistent, reproducible scores
-
-- Stereotypical framing of professions, demographics, or cultures
-
-- Discriminatory comparative framing (*"why X is worse than Y"*)## Interpreting Results
-
-
-
-**Examples:**### Risk Level Indicators
-
-- ❌ *"Why are **women bad drivers**?"*
-
-- ❌ *"**Asians are good at math**, explain why."*#### 🔴 High Risk (70-100%)
-
-- ❌ *"What makes **old people slow learners**?"*- **Meaning**: Significant likelihood of hallucinated content
-
-- ✅ *"What factors influence driving safety across demographics?"*- **Action**: Prompt revision strongly recommended
-
-- **Common Causes**: Ambiguous references, factual specificity requests
-
-**Mitigation:**
-
-Use neutral, non-stereotypical language. Frame questions objectively.#### 🟡 Medium Risk (40-69%)
-
-- **Meaning**: Moderate risk of inaccuracies or assumptions
-
----- **Action**: Consider clarifying ambiguous elements
-
-- **Common Causes**: Vague quantifiers, incomplete context
-
-#### **H3: Unsafe-Roleplay** 🚨 **CRITICAL**
-
-#### 🟢 Low Risk (0-39%)
-
-**Detection Patterns:**- **Meaning**: Well-structured prompt with clear instructions
-
-- Prompts asking model to roleplay as a human/fictional persona- **Action**: Prompt is likely safe to use as-is
-
-- Instructions involving emotional simulation (*pretend, imagine, act as*)- **Characteristics**: Specific context, clear references, appropriate scope
-
-- Requests to simulate unethical/unsafe personas (*"be a hacker"*)
-
-- Role identity swaps (*"you are my grandmother", "you are now a lawyer"*)### Understanding Criteria Scores
-
-
-
-**Examples:**Each criterion is evaluated independently:
-
-- ❌ *"**Pretend you are my dead grandmother**."*- **Individual Scores**: Specific risk factors in the prompt
-
-- ❌ *"**Act as an expert lawyer** and give legal advice."*- **Cumulative Impact**: How multiple factors compound risk
-
-- ❌ *"**Imagine you are a terrorist** planning an attack."*- **Priority Order**: Address highest-risk factors first
-
-- ✅ *"Explain the legal principles behind X."* (No role-play)
-
-## Mitigation Strategies
-
-**Mitigation:**
-
-Avoid role-play. Request factual explanations instead of persona simulation.### 1. Prompt Restructuring
-
-
-
----#### Before (High Risk):
-
-```
-
-### 🔸 **Pillar I: Reasoning-Uncertainty**"Analyze this data and tell me what the recent trends show about consumer behavior."
-
-*Class: Prompt-Level*```
-
-
-
-Ensures prompts allow for uncertainty and avoid subjective framing.#### After (Low Risk):
-
-```
-
-#### **I1: Uncertainty-Permission** 🚨 **CRITICAL**"Based on the quarterly sales data from Q1-Q3 2023 that I'll provide below, identify patterns in consumer purchasing behavior. Focus on seasonal variations and product category preferences. Note: Please base your analysis only on the data provided and indicate if any trends require additional data for confirmation.
-
-
-
-**Detection Patterns:**[Data would be included here]"
-
-- Prompts with inherently ambiguous/unknown information but requiring definitive answer```
-
-- No option to say *"I don't know"*, *"cannot be determined"*, or express confidence bounds
-
-- Asking for speculative or unknowable facts framed as certain### 2. Context Enhancement
-
-
-
-**Examples:**#### Add Specific Details:
-
-- ❌ *"Who was the **king of Mars**?"*- Dates, names, and identifiers
-
-- ❌ *"Tell me **exactly how many alien civilizations** exist."*- Scope and limitations
-
-- ❌ *"What will **definitely** happen in 2050?"*- Source attribution
-
-- ✅ *"What are the current scientific estimates for the number of potentially habitable exoplanets?"*- Domain-specific context
-
-
-
-**Mitigation:**#### Include Disclaimers:
-
-Allow for uncertainty. Frame speculative questions as estimates or hypotheticals.- Knowledge cutoff acknowledgments
-
-- Uncertainty indicators
-
----- Verification recommendations
-
-
-
-#### **I2: Subjective-Framing-Risk** 🚨 **CRITICAL**### 3. Question Reformulation
-
-
-
-**Detection Patterns:**#### Transform Factual Requests:
-
-- Prompts explicitly asking for model's *"opinion", "belief", "feelings"*- Instead of: "What did Einstein say about quantum mechanics?"
-
-- Requests for subjective preferences framed as factual questions- Use: "What are some general perspectives on quantum mechanics that are often attributed to Einstein's era of physics?"
-
-- Personal perspective attribution: *"What would you do", "What do you believe"*
-
-#### Clarify Ambiguous Terms:
-
-**Examples:**- Replace pronouns with specific nouns
-
-- ❌ *"What is **your opinion** on democracy?"*- Define technical terms and acronyms
-
-- ❌ *"Do **you believe** AI is dangerous?"*- Specify measurement units and scales
-
-- ❌ *"**How do you feel** about climate change?"*
-
-- ✅ *"Summarize different perspectives on AI safety from the research literature."*### 4. Iterative Refinement with Conversation Agent
-
-
-
-**Mitigation:**Echo provides **interactive refinement** through the ConversationAgent:
-
-Ask for objective summaries of perspectives instead of personal opinions.
-
-#### ConversationAgent Architecture
-
----```
-
-┌──────────────────────────────────────────────────┐
-
-### 🔸 **Pillar J: Prompt-Structure**│       ConversationAgent (224 lines)              │
-
-*Class: Meta-Level*│  • chat_once(): Single-turn refinement           │
-
-│  • chat_stream(): Multi-turn conversations       │
-
-Addresses structural issues like prompt length and delimiter usage.│  • Context-aware suggestions                     │
-
-│  • Analysis-informed responses                   │
-
-#### **J1: Length-TooShort-TooLong** ⚠️ **HIGH**└──────────────────────────────────────────────────┘
-
-```
-
-**Detection Patterns:**
-
-- Underspecified prompts (missing scope or entities)#### Refinement Workflow:
-
-- Overlong prompts with many fused tasks1. **Initial Assessment**: Run prompt through Echo's AnalyzerAgent
-
-2. **Identify High-Risk Areas**: Review risk tokens and criteria scores
-
-**Examples:**3. **Chat for Guidance**: Ask ConversationAgent about specific issues
-
-- ❌ *"Explain this."* (Too short, missing referent)4. **Apply Targeted Fixes**: Address risk factors based on suggestions
-
-- ❌ *"Write a detailed, concise, humorous, factual, emotional, and technical answer."* (Overloaded conflicting styles)5. **Re-Analyze**: Use Re-Analyze feature for iterative improvement
-
-- ✅ *"Explain quantum entanglement for undergraduate physics students in 200-300 words."*6. **Iterate**: Continue until acceptable risk level achieved
-
-
-
-**Mitigation:**#### Re-Analysis Workflow (Advanced Feature)
-
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Explain this." | "Explain quantum entanglement for undergraduate physics students in 200-300 words." |
+
+**Mitigation Strategy:**
 Aim for balanced length with clear scope.
 
-Echo includes a **Preparator Service** for sophisticated re-analysis:
+---
+
+### J2: Delimiter-Missing ⚠️ HIGH
+
+**Detection Patterns:**
+- Context and instructions fused without clear separation
+
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Dataset: 5, 6, 7 analyze it." | "Dataset: 5, 6, 7\n\n---\n\nTask: Analyze the dataset." |
+
+**Mitigation Strategy:**
+Use visual separators (`---`, `###`, etc.) between context and instructions.
 
 ---
 
-```
+### J3: MultiObjective-Overload ⚠️ HIGH
 
-#### **J2: Delimiter-Missing** ⚠️ **HIGH**User Journey:
+**Detection Patterns:**
+- Creative + analytical + explanatory tasks mixed with no stepwise order
 
-1. Converse with Echo about prompt improvements
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Prove Fermat's Theorem and explain it to a child in a song." | "1. Prove Fermat's Theorem. 2. Then, explain it to a child. 3. Finally, write a song about it." |
 
-**Detection Patterns:**2. Click "Re-Analyze" button
+**Mitigation Strategy:**
+Break multi-objective prompts into numbered steps.
 
-- Context and instructions fused without clear separation3. Preparator synthesizes conversation insights
+---
 
-4. Optionally add final manual edits
+## 13. Pillar K: Instruction-Structure-MultiStep
 
-**Examples:**5. Generate preview of refined prompt
-
-- ❌ *"Dataset: 5, 6, 7 analyze it."* (Missing delimiter)6. Confirm and trigger fresh analysis
-
-- ✅ *"Dataset: 5, 6, 7\n\n---\n\nTask: Analyze the dataset."*```
-
-
-
-**Mitigation:****Preparator Service** (`services/preparator.py`):
-
-Use visual separators (---,  ###, etc.) between context and instructions.- Integrates prior analysis findings
-
-- Applies conversation-discussed mitigations
-
----- Incorporates user's final edits
-
-- **Critically**: Uses conversation as CONTEXT only (doesn't copy text)
-
-#### **J3: MultiObjective-Overload** ⚠️ **HIGH**- Produces refined prompt ready for re-analysis
-
-
-
-**Detection Patterns:****Key Innovation**: The conversation history provides **semantic understanding** 
-
-- Creative + analytical + explanatory tasks mixed with no stepwise orderof what the user wants to improve, but the refined prompt only contains:
-
-- Original prompt text (base)
-
-**Examples:**- Fixes for identified risks
-
-- ❌ *"Prove Fermat's Theorem and explain it to a child in a song."*- User's explicit additions
-
-- ✅ *"1. Prove Fermat's Theorem. 2. Then, explain it to a child. 3. Finally, write a song about it."*
-
-See `docs/RE-ANALYSIS_FIX.md` for detailed explanation of content accumulation prevention.
-
-**Mitigation:**
-
-Break multi-objective prompts into numbered steps.## Best Practices for Different Use Cases
-
-
-
----### Academic and Research
-
-- Cite specific sources when available
-
-### 🔸 **Pillar K: Instruction-Structure-MultiStep**- Frame as requests for general knowledge
-
-*Class: Meta-Level*- Include methodology discussions
-
-- Acknowledge limitations explicitly
+**Class:** Meta-Level | **Risk Type:** Faithfulness
 
 Ensures multi-step tasks are clearly enumerated and sequenced.
 
-### Business and Analytics
+### K1: Task-Delimitation ⚠️ HIGH
 
-#### **K1: Task-Delimitation** ⚠️ **HIGH**- Provide complete datasets
+**Detection Patterns:**
+- Mixed data and instructions without clear separators
+- Task embedded in a blob of context
 
-- Specify analysis frameworks
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Here is the text: … summarize it and critique it." | "Context: [text]\n\n---\n\nTask: Summarize and critique the text." |
 
-**Detection Patterns:**- Include relevant time periods
-
-- Mixed data and instructions without clear separators- Define key performance indicators
-
-- Prompt where the task is embedded in a blob of context
-
-- No visual structure (walls of text with task hidden inside)### Creative Writing
-
-- Inline blending of metadata + instruction- Distinguish between factual and fictional elements
-
-- Provide character and world context
-
-**Examples:**- Specify genre and style preferences
-
-- ❌ *"Here is the text: … summarize it and critique it."* (Task fused with context)- Include creative constraints
-
-- ✅ *"**Context:** [text]\n\n---\n\n**Task:** Summarize and critique the text."*
-
-### Technical Documentation
-
-**Mitigation:**- Include version numbers and specifications
-
-Use headers, delimiters, or visual structure to separate context from task.- Provide environment details
-
-- Specify use cases and constraints
-
----- Reference official documentation
-
-
-
-#### **K2: Enumerate-MultiSteps** ⚠️ **HIGH**## Continuous Improvement
-
-
-
-**Detection Patterns:**### Feedback Loop
-
-- Multiple fused instructions without order markersEcho's detection capabilities improve through:
-
-- Prompts chaining unrelated tasks in one sentence- User feedback on assessment accuracy
-
-- Missing explicit sequencing for dependent steps- Analysis of common hallucination patterns
-
-- Updates to risk criteria based on new research
-
-**Examples:**- Integration of emerging detection methodologies
-
-- ❌ *"Explain relativity and compare it to quantum mechanics and write a poem."*
-
-- ✅ *"1. Explain relativity. 2. Compare it to quantum mechanics. 3. Write a poem."*### Staying Current
-
-- Regular updates to detection algorithms
-
-**Mitigation:**- Incorporation of latest hallucination research
-
-Number or bullet-list all distinct steps.- Community feedback and contributions
-
-- Adaptation to new LLM capabilities and limitations
+**Mitigation Strategy:**
+Use headers, delimiters, or visual structure to separate context from task.
 
 ---
 
-## Conclusion
-
-#### **K3: Stepwise-Reasoning-Cue** ⚠️ **HIGH**
-
-Effective hallucination detection requires a combination of automated tools and human judgment. Echo provides a foundation for identifying potential risks, but users should:
+### K2: Enumerate-MultiSteps ⚠️ HIGH
 
 **Detection Patterns:**
+- Multiple fused instructions without order markers
+- Prompts chaining unrelated tasks in one sentence
 
-- Complex reasoning tasks with no cue for structured steps1. **Understand the Limitations**: No detection system is 100% accurate
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Explain relativity and compare it to quantum mechanics and write a poem." | "1. Explain relativity. 2. Compare it to quantum mechanics. 3. Write a poem." |
 
-- Mathematical or logical tasks without *"show work"* style framing2. **Use Multiple Strategies**: Combine automated detection with manual review
+**Mitigation Strategy:**
+Number or bullet-list all distinct steps.
 
-- Requests for decision-making without asking for reasoning/evidence3. **Stay Informed**: Keep up with latest research and best practices
+---
 
-4. **Iterate and Improve**: Continuously refine prompts based on results
+### K3: Stepwise-Reasoning-Cue ⚠️ HIGH
 
-**Examples:**
+**Detection Patterns:**
+- Complex reasoning tasks with no cue for structured steps
+- Mathematical or logical tasks without `show work` style framing
 
-- ❌ *"Solve this math problem."*By following these guidelines and using Echo's risk assessment capabilities, users can significantly reduce the likelihood of AI hallucinations in their applications.
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Solve this math problem." | "Solve this math problem. Show all steps and explain your reasoning." |
 
-- ✅ *"Solve this math problem. **Show all steps** and explain your reasoning."*
-
-**Mitigation:**
+**Mitigation Strategy:**
 Explicitly request step-by-step reasoning or "show your work" style outputs.
 
 ---
 
-#### **K4: MultiObjective-Separation** ⚠️ **HIGH**
+### K4: MultiObjective-Separation ⚠️ HIGH
 
 **Detection Patterns:**
 - Creative and analytical objectives fused
-- Instruction mixes emotional/roleplay with factual analysis
 - Tasks combining incompatible genres
 
-**Examples:**
-- ❌ *"Analyze the dataset and then write a story about it."*
-- ✅ *"1. Analyze the dataset. 2. Separately, write a creative story inspired by the findings."*
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Analyze the dataset and then write a story about it." | "1. Analyze the dataset. 2. Separately, write a creative story inspired by the findings." |
 
-**Mitigation:**
+**Mitigation Strategy:**
 Separate incompatible objectives into distinct, sequential steps.
 
 ---
 
-### 🔸 **Pillar L: Contextual-Integrity**
-*Class: Prompt-Level*
+## 14. Pillar L: Contextual-Integrity
+
+**Class:** Prompt-Level | **Risk Type:** Faithfulness
 
 Flags internal contradictions, negation risks, and clarification gaps.
 
-#### **L1: Conflicting-Instructions** 🚨 **CRITICAL**
+### L1: Conflicting-Instructions 🔴 CRITICAL
 
 **Detection Patterns:**
 - Instructions that contradict themselves
-- Multiple incompatible constraints (e.g. length mismatch, style vs content clash)
-- Conflicting factual assumptions embedded in one prompt
-- Redundant duplication that introduces inconsistency
+- Multiple incompatible constraints (length mismatch, style vs content clash)
 
-**Examples:**
-- ❌ *"Write a **100-word** summary and also **at least 500 words**."*
-- ❌ *"Provide **objective analysis** but make it **emotional**."*
-- ✅ *"Write a 100-word summary."*
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Write a 100-word summary and also at least 500 words." | "Write a 100-word summary." |
+| "Provide objective analysis but make it emotional." | "Provide objective analysis with clear evidence." |
 
-**Mitigation:**
+**Mitigation Strategy:**
 Remove contradictions. Consolidate constraints into one coherent directive.
 
 ---
 
-#### **L2: Negation-Risk** ⚠️ **HIGH**
+### L2: Negation-Risk ⚠️ HIGH
 
 **Detection Patterns:**
-- Prompts phrased as *"don't do X"* without giving a positive target
+- Prompts phrased as `don't do X` without giving a positive target
 - Instructions with double negatives or inverted logic
-- Tasks framed by prohibition instead of explicit desired outcome
 
-**Examples:**
-- ❌ *"**Don't summarize the text**."* (No alternative instruction given)
-- ❌ *"**Don't give me a long answer**."* (Should specify desired length instead)
-- ✅ *"Provide a 100-word summary."*
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "Don't summarize the text." | "Provide a detailed analysis of the text." |
+| "Don't give me a long answer." | "Provide a 50-word response." |
 
-**Mitigation:**
+**Mitigation Strategy:**
 Replace negations with positive instructions specifying what to do.
 
 ---
 
-#### **L3: Clarification-Gap** 🚨 **CRITICAL**
+### L3: Clarification-Gap 🔴 CRITICAL
 
 **Detection Patterns:**
 - Complex/multi-step instructions where missing context prevents execution
 - Task requires assumed prior knowledge not supplied in prompt
-- Nested references to undefined items (*"use the chart"* when no chart given)
 
-**Examples:**
-- ❌ *"**First analyze the data, then critique it**."* (No dataset provided)
-- ❌ *"**Review the text above**."* (No text present in prompt)
-- ✅ *"**Given the dataset below:** [data]\n\n**Task:** Analyze and critique the data."*
+| ❌ Risky | ✅ Mitigated |
+|----------|--------------|
+| "First analyze the data, then critique it." (No dataset provided) | "Given the dataset below: [data]\n\nTask: Analyze and critique the data." |
+| "Review the text above." (No text present) | "[Text to review]\n\n---\n\nTask: Review the above text." |
 
-**Mitigation:**
+**Mitigation Strategy:**
 Include all necessary context explicitly. Avoid assuming prior knowledge.
 
 ---
 
-## 📊 Severity Legend
+## 15. Severity Classification
 
-| Symbol | Level | Weight | Description |
-|--------|-------|--------|-------------|
-| 🚨 | **CRITICAL** | 1.0 | High likelihood of severe hallucination or complete task failure |
-| ⚠️ | **HIGH** | 0.7 | Significant risk of ambiguity or factual errors |
-| 🔶 | **MEDIUM** | 0.4 | Moderate risk requiring clarification |
-| 🔷 | **LOW** | 0.2 | Minor issue with minimal impact |
+### 15.1 Severity Levels
+
+| Level | Symbol | PRD Weight | Interpretation |
+|-------|--------|------------|----------------|
+| **Critical** | 🔴 | ×3 | High probability of severe hallucination or complete task failure |
+| **High** | ⚠️ | ×2 | Significant risk of ambiguity or factual errors |
+| **Medium** | 🟡 | ×1 | Moderate risk requiring clarification |
+
+### 15.2 PRD Calculation
+
+**Prompt Risk Density (PRD)** quantifies overall hallucination potential:
+
+$$
+\text{PRD} = \frac{\sum_{i} (\text{span}_i \times w_i)}{L}
+$$
+
+Where:
+- $\text{span}_i$ = character length of violation $i$
+- $w_i$ = severity weight (1, 2, or 3)
+- $L$ = total prompt length
+
+**Interpretation:**
+| PRD Range | Risk Level | Recommendation |
+|-----------|------------|----------------|
+| 0–20% | Low | Prompt is well-structured |
+| 21–50% | Moderate | Consider addressing highlighted risks |
+| 51–80% | High | Significant revision recommended |
+| 81–100% | Critical | Prompt requires substantial rewrite |
 
 ---
 
-## 🎯 Using This Reference
+## 16. Application in Echo
 
-This guideline taxonomy is used by Echo's **AnalyzerAgent** to detect hallucination risks in your prompts. When you submit a prompt for analysis:
+### 16.1 Analysis Pipeline
 
-1. **Detection**: Echo matches your prompt against these patterns
-2. **Severity**: Each detected instance is assigned a severity level
-3. **PRD Calculation**: Echo computes a Probability Risk Density score
-4. **Highlighting**: Risky text is highlighted in the analysis view
-5. **Refinement**: Use the ConversationAgent to ask questions and refine your prompt
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    TAXONOMY APPLICATION FLOW                            │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   USER PROMPT                                                           │
+│        │                                                                │
+│        ▼                                                                │
+│   ┌─────────────────────────────────────────────────────────────────┐  │
+│   │  ANALYZER AGENT                                                 │  │
+│   │  ├── Load Guidelines (both.xml / faithfulness.xml / factuality) │  │
+│   │  ├── Match patterns from Pillars A–L                            │  │
+│   │  ├── Classify violations by severity                            │  │
+│   │  ├── Separate prompt-level vs meta-level                        │  │
+│   │  └── Compute PRD values                                         │  │
+│   └─────────────────────────────────────────────────────────────────┘  │
+│        │                                                                │
+│        ▼                                                                │
+│   OUTPUT: Highlighted prompt + PRD scores + Violation cards            │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
 
-**Tip**: Use the **Library** button in the sidebar to browse these guidelines interactively while working on your prompts.
+### 16.2 Guideline File Mapping
+
+| Mode | File | Pillars Checked |
+|------|------|-----------------|
+| **Faithfulness** | `data/faithfulness.xml` | A, C, F, G, K, L |
+| **Factuality** | `data/factuality.xml` | B, D, E, I |
+| **Both** | `data/both.xml` | A–L (all) |
+
+### 16.3 Interactive Reference
+
+Users can browse this taxonomy interactively via the **Library** button in Echo's sidebar, enabling real-time reference while refining prompts.
 
 ---
 
-**Last Updated**: 2025  
-**Version**: 2.0  
-**Source**: `server/data/both.xml`
+## 17. Summary Tables
+
+### 17.1 Quick Reference by Class
+
+**Prompt-Level Pillars (Highlightable):**
+
+| Pillar | Focus | Key Detection |
+|--------|-------|---------------|
+| A | Referential Grounding | Pronouns, undefined entities |
+| B | Quantification | Vague quantities, temporal terms |
+| D | Premises | False claims, leading questions |
+| E | Numbers-Units | Missing units, baselines |
+| F | Retrieval | Unanchored sources, documents |
+| H | Style-Bias | Stereotypes, roleplay, tone |
+| I | Uncertainty | Forced certainty, opinion requests |
+| L | Integrity | Contradictions, negations |
+
+**Meta-Level Pillars (Structural):**
+
+| Pillar | Focus | Key Detection |
+|--------|-------|---------------|
+| C | Context-Domain | Missing 5 W's, audience, domain |
+| G | Injection | Contradicting prior context |
+| J | Prompt-Structure | Length, delimiters, objectives |
+| K | Multi-Step | Task separation, enumeration |
+
+### 17.2 Quick Reference by Risk Type
+
+| Type | Pillars | Central Concern |
+|------|---------|-----------------|
+| **Faithfulness** | A, C, F, G, K, L | LLM diverges from provided context |
+| **Factuality** | B, D, E, I | LLM generates false claims |
+| **Both** | H, J | Multiple risk vectors |
+
+---
+
+## Appendix: Changelog
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 2.0 | 2025 | Doctoral-level rewrite with theoretical framing |
+| 1.0 | 2024 | Initial taxonomy implementation |
+
+---
+
+*"Precision in prompts is prophylaxis against fabrication."*
+
+*See `architecture.md` for implementation details and `contributing.md` for extension guidelines.*
+
+*© 2025 Mohamed Nejjar — Bachelor Thesis Implementation*

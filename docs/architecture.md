@@ -1,388 +1,605 @@
 <div align="center">
 
-# 📐 Echo Hallucination Detection – System Architecture
+# Echo: System Architecture & Technical Implementation
 
-*An end‑to‑end prompt risk intelligence and refinement platform for reducing LLM hallucinations.*
+### A Shift-Left Framework for User-Sided Hallucination Mitigation in Large Language Models
+
+*Mohamed Nejjar — Bachelor Thesis: "Mitigating Hallucination Potential in User Prompts Through AI-Guided Iterative Refinement"*
 
 </div>
 
 ---
 
-## 1. Executive Overview
+## Abstract
 
-Echo transforms an unstructured natural‑language prompt into a **structured risk profile**, annotated **high / medium risk spans**, and **actionable refinement guidance**—all in a tight human‑in‑the‑loop workflow.
+This document presents the technical architecture of **Echo**, a novel solution design implementing a shift-left methodology for hallucination mitigation in Large Language Model (LLM) interactions. Unlike existing approaches that focus on post-generation detection or model-side improvements, Echo addresses the underexplored domain of **user-sided error sources**—specifically, how prompt formulation contributes to hallucination potential before generation occurs.
 
-The platform is architected as a **React + TypeScript single‑page client** backed by a **FastAPI service layer** that orchestrates an **LLM analysis pipeline**, applies **deterministic scoring heuristics**, and returns **machine + human readable artifacts** for visualization and iterative improvement.
-
-Key design principles:
-
-| Principle | Implementation Expression |
-|-----------|---------------------------|
-| Determinism over opacity | Hybrid: LLM extraction + rule post‑processing |
-| Fast feedback loop | Stateless idempotent `/analyze` flow + lightweight streaming `/refine` |
-| Progressive disclosure | Collapsible UI sections & semantic grouping |
-| Traceable highlighting | Stable `RISK_n` tag emission → structured token list → color map |
-| Evolvable scoring model | Criteria array + pluggable heuristics |
+The system operationalizes a new theoretical taxonomy distinguishing between **prompt-level** and **meta-level** risks, each further subdivided into **faithfulness** and **factuality** dimensions. Through a multi-agent architecture comprising Analyzer, Initiator, Conversational, and Preparator agents, Echo provides quantitative risk assessment via the novel **Prompt Risk Density (PRD)** metric, enabling systematic prompt refinement through human-AI collaboration.
 
 ---
 
-## 2. High‑Level System Topology
+## 1. Theoretical Foundation
 
-Canonical Mermaid source: `docs/diagrams/topology.mmd`
+### 1.1 Reconceptualizing Hallucination Sources
+
+Traditional hallucination research focuses predominantly on **LLM-sided errors**—issues arising from training data quality, model architecture limitations, knowledge cutoff boundaries, and inference mechanisms. However, this perspective overlooks a fundamental contributor to hallucination generation: **the user**.
+
+Echo is grounded in a novel dual-actor model of hallucination causation:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    HALLUCINATION SOURCE TAXONOMY                        │
+├─────────────────────────────────┬───────────────────────────────────────┤
+│         LLM-SIDED ERRORS        │         USER-SIDED ERRORS             │
+│  (Out of scope for this work)   │      (Echo's intervention domain)     │
+├─────────────────────────────────┼───────────────────────────────────────┤
+│  • Training data artifacts      │              ┌───────────────────────┐│
+│  • Model architecture limits    │              │   PROMPT-LEVEL RISKS  ││
+│  • Knowledge cutoff boundaries  │              │  ─────────────────────││
+│  • Inference temperature        │              │ Token-addressable     ││
+│  • Attention mechanism drift    │              │ 1:1 risk mapping      ││
+│                                 │              │ Directly highlightable││
+│                                 │              └───────────┬───────────┘│
+│                                 │                          │            │
+│                                 │              ┌───────────┴───────────┐│
+│                                 │              │    META-LEVEL RISKS   ││
+│                                 │              │  ─────────────────────││
+│                                 │              │ Structural in nature  ││
+│                                 │              │ Context/actor gaps    ││
+│                                 │              │ Cannot be tokenized   ││
+│                                 │              └───────────────────────┘│
+└─────────────────────────────────┴───────────────────────────────────────┘
+```
+
+### 1.2 The Prompt vs. Meta Risk Dichotomy (Novel Contribution)
+
+A key theoretical contribution is the **middle-level taxonomy** distinguishing prompt-level from meta-level risks:
+
+| Dimension | Prompt-Level Risks | Meta-Level Risks |
+|-----------|-------------------|------------------|
+| **Nature** | Lexical, syntactic, semantic | Structural, contextual, relational |
+| **Addressability** | Token-specific (highlightable) | Holistic (non-localizable) |
+| **Examples** | Ambiguous pronouns, vague quantifiers, unitless numbers | Missing actors, conflicting constraints, absent context |
+| **Detection** | Pattern matching + NLP analysis | Structural analysis + inference |
+| **Visualization** | Direct span highlighting | Aggregate gauges + explanatory text |
+
+### 1.3 Faithfulness vs. Factuality at the Leaf Level
+
+At the lowest taxonomy level, both prompt and meta risks subdivide into established categories (building on prior research):
+
+- **Faithfulness Risks**: Potential for the LLM to deviate from user-provided context, instructions, or constraints
+- **Factuality Risks**: Potential for the LLM to generate claims contradicting real-world knowledge
+
+**Key Insight**: While market-leading LLMs increasingly resist factuality hallucinations (refusing uncertain claims), faithfulness hallucinations remain intractable because they depend fundamentally on **how users formulate prompts**—a problem no model architecture can fully solve.
+
+### 1.4 The Shift-Left Paradigm
+
+Echo implements a **shift-left methodology** analogous to security and quality assurance paradigms:
+
+```
+Traditional Approach:          Echo's Shift-Left Approach:
+─────────────────────         ──────────────────────────────
+User Prompt → LLM → Output    User Prompt → ECHO ANALYSIS → Refined Prompt → LLM → Output
+                ↓                              ↓
+         Hallucination             Risk Detection & Mitigation
+         (Post-hoc detection)      (Pre-generation prevention)
+```
+
+By intervening **before** generation, Echo eliminates one entire error source (user-sided), potentially enabling smaller, more accessible models to achieve hallucination robustness comparable to closed-source systems.
+
+---
+
+## 2. The Prompt Risk Density (PRD) Metric
+
+### 2.1 Motivation and Design
+
+The **Prompt Risk Density (PRD)** is a novel quantitative metric inspired by percentage-based risk analysis methodologies used in finance, security, and quality assurance domains. PRD measures the relative hallucination-inducing potential of a prompt by calculating the density of risky linguistic elements.
+
+### 2.2 Mathematical Formulation
+
+$$PRD = \frac{\sum_{i=1}^{n} (L_i \times S_i)}{P_{total}} \times 100$$
+
+Where:
+- $L_i$ = Length (token span) of the $i$-th risk element
+- $S_i$ = Severity weight of the $i$-th risk element
+- $P_{total}$ = Total prompt length in tokens
+- $n$ = Number of identified risk elements
+
+**Severity Weights:**
+| Level | Weight ($S_i$) | Interpretation |
+|-------|----------------|----------------|
+| Medium | 1 | Potential for minor hallucination |
+| High | 2 | Significant hallucination likelihood |
+| Critical | 3 | High probability of severe hallucination |
+
+### 2.3 Dual PRD Computation
+
+Echo computes **two distinct PRD values**:
+
+1. **Prompt PRD**: Measures density of token-level risks (ambiguous references, vague quantifiers, etc.)
+2. **Meta PRD**: Measures structural/contextual risks (missing actors, conflicting constraints, etc.)
+
+This dual-gauge visualization enables users to understand **where** their prompt needs improvement—at the linguistic level or the structural level.
+
+---
+
+## 3. Multi-Agent Architecture
+
+### 3.1 Agent Pipeline Overview
+
+Echo implements a **semi-human-assisted multi-step workflow** through four specialized agents:
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                           ECHO AGENT PIPELINE                                │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────────────┐   │
+│  │  1. ANALYZER    │───▶│  2. INITIATOR   │───▶│  3. CONVERSATIONAL     │   │
+│  │     AGENT       │    │     AGENT       │    │     AGENT              │   │
+│  ├─────────────────┤    ├─────────────────┤    ├─────────────────────────┤   │
+│  │ • Risk scanning │    │ • Question      │    │ • Interactive          │   │
+│  │ • PRD calc      │    │   generation    │    │   refinement           │   │
+│  │ • Token mapping │    │ • Guided start  │    │ • Critical feedback    │   │
+│  │ • Highlighting  │    │   points        │    │ • Guideline adherence  │   │
+│  └─────────────────┘    └─────────────────┘    └───────────┬─────────────┘   │
+│                                                            │                 │
+│                                           ┌────────────────▼─────────────┐   │
+│                                           │     4. PREPARATOR AGENT      │   │
+│                                           ├──────────────────────────────┤   │
+│                                           │ • Prompt synthesis           │   │
+│                                           │ • Version generation         │   │
+│                                           │ • Re-analysis preparation    │   │
+│                                           └──────────────────────────────┘   │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 3.2 Agent Specifications
+
+#### 3.2.1 Analyzer Agent (`services/analyzer_agent.py`)
+
+**Purpose**: Primary risk detection and quantification engine
+
+**Responsibilities**:
+- Parse user prompts against XML-encoded detection guidelines
+- Identify hallucination-inducing tokens and structural patterns
+- Generate annotated prompts with `<RISK_n>` span markers
+- Calculate prompt-level and meta-level PRD scores
+- Produce detailed token-to-rule mappings
+
+**Output Artifacts**:
+```json
+{
+  "annotated_prompt": "Analyze <RISK_1>this data</RISK_1> for <RISK_2>recent</RISK_2> trends",
+  "risk_tokens": [
+    {
+      "id": "RISK_1",
+      "text": "this data",
+      "risk_level": "high",
+      "classification": "Ambiguous Referent",
+      "rule_ids": [101],
+      "pillar": "A",
+      "mitigation": "Replace with specific dataset identifier"
+    }
+  ],
+  "risk_assessment": {
+    "prompt_prd": 42.5,
+    "meta_prd": 28.3,
+    "prompt_violations": [...],
+    "meta_violations": [...]
+  }
+}
+```
+
+#### 3.2.2 Initiator Agent (`services/initiator_agent.py`)
+
+**Purpose**: Generate guided starting points for user-driven refinement
+
+**Responsibilities**:
+- Analyze detected violations from Analyzer output
+- Generate **one targeted question per broken rule**
+- Prioritize questions by severity (critical → high → medium)
+- Provide actionable entry points for refinement conversation
+
+**Example Output**:
+```
+Based on the analysis, consider these refinement starting points:
+
+1. [CRITICAL] The reference "this data" lacks specificity. What specific 
+   dataset, document, or information source are you referring to?
+
+2. [HIGH] The temporal reference "recent" is ambiguous. What specific 
+   time period (e.g., Q3 2024, last 6 months) should constrain the analysis?
+
+3. [MEDIUM] No target audience is specified. Who will consume this output—
+   technical experts, executives, or general audiences?
+```
+
+#### 3.2.3 Conversational Agent (`services/conversation_agent.py`)
+
+**Purpose**: Interactive prompt refinement through guided dialogue
+
+**Responsibilities**:
+- Maintain conversation context with full analysis awareness
+- Provide **critical, guideline-adherent feedback** (not a "yes-man")
+- Suggest specific improvements based on detected risks
+- Track refinement progress across conversation turns
+- Support streaming responses for real-time interaction
+
+**Design Philosophy**: The agent is explicitly designed to remain **critical** and **truthful to the guidelines**—it does not simply agree with user suggestions but evaluates them against the hallucination mitigation taxonomy.
+
+#### 3.2.4 Preparator Agent (`services/preparator.py`)
+
+**Purpose**: Synthesize refined prompts for re-analysis cycles
+
+**Responsibilities**:
+- Integrate conversation insights with original prompt
+- Apply discussed mitigation strategies
+- Generate alternative prompt versions
+- Prepare prompts for fresh analysis cycles
+- **Critical constraint**: Uses conversation as semantic context only—does not copy conversation text into prompts
+
+---
+
+## 4. System Topology
+
+### 4.1 High-Level Architecture
 
 ```mermaid
-%% (Inline copy for immediate readability – edit the .mmd source.)
 flowchart TB
-  subgraph Browser[Client - React / Vite]
-    UI[Prompt Editor & Panels]
-    HL[Highlight Renderer]
-    Chat[Refinement Chat]
-    ReAnalyze[Re-Analyze Dialog]
-    APIClient[Typed API Layer]
-  end
-
-  subgraph API[FastAPI Backend]
-    Router[Route Layer]
-    AnalyzeRoute["/api/analyze"]
-    RefineRoute["/api/refine"]
-    PrepareRoute["/api/prepare"]
-    
-    subgraph Agents[Specialized Agents]
-      LLMFacade[LLM Facade]
-      AnalyzerAgent[Analyzer Agent]
-      ConversationAgent[Conversation Agent]
-      Preparator[Preparator Service]
+    subgraph Client["Frontend (React/TypeScript)"]
+        Editor[Prompt Editor]
+        Viz[Risk Visualization<br/>PRD Gauges + Highlighting]
+        Chat[Refinement Interface]
+        Export[Export Module]
     end
     
-    Logger[Structured Logger]
-  end
-
-  subgraph OpenAI[External LLM]
-    GPT[(GPT-4)]
-  end
-
-  UI --> APIClient
-  Chat --> APIClient
-  ReAnalyze --> APIClient
-  
-  APIClient --> Router
-  Router --> AnalyzeRoute
-  Router --> RefineRoute
-  Router --> PrepareRoute
-  
-  AnalyzeRoute --> LLMFacade
-  RefineRoute --> LLMFacade
-  PrepareRoute --> Preparator
-  
-  LLMFacade --> AnalyzerAgent
-  LLMFacade --> ConversationAgent
-  
-  AnalyzerAgent --> GPT
-  ConversationAgent --> GPT
-  Preparator --> GPT
-  
-  GPT --> AnalyzerAgent
-  GPT --> ConversationAgent
-  GPT --> Preparator
-  
-  AnalyzerAgent --> AnalyzeRoute
-  ConversationAgent --> RefineRoute
-  Preparator --> PrepareRoute
-  
-  AnalyzeRoute --> APIClient --> HL
-  RefineRoute --> APIClient --> Chat
-  PrepareRoute --> APIClient --> ReAnalyze
-  
-  Logger -. observability .- Router
+    subgraph Server["Backend (FastAPI)"]
+        Router[API Router]
+        subgraph Agents["Agent Layer"]
+            Analyzer[Analyzer Agent]
+            Initiator[Initiator Agent]
+            Conv[Conversation Agent]
+            Prep[Preparator Agent]
+        end
+        Guidelines[XML Guidelines<br/>faithfulness.xml<br/>factuality.xml<br/>both.xml]
+    end
+    
+    subgraph External["External Services"]
+        LLM[(LLM Provider<br/>GPT-4)]
+    end
+    
+    Editor --> Router
+    Router --> Analyzer
+    Router --> Initiator
+    Router --> Conv
+    Router --> Prep
+    
+    Analyzer --> Guidelines
+    Analyzer --> LLM
+    Initiator --> LLM
+    Conv --> LLM
+    Prep --> LLM
+    
+    Analyzer --> Viz
+    Initiator --> Chat
+    Conv --> Chat
+    Prep --> Router
+    
+    style Client fill:#002147,stroke:#764ba2,stroke-width:3px,color:#ffffff
+    style Server fill:#002147,stroke:#f5576c,stroke-width:3px,color:#ffffff
+    style Agents fill:#002147,stroke:#00f2fe,stroke-width:3px,color:#ffffff
+    style External fill:#002147,stroke:#38f9d7,stroke-width:3px,color:#ffffff
 ```
 
-**Data Products Returned:**
-1. `annotated_prompt` – Original text with stable `<RISK_i> … </RISK_i>` span markers.
-2. `risk_tokens[]` – Array containing: id (`RISK_i`), text, classification rule(s), risk_level.
-3. `risk_assessment` – Structured criteria + overall percentage.
-4. `analysis_summary` – Narrative condensation for quick human scanning.
+### 4.2 API Endpoint Structure
+
+| Endpoint | Method | Purpose | Agent Invoked |
+|----------|--------|---------|---------------|
+| `/api/analyze` | POST | Primary risk analysis | Analyzer Agent |
+| `/api/initiate` | POST | Generate guided questions | Initiator Agent |
+| `/api/refine` | POST | Single-turn refinement | Conversation Agent |
+| `/api/refine/stream` | GET | Streaming refinement | Conversation Agent |
+| `/api/prepare` | POST | Synthesize refined prompt | Preparator Agent |
+| `/api/health` | GET | Service liveness probe | — |
+
+### 4.3 Analysis Modes
+
+Echo supports three analysis configurations based on the faithfulness/factuality taxonomy:
+
+| Mode | Guideline File | Focus | Use Case |
+|------|----------------|-------|----------|
+| **Faithfulness** | `faithfulness.xml` | Context adherence risks | Verify prompt will keep model faithful to provided information |
+| **Factuality** | `factuality.xml` | Real-world accuracy risks | Identify elements likely to trigger factual fabrication |
+| **Both** (Default) | `both.xml` | Comprehensive analysis | Full risk assessment across both dimensions |
 
 ---
 
-## 3. Detailed Processing Pipeline
+## 5. Processing Pipeline
 
-Canonical Mermaid source: `docs/diagrams/pipeline-sequence.mmd`
+### 5.1 Analysis Sequence
 
 ```mermaid
-%% (Inline copy – edit the .mmd source for changes.)
 sequenceDiagram
-  participant U as User
-  participant FE as Frontend
-  participant Route as /api/analyze
-  participant Facade as LLM Facade
-  participant Analyzer as Analyzer Agent
-  participant MODEL as OpenAI GPT
-
-  U->>FE: Click "Analyze"
-  FE->>Route: POST /api/analyze { prompt, mode }
-  Route->>Facade: analyze_prompt(prompt, mode)
-  Facade->>Analyzer: analyze_prompt(prompt, mode)
-  
-  Note over Analyzer: Load guidelines XML<br/>(faithfulness/factuality/both)
-  
-  Analyzer->>MODEL: completion request with guidelines
-  MODEL-->>Analyzer: raw structured response
-  
-  Note over Analyzer: Parse XML risk assessment<br/>Extract RISK_n tokens<br/>Calculate PRD scores
-  
-  Analyzer-->>Facade: analyzed data
-  Facade-->>Route: {annotated_prompt, risk_tokens, risk_assessment}
-  Route-->>FE: JSON artifacts
-  
-  Note over FE: Map RISK_n → color classes<br/>Render highlighted view
-  
-  FE-->>U: Highlighted analysis + risk dashboard
+    participant U as User
+    participant FE as Frontend
+    participant API as API Router
+    participant AA as Analyzer Agent
+    participant LLM as LLM Provider
+    
+    U->>FE: Submit prompt + mode selection
+    FE->>API: POST /api/analyze
+    API->>AA: analyze_prompt(prompt, mode)
+    
+    Note over AA: Load XML guidelines<br/>(faithfulness/factuality/both)
+    
+    AA->>LLM: Structured analysis request
+    LLM-->>AA: XML-formatted risk assessment
+    
+    Note over AA: Parse XML response<br/>Extract RISK_n tokens<br/>Calculate dual PRD
+    
+    AA-->>API: Analysis artifacts
+    API-->>FE: JSON response
+    
+    Note over FE: Render highlighted prompt<br/>Display PRD gauges<br/>Show violation details
+    
+    FE-->>U: Interactive risk dashboard
 ```
 
-### Core Phases
-| Phase | Responsibility | Guarantees |
-|-------|----------------|------------|
-| Sanitization | Strip control chars / trim / ensure UTF‑8 | Prevent injection & noise |
-| LLM Extraction | Produce raw spans + XML criteria | Structured envelope contract |
-| Parsing | Convert XML + tagged markup to Python objects | Fault‑tolerant fallback |
-| Deterministic Scoring | Apply rule weighting / normalization | Stable numerical outputs |
-| Token Binding | FE binds `<RISK_n>` tags to `risk_tokens` | Deterministic highlighting |
+### 5.2 Iterative Refinement Cycle
+
+```mermaid
+flowchart LR
+    A[Original Prompt] --> B[Analyzer Agent]
+    B --> C{PRD Acceptable?}
+    C -->|No| D[Initiator Agent]
+    D --> E[Guided Questions]
+    E --> F[Conversational Agent]
+    F --> G[User Refinement]
+    G --> H{Re-analyze?}
+    H -->|Yes| I[Preparator Agent]
+    I --> B
+    H -->|No| G
+    C -->|Yes| J[Export Refined Prompt]
+    
+    style A fill:#002147,stroke:#764ba2,stroke-width:2px,color:#ffffff
+    style B fill:#002147,stroke:#f5576c,stroke-width:2px,color:#ffffff
+    style F fill:#002147,stroke:#00f2fe,stroke-width:2px,color:#ffffff
+    style I fill:#002147,stroke:#38f9d7,stroke-width:2px,color:#ffffff
+    style J fill:#002147,stroke:#fee140,stroke-width:2px,color:#ffffff
+```
 
 ---
 
-## 4. Backend Service Layer
+## 6. Risk Visualization System
 
-### Routes
-| Module | File | Responsibility | Notable Details |
-|--------|------|----------------|-----------------|
-| App entry | `server/main.py` | App factory, CORS, router registration | Mounts `/api/*` namespace with health, analyze, refine, prepare |
-| Routes – health | `routes/health.py` | Health check endpoint | Simple liveness probe at `/api/health/` |
-| Routes – analysis | `routes/analyze.py` | Accept prompt, orchestrate pipeline | `POST /api/analyze/` - Returns all analysis artifacts |
-| Routes – refinement | `routes/refine.py` | Conversational improvement | `POST /api/refine/` and `GET /api/refine/stream` |
-| Routes – preparation | `routes/prepare.py` | Pre-analysis prompt refinement | `POST /api/prepare/prepare` - Refines prompts for re-analysis |
+### 6.1 Highlighting Mechanism
 
-### Services (Agent-Based Architecture)
-| Module | File | Responsibility | Notable Details |
-|--------|------|----------------|-----------------|
-| LLM Facade | `services/llm.py` | Lightweight delegation layer | Delegates to specialized agents (124 lines) |
-| Analyzer Agent | `services/analyzer_agent.py` | Hallucination detection & analysis | PRD calculation, guideline loading, risk scoring |
-| Conversation Agent | `services/conversation_agent.py` | Conversational refinement | Chat-based prompt improvement with context |
-| Preparator | `services/preparator.py` | Re-analysis preparation | Integrates prior analysis + conversation for refinement |
+The frontend implements a three-tier visual highlighting system:
 
-### Models
-| Module | File | Responsibility | Notable Details |
-|--------|------|----------------|-----------------|
-| Models | `models/prompt.py`, `models/response.py` | Pydantic contracts | Enforce request/response shape |
+| Severity | Color | CSS Class | Interpretation |
+|----------|-------|-----------|----------------|
+| **Critical** | Red | `risk-critical` | Immediate attention required |
+| **High** | Orange | `risk-high` | Significant refinement recommended |
+| **Medium** | Yellow | `risk-medium` | Optional improvement suggested |
 
-### Agent-Based Architecture Pattern
+### 6.2 Token Binding Algorithm
 
-The system refactored from a monolithic `llm.py` (1261 lines) to a **specialized agent architecture**:
-
-```
-┌─────────────────────────────────────────────────────┐
-│              OpenAILLM (Facade - 124 lines)         │
-│  • Maintains backward compatibility                 │
-│  • Delegates to specialized agents                  │
-└────────────┬──────────────────────────┬─────────────┘
-             │                          │
-    ┌────────▼────────┐        ┌───────▼────────┐
-    │ AnalyzerAgent   │        │ ConversationAgent│
-    │ (513 lines)     │        │ (224 lines)      │
-    ├─────────────────┤        ├──────────────────┤
-    │ • analyze_prompt│        │ • chat_once      │
-    │ • Load guidelines│       │ • chat_stream    │
-    │ • Calculate PRD │        │ • Refinement     │
-    │ • Risk scoring  │        │   guidance       │
-    └─────────────────┘        └──────────────────┘
+```typescript
+// Simplified highlighting logic
+function renderAnnotatedPrompt(annotatedPrompt: string, riskTokens: RiskToken[]) {
+  // Split on RISK_n markers
+  const segments = annotatedPrompt.split(/(<RISK_\d+>.*?<\/RISK_\d+>)/);
+  
+  return segments.map(segment => {
+    const match = segment.match(/<RISK_(\d+)>(.*?)<\/RISK_\d+>/);
+    if (match) {
+      const [_, riskId, text] = match;
+      const token = riskTokens.find(t => t.id === `RISK_${riskId}`);
+      return <span className={getRiskClass(token?.risk_level)}>{text}</span>;
+    }
+    return segment;
+  });
+}
 ```
 
-**Key Benefits:**
-- **Separation of Concerns**: Analysis vs. Conversation logic isolated
-- **Maintainability**: Smaller, focused modules (500 lines vs 1200)
-- **Testability**: Each agent can be tested independently
-- **Extensibility**: Easy to add new agents (e.g., EvaluatorAgent, SummaryAgent)
+### 6.3 PRD Gauge Visualization
 
-### Analysis Modes
+The dual-gauge display provides at-a-glance assessment:
 
-The system supports **three analysis modes** with different guideline sets:
+```
+┌──────────────────────────────────────────────┐
+│           PROMPT RISK DENSITY                │
+├──────────────────────────────────────────────┤
+│                                              │
+│  Prompt PRD          Meta PRD                │
+│  ┌────────┐          ┌────────┐              │
+│  │   42%  │          │   28%  │              │
+│  │  ████░░│          │  ███░░░│              │
+│  └────────┘          └────────┘              │
+│  Token-level         Structural              │
+│  risks               risks                   │
+│                                              │
+└──────────────────────────────────────────────┘
+```
 
-| Mode | File | Focus | Use Case |
-|------|------|-------|----------|
-| **Faithfulness** | `data/faithfulness.xml` | Consistency with input/context | Check if model stays faithful to provided information |
-| **Factuality** | `data/factuality.xml` | Real-world accuracy | Verify claims against factual knowledge |
-| **Both** | `data/both.xml` | Comprehensive | Default mode - checks both faithfulness and factuality |
+---
 
-Users select mode via the frontend → passed to `POST /api/analyze/` → agent loads corresponding XML guidelines.
+## 7. Guideline-Driven Detection
 
-### Re-Analysis Workflow
+### 7.1 XML Guideline Structure
 
-The **Preparator Service** (`services/preparator.py`) enables iterative refinement:
-
-1. **User converses** with ConversationAgent about prompt issues
-2. **User clicks "Re-Analyze"** and optionally adds final edits
-3. **Frontend calls** `POST /api/prepare/prepare` with:
-   - Current prompt
-   - Prior analysis (violations, risk tokens)
-   - Conversation history (for context)
-   - User's final edits
-4. **Preparator synthesizes** a refined prompt:
-   - Fixes identified hallucination risks
-   - Applies mitigation strategies discussed
-   - Integrates user's manual edits
-   - **Critically**: Does NOT copy conversation text into prompt
-5. **Refined prompt** sent back to `POST /api/analyze/` with fresh conversation
-
-See `docs/RE-ANALYSIS_FIX.md` for detailed explanation of how conversation context is used without content accumulation.
-
-### LLM Contract Strategy
-The system uses a *constrained XML + tag envelope* to force model outputs into a machine‑parsable schema. Example excerpt:
+Detection rules are encoded in XML for maintainability and extensibility:
 
 ```xml
-<RISK_ASSESSMENT>
-  <CRITERIA>
-    <CRITERION name="Ambiguity-Vagueness" risk="high" percentage="100">
-      Multiple vague referents lacking anchors.
-    </CRITERION>
-  </CRITERIA>
-  <OVERALL_ASSESSMENT percentage="60">High ambiguity concentration.</OVERALL_ASSESSMENT>
-</RISK_ASSESSMENT>
-
-Annotated Prompt:
-... learn about <RISK_1>java framework quarkus</RISK_1> and how it can ...
+<HALLUCINATION_GUIDELINES version="2.0">
+  <PILLAR id="A" name="Referential Grounding" class="prompt-level">
+    <RULE id="A1" severity="critical">
+      <NAME>Ambiguous Referents</NAME>
+      <PATTERNS>
+        <PATTERN>Pronouns without clear antecedents</PATTERN>
+        <PATTERN>Deictic references missing grounding</PATTERN>
+      </PATTERNS>
+      <EXAMPLES>
+        <BAD>It should be summarized.</BAD>
+        <GOOD>The Q3 financial report should be summarized.</GOOD>
+      </EXAMPLES>
+      <MITIGATION>Replace pronouns with explicit nouns</MITIGATION>
+    </RULE>
+  </PILLAR>
+</HALLUCINATION_GUIDELINES>
 ```
 
-### Deterministic Scoring
-After LLM extraction, a deterministic layer normalizes and harmonizes risk categories:
+### 7.2 The 12 Pillars
 
-```text
-Input: Raw criteria (varying naming / %)
-→ Map to canonical set
-→ Clamp 0–100 & severity weighting
-→ Compute overall (weighted mean + dominance heuristic)
-→ Emit final `risk_assessment`
-```
+Echo's detection taxonomy comprises 12 pillars spanning prompt-level and meta-level risks:
 
-Fallback behavior: if XML missing → partial degrade (no crash) & reduced scoring.
+| Pillar | Name | Class | Focus |
+|--------|------|-------|-------|
+| A | Referential Grounding | Prompt | Pronouns, deixis, naming consistency |
+| B | Quantification Constraints | Prompt | Vague quantifiers, temporal references |
+| C | Context-Domain | Meta | Missing essentials (who/what/when/where) |
+| D | Premises-Evidence | Prompt | False premises, leading framing |
+| E | Numbers-Units | Prompt | Unitless values, missing baselines |
+| F | Retrieval-Anchoring | Prompt | Source specification, document identifiers |
+| G | Injection-Layering | Meta | Contradictions, instruction duplication |
+| H | Style-Bias-Role | Prompt | Style inflation, stereotypes, unsafe roleplay |
+| I | Reasoning-Uncertainty | Prompt | Uncertainty permission, subjective framing |
+| J | Prompt-Structure | Meta | Length, delimiters, objective overload |
+| K | Instruction-Structure | Meta | Task delimitation, step enumeration |
+| L | Contextual-Integrity | Prompt | Conflicting instructions, negation risks |
 
 ---
 
-## 5. Frontend Architecture
+## 8. Data Contracts
 
-### Component Zones
-| Zone | Components | Role |
-|------|------------|------|
-| Prompt Workspace | `Editor`, `Toolbar` | Input acquisition & file load |
-| Analysis Display | `AnalysisSection`, `AnalysisView`, `Progress` | Visualization of structured results |
-| Risk Token Layer | Internal render function in `App.tsx` | Maps `<RISK_n>` tags to spans with color classes |
-| Interaction / Refinement | `ChatPanel`, `Sidebar` | Iterative improvement via assistant |
-| Theming & UI kit | `ThemeProvider`, `components/ui/*` | Consistent styling / dark mode |
+### 8.1 TypeScript Interfaces (Frontend)
 
-### Highlight Rendering Logic
-1. Receive `annotated_prompt` + `risk_tokens[]`.
-2. Split on regex: `(<RISK_\d+>.*?<\/RISK_\d+>)`.
-3. Extract `riskId` (numeric) → reconstruct `RISK_${riskId}`.
-4. Lookup matching token object.
-5. Map `risk_level` → Tailwind class set:
-   - High → red palette
-   - Medium → yellow palette
-   - Low / unknown → no highlight (neutral)
-
-### Resilience Features
-| Scenario | Mitigation |
-|----------|------------|
-| Missing token object | Fallback to neutral span |
-| Unexpected risk level | Default to neutral & log |
-| Partial analysis | Render available sections only |
-
----
-
-## 6. Data Contracts (TypeScript)
-
-```ts
-export interface RiskToken {
-  id: string;              // RISK_1 … RISK_n (stable join key)
-  text: string;            // Span content
-  risk_level: 'high' | 'medium' | 'low';
-  classification?: string; // Rule family or composite label
-  rule_ids?: number[];     // Underlying guideline rule references
+```typescript
+interface RiskToken {
+  id: string;                    // RISK_1, RISK_2, ...
+  text: string;                  // Highlighted span content
+  risk_level: 'critical' | 'high' | 'medium' | 'low';
+  classification: string;        // Rule category
+  rule_ids: number[];           // Guideline rule references
+  pillar: string;               // A-L pillar identifier
+  mitigation?: string;          // Suggested fix
 }
 
-export interface RiskCriterion {
-  name: string;
-  risk: 'high' | 'medium' | 'low';
-  percentage: number;
-  description: string;
+interface PRDAssessment {
+  prompt_prd: number;           // 0-100 scale
+  meta_prd: number;             // 0-100 scale
+  prompt_violations: Violation[];
+  meta_violations: Violation[];
 }
 
-export interface OverallAssessment {
-  percentage: number;
-  description: string;
-}
-
-export interface RiskAssessment {
-  criteria: RiskCriterion[];
-  overall_assessment: OverallAssessment;
-}
-
-export interface AnalyzePromptResponse {
+interface AnalysisResponse {
   annotated_prompt: string;
+  risk_tokens: RiskToken[];
+  risk_assessment: PRDAssessment;
   analysis_summary: string;
-  risk_assessment?: RiskAssessment;
-  risk_tokens?: RiskToken[];
+  initiator_questions?: string[];
 }
+```
+
+### 8.2 Pydantic Models (Backend)
+
+```python
+class RiskToken(BaseModel):
+    id: str
+    text: str
+    risk_level: Literal["critical", "high", "medium", "low"]
+    classification: str
+    rule_ids: List[int]
+    pillar: str
+    mitigation: Optional[str] = None
+
+class PRDAssessment(BaseModel):
+    prompt_prd: float
+    meta_prd: float
+    prompt_violations: List[Violation]
+    meta_violations: List[Violation]
+
+class AnalysisResponse(BaseModel):
+    annotated_prompt: str
+    risk_tokens: List[RiskToken]
+    risk_assessment: PRDAssessment
+    analysis_summary: str
+    initiator_questions: Optional[List[str]] = None
 ```
 
 ---
 
-## 7. Operational Concerns
+## 9. Operational Considerations
 
-### Security & Hardening
-| Vector | Current | Future Hardening |
-|--------|---------|------------------|
-| Secrets | `.env` + dotenv | Vault / Secret Manager |
-| CORS | Dev‑only permissive | Origin allow‑list |
-| Input | Basic sanitize | Length caps, language detection |
-| Abuse | None | Rate limiting / API keys |
-| Transport | (local HTTP) | Enforce HTTPS in prod |
+### 9.1 Security Posture
 
-### Observability
-Planned migration toward structured JSON logs → ingestion by ELK / OpenTelemetry exporters. Add span‑level timings around LLM round‑trip latency & parsing costs.
+| Vector | Current State | Production Recommendation |
+|--------|---------------|---------------------------|
+| API Keys | Environment variables | Secret manager (Vault, AWS Secrets) |
+| CORS | Development permissive | Strict origin allowlist |
+| Input Validation | Basic sanitization | Length caps, injection prevention |
+| Rate Limiting | None | Per-user quotas, API key auth |
+| Transport | HTTP (local) | TLS 1.3 enforcement |
 
----
+### 9.2 Observability
 
-## 8. Performance & Scalability Posture
+Recommended instrumentation:
+- **Structured logging**: JSON format for ELK/Splunk ingestion
+- **Metrics**: PRD distribution, analysis latency, agent invocation counts
+- **Tracing**: OpenTelemetry spans for LLM round-trip analysis
 
-| Layer | Current Approach | Scale Strategy |
-|-------|------------------|----------------|
-| Frontend | SPA + on‑demand fetch | CDN + code splitting + prefetch hints |
-| API | Stateless FastAPI | Horizontal pods + autoscaling |
-| LLM Calls | Direct OpenAI | Add provider abstraction + caching |
-| Token Mapping | Pure client compute | Memoization + virtualized rendering if large |
-| Future Persistence | In‑memory only | Postgres for history + Redis cache |
+### 9.3 Scalability
 
-Pluggable queue (Celery / RQ) possible for long‑running multi‑prompt batch analysis.
-
----
-
-## 9. Evolution Roadmap (Excerpt)
-
-| Theme | Next Steps |
-|-------|------------|
-| Multi‑Model | Add Anthropic / local LLM adapter layer |
-| History | Persist prompt + diffs + risk deltas |
-| Evaluation | Add benchmark harness for scoring drift |
-| Collaboration | Shared sessions & annotation comments |
-| Explainability | Span‑level causal chains per rule |
+| Component | Current | Scale Strategy |
+|-----------|---------|----------------|
+| Frontend | SPA | CDN + code splitting |
+| API | Single FastAPI instance | Horizontal scaling + load balancer |
+| LLM Calls | Direct provider | Request queuing + caching layer |
+| State | Stateless | Redis for session caching if needed |
 
 ---
 
-## 10. Summary
+## 10. Research Implications
 
-Echo’s architecture balances **LLM flexibility** with **deterministic traceability**, ensuring each highlighted risk token can be traced from **model emission → structured parse → UI binding**. The system is intentionally modular to support rapid iteration in a research / thesis context while leaving clear seams for production‑grade hardening.
+### 10.1 Contribution to Hallucination Research
 
-> *“Every hallucination avoided begins with a clearer prompt.”*
+Echo's architecture demonstrates:
+
+1. **Feasibility of pre-generation intervention**: User-sided risks can be systematically detected and quantified
+2. **Practical taxonomy operationalization**: The prompt/meta and faithfulness/factuality taxonomies can be encoded into actionable detection rules
+3. **Human-AI collaboration for quality**: Semi-automated workflows preserve human judgment while providing systematic guidance
+
+### 10.2 Implications for Model Accessibility
+
+By shifting hallucination mitigation to the prompt level, Echo potentially:
+- Enables smaller, open-source models to achieve comparable faithfulness to large proprietary systems
+- Reduces dependency on expensive, closed-source models for high-stakes applications
+- Democratizes hallucination-robust AI interactions
 
 ---
 
-**See also:** `docs/user_flow.md` for experiential journey & interaction narrative.
+## 11. Future Directions
 
+| Theme | Description |
+|-------|-------------|
+| **Multi-model support** | Abstract LLM provider for Anthropic, local models |
+| **Evaluation harness** | Benchmark PRD correlation with actual hallucination rates |
+| **Collaborative refinement** | Shared sessions, annotation comments |
+| **Domain adaptation** | Custom guideline sets for legal, medical, technical domains |
+| **Longitudinal tracking** | Prompt quality evolution over time |
+
+---
+
+## References
+
+- See `docs/user_flow.md` for user experience documentation
+- See `docs/hallucination_documentation.md` for complete guideline taxonomy
+- See `docs/diagrams/` for source Mermaid files
+
+---
+
+*Echo — "Every hallucination avoided begins with a clearer prompt."*
+
+*© 2025 Mohamed Nejjar — Bachelor Thesis Implementation*
