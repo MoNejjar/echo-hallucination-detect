@@ -1,46 +1,98 @@
-﻿%% Refined Architecture Diagram
-flowchart TB
-    subgraph Client[React Frontend]
-        UI[UI Components]
-        Editor[Prompt Editor]
-        Viz[Risk Visualization]
-        Chat[Dialogue Interface]
-    end
-    
-    subgraph Server[FastAPI Backend]
-        Routes[API Routes]
-        Facade[LLM Facade]
-    end
-    
-    subgraph Agents[LLM Service]
-        Analyzer[Analyzer Agent]
-        Conversation[Conversation Agent]
-    end
-    
-    subgraph External[External Services]
-        OpenAI[LLM]
-    end
-    
-    %% Connections
-    UI --> Editor
-    Editor --> Routes
-    Routes --> Facade
-    Routes --> Chat
-    Facade --> Analyzer
-    Facade --> Conversation
-    Analyzer --> OpenAI
-    Conversation --> OpenAI
-    OpenAI --> Analyzer
-    OpenAI --> Conversation
-    Analyzer --> Routes
-    Conversation --> Routes
-    Routes --> Viz
+﻿%% Echo System Architecture - Doctoral Thesis Version
+%% Multi-Agent Hallucination Mitigation Platform
+%% Author: Mohamed Nejjar
+%% Thesis: "Mitigating Hallucination Potential in User Prompts Through AI-Guided Iterative Refinement"
+%% Render: mmdc -i architecture.mmd -o architecture.svg
 
-    
+flowchart TB
+    subgraph Client["<b>PRESENTATION LAYER</b><br/>React + TypeScript Frontend"]
+        direction TB
+        subgraph UICore["Core Interface"]
+            Editor["<b>Prompt Editor</b><br/>Rich text input<br/>File upload support"]
+            ModeSelect["<b>Mode Selector</b><br/>Faithfulness | Factuality | Both"]
+        end
+        subgraph Visualization["Risk Visualization"]
+            Highlight["<b>Highlight Engine</b><br/>RISK_n → Color mapping<br/>🟡 Medium | 🟠 High | 🔴 Critical"]
+            PRDGauge["<b>PRD Gauges</b><br/>prompt_PRD | meta_PRD<br/>0-100% risk density"]
+            ViolationCards["<b>Violation Cards</b><br/>Pillar + Rule + Mitigation"]
+        end
+        subgraph ChatUI["Refinement Interface"]
+            ChatPanel["<b>Chat Panel</b><br/>Conversational refinement"]
+            InitQuestions["<b>Initiator Questions</b><br/>Entry-point guidance"]
+        end
+    end
+
+    subgraph Server["<b>APPLICATION LAYER</b><br/>FastAPI Backend"]
+        direction TB
+        subgraph Routes["API Endpoints"]
+            AnalyzeRoute["/api/analyze<br/>Risk analysis pipeline"]
+            InitiateRoute["/api/initiate<br/>Question generation"]
+            RefineRoute["/api/refine<br/>Conversation turns"]
+            PrepareRoute["/api/prepare<br/>Prompt synthesis"]
+        end
+        subgraph Guidelines["<b>Guideline Repository</b><br/>12-Pillar Taxonomy"]
+            BothXML["both.xml<br/>Comprehensive rules"]
+            FaithXML["faithfulness.xml<br/>Context adherence"]
+            FactXML["factuality.xml<br/>World knowledge"]
+        end
+    end
+
+    subgraph Agents["<b>INTELLIGENCE LAYER</b><br/>Multi-Agent System"]
+        direction TB
+        subgraph AnalysisAgents["Primary Analysis"]
+            Analyzer["<b>Analyzer Agent</b><br/>━━━━━━━━━━━━━━<br/>• Guideline loading<br/>• Pattern matching<br/>• PRD calculation<br/>• Violation extraction"]
+            Initiator["<b>Initiator Agent</b><br/>━━━━━━━━━━━━━━<br/>• Rule → Question mapping<br/>• Entry-point generation<br/>• One question per rule"]
+        end
+        subgraph RefinementAgents["Refinement Support"]
+            Conversational["<b>Conversational Agent</b><br/>━━━━━━━━━━━━━━<br/>• Critical dialogue<br/>• Non-yes-man behavior<br/>• Context-aware suggestions"]
+            Preparator["<b>Preparator Agent</b><br/>━━━━━━━━━━━━━━<br/>• Conversation synthesis<br/>• Prompt reconstruction<br/>• Re-analysis preparation"]
+        end
+    end
+
+    subgraph External["<b>FOUNDATION LAYER</b><br/>External Services"]
+        LLM["<b>GPT-5</b><br/>OpenAI API<br/>Structured XML responses"]
+    end
+
+    %% Primary Data Flow
+    Editor -->|"prompt + mode"| AnalyzeRoute
+    AnalyzeRoute -->|"guidelines"| Guidelines
+    AnalyzeRoute -->|"analysis request"| Analyzer
+    Analyzer <-->|"completion"| LLM
+    Analyzer -->|"risk_tokens + PRD"| AnalyzeRoute
+    AnalyzeRoute -->|"analysis result"| Highlight
+    AnalyzeRoute -->|"analysis result"| PRDGauge
+    AnalyzeRoute -->|"violations"| ViolationCards
+
+    %% Initiator Flow
+    ViolationCards -->|"broken rules"| InitiateRoute
+    InitiateRoute -->|"rule set"| Initiator
+    Initiator <-->|"completion"| LLM
+    Initiator -->|"questions"| InitQuestions
+
+    %% Conversation Flow
+    ChatPanel -->|"user message"| RefineRoute
+    RefineRoute -->|"context + message"| Conversational
+    Conversational <-->|"completion"| LLM
+    Conversational -->|"suggestion"| ChatPanel
+
+    %% Re-Analysis Flow
+    ChatPanel -->|"conversation history"| PrepareRoute
+    PrepareRoute -->|"synthesis request"| Preparator
+    Preparator <-->|"completion"| LLM
+    Preparator -->|"refined prompt"| Editor
+
+    %% Styling - Preserved Color Scheme
     style Client fill:#002147,stroke:#764ba2,stroke-width:3px,color:#ffffff
     style Server fill:#002147,stroke:#f5576c,stroke-width:3px,color:#ffffff
     style Agents fill:#002147,stroke:#00f2fe,stroke-width:3px,color:#ffffff
     style External fill:#002147,stroke:#38f9d7,stroke-width:3px,color:#ffffff
 
-    
-    linkStyle default stroke:#5B7C99,stroke-width:2px,color:#5B7C99
+    style UICore fill:#002147,stroke:#764ba2,stroke-width:2px,color:#ffffff
+    style Visualization fill:#002147,stroke:#764ba2,stroke-width:2px,color:#ffffff
+    style ChatUI fill:#002147,stroke:#764ba2,stroke-width:2px,color:#ffffff
+    style Routes fill:#002147,stroke:#f5576c,stroke-width:2px,color:#ffffff
+    style Guidelines fill:#002147,stroke:#f5576c,stroke-width:2px,color:#ffffff
+    style AnalysisAgents fill:#002147,stroke:#00f2fe,stroke-width:2px,color:#ffffff
+    style RefinementAgents fill:#002147,stroke:#00f2fe,stroke-width:2px,color:#ffffff
+
+    linkStyle default stroke:#5B7C99,stroke-width:2px

@@ -1,60 +1,192 @@
-%% Processing Pipeline Sequence (Thesis Version - Uniform Colors)
-%% Render with: 
-%% mmdc -i pipeline-sequence.mmd -o pipeline-sequence.pdf --configFile mermaid-thesis.json --pdfFit
-%% For cropping: pdfcrop pipeline-sequence.pdf pipeline-sequence.cropped.pdf
+%% Echo Processing Pipeline - Doctoral Thesis Version
+%% Complete Multi-Agent Interaction Sequence
+%% Author: Mohamed Nejjar
+%% Thesis: "Mitigating Hallucination Potential in User Prompts Through AI-Guided Iterative Refinement"
+%% Render: mmdc -i pipeline-sequence.mmd -o pipeline-sequence.svg
 
 %%{init: {
   "themeVariables": {
-    "primaryColor": "#5B7C99",
+    "primaryColor": "#002147",
     "primaryTextColor": "#ffffff",
-    "primaryBorderColor": "#36454F",
-    "actorBkg": "#5B7C99",
+    "primaryBorderColor": "#764ba2",
+    "actorBkg": "#002147",
     "actorTextColor": "#ffffff",
-    "actorBorder": "#36454F",
-    "signalColor": "#3B4C5E",
-    "lineColor": "#3B4C5E",
+    "actorBorder": "#764ba2",
+    "signalColor": "#5B7C99",
+    "lineColor": "#5B7C99",
     "textColor": "#1E1E1E",
     "noteBkgColor": "#E0E6ED",
     "noteTextColor": "#1E1E1E",
-    "noteBorderColor": "#B8C2CC"
+    "noteBorderColor": "#764ba2"
   }
-}%%
+}}%%
 
 sequenceDiagram
-  participant U as User
-  participant FE as Frontend
-  participant Route as /api/analyze
-  participant Facade as LLM Facade
-  participant Analyzer as Analyzer Agent
-  participant MODEL as LLM
-  participant Conv as Conversation Agent
+    autonumber
+    
+    participant U as 👤 User
+    participant FE as 🖥️ Frontend<br/>(React)
+    participant API as 🔀 API Routes<br/>(FastAPI)
+    participant AA as 🔍 Analyzer<br/>Agent
+    participant IA as 💡 Initiator<br/>Agent
+    participant CA as 💬 Conversation<br/>Agent
+    participant PA as 🔄 Preparator<br/>Agent
+    participant LLM as 🤖 GPT-4<br/>(OpenAI)
 
-  %% --- Analysis Flow ---
-  U->>FE: Click "Analyze"
-  FE->>Route: POST /api/analyze { prompt, mode }
-  Route->>Facade: analyze_prompt(prompt, mode)
-  Facade->>Analyzer: analyze_prompt(prompt, mode)
-  
-  Note over Analyzer: Load guidelines XML<br/>(faithfulness/factuality/both)
-  
-  Analyzer->>MODEL: completion request with guidelines
-  MODEL-->>Analyzer: raw structured response
-  
-  Note over Analyzer: Parse XML risk assessment<br/>Extract RISK_n tokens<br/>Calculate PRD scores
-  
-  Analyzer-->>Facade: analyzed data
-  Facade-->>Route: {annotated_prompt, risk_tokens, risk_assessment}
-  Route-->>FE: JSON artifacts
-  
-  Note over FE: Map RISK_n → color classes<br/>Render highlighted view
-  
-  FE-->>U: Highlighted analysis + risk dashboard
+    %% ═══════════════════════════════════════════════════════════════
+    %% PHASE 1: INITIAL ANALYSIS
+    %% ═══════════════════════════════════════════════════════════════
+    
+    rect rgb(0, 33, 71)
+        Note over U,LLM: <b>PHASE 1: INITIAL ANALYSIS</b><br/>User submits prompt for hallucination risk assessment
+    end
 
-  %% --- Optional Conversational Refinement ---
-  Note over U,Conv: (Optional) User engages with Conversational Agent<br/>to refine or rephrase prompt iteratively
-  U->>FE: Open Chat Interface
-  FE->>Conv: POST /api/refine { user_message }
-  Conv->>MODEL: Generate contextual suggestion
-  MODEL-->>Conv: suggested prompt revision
-  Conv-->>FE: Revised prompt suggestion
-  FE-->>U: Display conversational feedback
+    U->>FE: Enter prompt text
+    U->>FE: Select mode (Faithfulness|Factuality|Both)
+    FE->>FE: Validate input
+    FE->>API: POST /api/analyze<br/>{prompt, mode}
+    
+    API->>API: Load guidelines XML<br/>(mode → file mapping)
+    
+    Note over API: mode="both" → both.xml<br/>mode="faithfulness" → faithfulness.xml<br/>mode="factuality" → factuality.xml
+    
+    API->>AA: analyze(prompt, guidelines)
+    
+    rect rgb(118, 75, 162)
+        Note over AA: <b>ANALYZER AGENT PROCESSING</b>
+        AA->>AA: Construct analysis prompt<br/>with 12-pillar taxonomy
+        AA->>LLM: Request structured analysis
+        LLM-->>AA: XML response with<br/>RISK_n tokens + violations
+        AA->>AA: Parse XML response
+        AA->>AA: Extract prompt-level violations<br/>(highlightable spans)
+        AA->>AA: Extract meta-level violations<br/>(structural issues)
+        AA->>AA: Calculate PRD scores
+        Note over AA: PRD = Σ(span_i × weight_i) / L<br/>Weights: Medium=1, High=2, Critical=3
+    end
+    
+    AA-->>API: {annotated_prompt,<br/>risk_tokens,<br/>prompt_PRD,<br/>meta_PRD,<br/>violations}
+    
+    API-->>FE: Analysis response
+    FE->>FE: Map RISK_n → color classes<br/>🟡 Medium | 🟠 High | 🔴 Critical
+    FE-->>U: Display highlighted prompt<br/>+ PRD gauges<br/>+ violation cards
+
+    %% ═══════════════════════════════════════════════════════════════
+    %% PHASE 2: INITIATOR QUESTIONS
+    %% ═══════════════════════════════════════════════════════════════
+    
+    rect rgb(0, 33, 71)
+        Note over U,LLM: <b>PHASE 2: ENTRY-POINT GENERATION</b><br/>Generate one clarifying question per broken rule
+    end
+
+    FE->>API: POST /api/initiate<br/>{violations, prompt}
+    API->>IA: generate_questions(violations)
+    
+    rect rgb(245, 87, 108)
+        Note over IA: <b>INITIATOR AGENT PROCESSING</b>
+        IA->>IA: Map violations → rules
+        IA->>LLM: Request one question<br/>per unique rule
+        LLM-->>IA: Focused clarification questions
+        IA->>IA: Deduplicate & prioritize<br/>by severity
+    end
+    
+    IA-->>API: {questions: [<br/>  {rule, severity, question},<br/>  ...<br/>]}
+    API-->>FE: Initiator questions
+    FE-->>U: Display entry-point questions<br/>sorted by priority
+
+    %% ═══════════════════════════════════════════════════════════════
+    %% PHASE 3: CONVERSATIONAL REFINEMENT
+    %% ═══════════════════════════════════════════════════════════════
+    
+    rect rgb(0, 33, 71)
+        Note over U,LLM: <b>PHASE 3: ITERATIVE REFINEMENT</b><br/>Critical dialogue to address identified risks
+    end
+
+    U->>FE: Open chat interface
+    U->>FE: Send message about<br/>a specific risk
+    FE->>API: POST /api/refine<br/>{message, context, history}
+    API->>CA: chat(message, context)
+    
+    rect rgb(0, 242, 254)
+        Note over CA: <b>CONVERSATION AGENT PROCESSING</b>
+        CA->>CA: Load analysis context
+        CA->>CA: Review conversation history
+        CA->>LLM: Request contextual response<br/>(critical, non-yes-man)
+        LLM-->>CA: Refinement suggestion
+        CA->>CA: Validate suggestion<br/>addresses specific rules
+        Note over CA: Key behavior: Agent challenges<br/>vague fixes, requests specifics,<br/>maintains guideline adherence
+    end
+    
+    CA-->>API: {response, addressed_rules}
+    API-->>FE: Chat response
+    FE-->>U: Display Echo's suggestion
+
+    loop Refinement Iteration
+        U->>FE: Continue dialogue
+        FE->>API: POST /api/refine
+        API->>CA: chat(...)
+        CA->>LLM: Continue refinement
+        LLM-->>CA: Updated suggestions
+        CA-->>API: Response
+        API-->>FE: Updated chat
+        FE-->>U: Display progress
+    end
+
+    %% ═══════════════════════════════════════════════════════════════
+    %% PHASE 4: RE-ANALYSIS CYCLE
+    %% ═══════════════════════════════════════════════════════════════
+    
+    rect rgb(0, 33, 71)
+        Note over U,LLM: <b>PHASE 4: PROMPT SYNTHESIS & RE-ANALYSIS</b><br/>Preparator synthesizes conversation insights
+    end
+
+    U->>FE: Click "Re-Analyze"
+    FE->>API: POST /api/prepare<br/>{original_prompt,<br/>conversation_history,<br/>user_edits}
+    API->>PA: synthesize(...)
+    
+    rect rgb(56, 249, 215)
+        Note over PA: <b>PREPARATOR AGENT PROCESSING</b>
+        PA->>PA: Analyze conversation<br/>for semantic intent
+        PA->>PA: Extract mitigations<br/>(NOT copying text)
+        PA->>LLM: Request prompt reconstruction
+        LLM-->>PA: Refined prompt preview
+        PA->>PA: Validate no conversation<br/>text leakage
+        Note over PA: Critical: Uses conversation as<br/>CONTEXT only, synthesizes<br/>improvements into original prompt
+    end
+    
+    PA-->>API: {refined_prompt, changes_summary}
+    API-->>FE: Synthesis result
+    FE-->>U: Display refined prompt preview<br/>+ change summary
+    
+    U->>FE: Confirm or edit preview
+    FE->>FE: Update prompt editor
+
+    %% ═══════════════════════════════════════════════════════════════
+    %% PHASE 5: VALIDATION CYCLE
+    %% ═══════════════════════════════════════════════════════════════
+    
+    rect rgb(0, 33, 71)
+        Note over U,LLM: <b>PHASE 5: VALIDATION</b><br/>Re-analyze refined prompt to measure improvement
+    end
+
+    FE->>API: POST /api/analyze<br/>{refined_prompt, mode}
+    API->>AA: analyze(refined_prompt, guidelines)
+    AA->>LLM: Request fresh analysis
+    LLM-->>AA: Updated risk assessment
+    AA->>AA: Calculate new PRD scores
+    AA-->>API: New analysis results
+    API-->>FE: Updated metrics
+    FE->>FE: Compare PRD: before vs after
+    FE-->>U: Display improvement metrics<br/>🎯 PRD reduction achieved
+
+    %% ═══════════════════════════════════════════════════════════════
+    %% PHASE 6: EXPORT
+    %% ═══════════════════════════════════════════════════════════════
+    
+    rect rgb(0, 33, 71)
+        Note over U,LLM: <b>PHASE 6: EXPORT</b><br/>Save artifacts for deployment
+    end
+
+    U->>FE: Click "Export"
+    FE->>FE: Generate export package
+    Note over FE: Formats: JSON, Markdown, PDF<br/>Contents: Original, Refined,<br/>PRD scores, Conversation log
+    FE-->>U: Download export file
