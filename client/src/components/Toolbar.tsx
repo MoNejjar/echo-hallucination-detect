@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Info, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw, Anchor, BookCheck, Scan } from 'lucide-react';
 import { Button } from './ui/button';
 import { AnalysisMode } from '../types';
 
@@ -16,41 +16,29 @@ const modes = [
   {
     id: 'faithfulness' as AnalysisMode,
     name: 'Faithfulness',
-    description: 'Detects misalignment with user intent, unfaithful interpretations, and deviations from the original request',
-    color: 'orange',
-    gradient: 'from-orange-500 to-orange-600',
-    bgLight: 'bg-orange-50',
-    bgDark: 'bg-orange-950/30',
-    borderLight: 'border-orange-300',
-    borderDark: 'border-orange-700',
-    textLight: 'text-orange-900',
-    textDark: 'text-orange-100',
+    shortDesc: 'Context Adherence',
+    description: 'Detects when the AI might diverge from your provided context, misinterpret instructions, or introduce information not present in your source material.',
+    icon: Anchor, // Anchor = staying grounded/faithful to the source
+    accentColor: 'purple',
+    gradient: 'from-purple-500 to-purple-600',
   },
   {
     id: 'factuality' as AnalysisMode,
     name: 'Factuality',
-    description: 'Identifies untrue, ungrounded, or fabricated content that lacks factual basis or verifiable evidence',
-    color: 'green',
-    gradient: 'from-green-500 to-green-600',
-    bgLight: 'bg-green-50',
-    bgDark: 'bg-green-950/30',
-    borderLight: 'border-green-300',
-    borderDark: 'border-green-700',
-    textLight: 'text-green-900',
-    textDark: 'text-green-100',
+    shortDesc: 'Real-World Accuracy',
+    description: 'Identifies prompts that may lead the AI to fabricate facts, cite non-existent sources, or make claims that contradict established knowledge.',
+    icon: BookCheck, // BookCheck = verified facts/knowledge
+    accentColor: 'purple',
+    gradient: 'from-purple-600 to-purple-700',
   },
   {
     id: 'both' as AnalysisMode,
     name: 'Comprehensive',
-    description: 'Complete analysis covering both faithfulness and factuality hallucinations for thorough detection',
-    color: 'gray',
-    gradient: 'from-gray-600 to-gray-700',
-    bgLight: 'bg-gray-50',
-    bgDark: 'bg-gray-800/50',
-    borderLight: 'border-gray-300',
-    borderDark: 'border-gray-600',
-    textLight: 'text-gray-900',
-    textDark: 'text-gray-100',
+    shortDesc: 'Full Analysis',
+    description: 'Complete risk assessment combining both faithfulness and factuality checks for maximum hallucination prevention coverage.',
+    icon: Scan, // Scan = thorough scanning/analysis
+    accentColor: 'purple',
+    gradient: 'from-purple-500 to-purple-700',
   },
 ];
 
@@ -61,7 +49,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   hasAnalysis,
   canAnalyze = true
 }) => {
-  const [selectedIndex, setSelectedIndex] = useState(2); // Start with "Both"
+  const [selectedIndex, setSelectedIndex] = useState(2); // Start with "Comprehensive"
 
   const handlePrevious = () => {
     setSelectedIndex((prev) => (prev === 0 ? modes.length - 1 : prev - 1));
@@ -72,105 +60,84 @@ const Toolbar: React.FC<ToolbarProps> = ({
   };
 
   const currentMode = modes[selectedIndex];
+  const IconComponent = currentMode.icon;
 
   return (
-    <div className="space-y-4">
-      {/* Instruction Box */}
-      <div className="flex justify-center">
-        <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-300 dark:border-blue-700 rounded-lg shadow-sm">
-          <div className="flex items-center justify-center gap-2">
-            <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-            <p className="text-sm text-blue-800 dark:text-blue-200">
-              Choose the type of hallucinations to check, then click <span className="font-semibold">Analyze</span>
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Mode Selector */}
+    <div className="space-y-4 w-full">
+      {/* Mode Selector Card */}
       <div className="relative">
-        <div className={`p-6 rounded-xl border-2 transition-all duration-500 shadow-lg
-          ${currentMode.id === 'faithfulness' ? 'bg-orange-50 dark:bg-orange-950/30 border-orange-300 dark:border-orange-700' : ''}
-          ${currentMode.id === 'factuality' ? 'bg-green-50 dark:bg-green-950/30 border-green-300 dark:border-green-700' : ''}
-          ${currentMode.id === 'both' ? 'bg-gray-50 dark:bg-gray-800/50 border-gray-300 dark:border-gray-600' : ''}
-        `}>
+        <div className="p-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/50 shadow-sm transition-all duration-300">
           {/* Navigation Arrows */}
-          <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10">
-            <button
-              onClick={handlePrevious}
-              disabled={isAnalyzing}
-              className="p-2 rounded-full bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-              aria-label="Previous mode"
-            >
-              <ChevronLeft className={`w-5 h-5
-                ${currentMode.id === 'faithfulness' ? 'text-orange-900 dark:text-orange-100' : ''}
-                ${currentMode.id === 'factuality' ? 'text-green-900 dark:text-green-100' : ''}
-                ${currentMode.id === 'both' ? 'text-gray-900 dark:text-gray-100' : ''}
-              `} />
-            </button>
-          </div>
+          <button
+            onClick={handlePrevious}
+            disabled={isAnalyzing}
+            className="absolute left-2 top-1/2 -translate-y-1/2 z-10 p-1.5 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed group"
+            aria-label="Previous mode"
+          >
+            <ChevronLeft className="w-4 h-4 text-gray-500 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
+          </button>
 
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10">
-            <button
-              onClick={handleNext}
-              disabled={isAnalyzing}
-              className="p-2 rounded-full bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-              aria-label="Next mode"
-            >
-              <ChevronRight className={`w-5 h-5
-                ${currentMode.id === 'faithfulness' ? 'text-orange-900 dark:text-orange-100' : ''}
-                ${currentMode.id === 'factuality' ? 'text-green-900 dark:text-green-100' : ''}
-                ${currentMode.id === 'both' ? 'text-gray-900 dark:text-gray-100' : ''}
-              `} />
-            </button>
-          </div>
+          <button
+            onClick={handleNext}
+            disabled={isAnalyzing}
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-10 p-1.5 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed group"
+            aria-label="Next mode"
+          >
+            <ChevronRight className="w-4 h-4 text-gray-500 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
+          </button>
 
           {/* Mode Content */}
-          <div className="text-center space-y-3 px-12">
-            <div className="space-y-2">
-              <h3 className={`text-2xl font-bold transition-all duration-500
-                ${currentMode.id === 'faithfulness' ? 'text-orange-900 dark:text-orange-100' : ''}
-                ${currentMode.id === 'factuality' ? 'text-green-900 dark:text-green-100' : ''}
-                ${currentMode.id === 'both' ? 'text-gray-900 dark:text-gray-100' : ''}
-              `}>
-                {currentMode.name}
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md mx-auto">
-                {currentMode.description}
-              </p>
+          <div className="text-center space-y-3 px-10">
+            {/* Icon + Title Row */}
+            <div className="flex items-center justify-center gap-3">
+              <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
+                <IconComponent className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div className="text-left">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  {currentMode.name}
+                </h3>
+                <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                  {currentMode.shortDesc}
+                </p>
+              </div>
             </div>
 
+            {/* Description */}
+            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed max-w-sm mx-auto">
+              {currentMode.description}
+            </p>
+
             {/* Mode Indicator Dots */}
-            <div className="flex justify-center gap-2 pt-2">
+            <div className="flex justify-center gap-1.5 pt-1">
               {modes.map((mode, index) => (
                 <button
                   key={mode.id}
                   onClick={() => setSelectedIndex(index)}
                   disabled={isAnalyzing}
-                  className="transition-all duration-300 disabled:cursor-not-allowed"
+                  className="transition-all duration-200 disabled:cursor-not-allowed p-1"
                   aria-label={`Select ${mode.name}`}
                 >
                   <div
-                    className={`h-2 rounded-full transition-all duration-300 ${
+                    className={`rounded-full transition-all duration-200 ${
                       index === selectedIndex
-                        ? 'w-8 bg-current opacity-100'
-                        : 'w-2 bg-gray-400 dark:bg-gray-600 opacity-50 hover:opacity-75'
+                        ? 'w-6 h-1.5 bg-purple-500'
+                        : 'w-1.5 h-1.5 bg-gray-300 dark:bg-gray-600 hover:bg-purple-300 dark:hover:bg-purple-700'
                     }`}
-                    style={index === selectedIndex ? { color: mode.color === 'orange' ? '#f97316' : mode.color === 'green' ? '#22c55e' : '#6b7280' } : {}}
                   />
                 </button>
               ))}
             </div>
 
             {/* Action Buttons */}
-            <div className="pt-2 flex items-center justify-center gap-3">
+            <div className="pt-3 flex items-center justify-center gap-3">
               <Button
                 onClick={() => onAnalyze(currentMode.id)}
                 disabled={isAnalyzing || !canAnalyze}
-                className={`relative overflow-hidden bg-gradient-to-r ${currentMode.gradient} hover:opacity-90 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 px-8 py-2.5`}
-                size="lg"
+                className={`relative overflow-hidden bg-gradient-to-r ${currentMode.gradient} hover:opacity-90 text-white shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed px-8 py-2`}
+                size="default"
               >
-                {isAnalyzing ? 'Analyzing...' : 'Analyze'}
+                {isAnalyzing ? 'Analyzing...' : 'Analyze Prompt'}
               </Button>
               
               {hasAnalysis && !isAnalyzing && onReanalyze && (
@@ -178,14 +145,19 @@ const Toolbar: React.FC<ToolbarProps> = ({
                   onClick={onReanalyze}
                   disabled={isAnalyzing}
                   variant="outline"
-                  className="relative overflow-hidden border-2 border-purple-500 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 gap-2"
-                  size="lg"
+                  className="border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-200 gap-2"
+                  size="default"
                 >
                   <RefreshCw className="w-4 h-4" />
                   Re-analyze
                 </Button>
               )}
             </div>
+
+            {/* Helpful Hint */}
+            <p className="text-xs text-gray-500 dark:text-gray-500 pt-1">
+              Use arrow keys or dots to switch between analysis modes
+            </p>
           </div>
         </div>
       </div>

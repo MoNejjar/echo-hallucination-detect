@@ -115,22 +115,22 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const getRatingLabel = (rating: number) => {
     switch (rating) {
-      case 1: return "Poor";
-      case 2: return "Fair";
-      case 3: return "Good";
-      case 4: return "Very Good";
-      case 5: return "Amazing";
+      case 1: return "Needs Work";
+      case 2: return "Could Be Better";
+      case 3: return "Helpful";
+      case 4: return "Very Helpful";
+      case 5: return "Exceptional";
       default: return "";
     }
   };
 
   const getRatingMessage = (rating: number) => {
     switch (rating) {
-      case 1: return "Ok, we'll try to make it better";
-      case 2: return "Thanks for the feedback, we'll improve";
-      case 3: return "Great! We're glad it worked well";
-      case 4: return "Awesome! Thanks for the positive feedback";
-      case 5: return "Fantastic! You made our day! 🎉";
+      case 1: return "We'll work on making Echo more useful";
+      case 2: return "Your input helps us refine the experience";
+      case 3: return "Glad Echo is helping with your prompts!";
+      case 4: return "Great to hear Echo is making a difference!";
+      case 5: return "Amazing! Echo is achieving its mission! 🎯";
       default: return "";
     }
   };
@@ -209,14 +209,15 @@ An Echo AI User`;
           <div className="mb-3">
             <Button 
               onClick={onNewAnalysis}
-              className="h-20 w-20 mx-auto block bg-gradient-to-br from-purple-600 via-purple-500 to-purple-700 hover:from-purple-500 hover:via-purple-400 hover:to-purple-600 text-white shadow-lg hover:shadow-xl hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] rounded-lg group relative overflow-hidden"
+              className="h-20 w-20 mx-auto block bg-gradient-to-br from-purple-600 via-purple-500 to-purple-700 hover:from-purple-500 hover:via-purple-400 hover:to-purple-600 text-white shadow-lg hover:shadow-xl hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-105 hover:-translate-y-0.5 active:scale-95 rounded-xl group relative overflow-hidden border border-purple-400/20"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1),transparent_70%)]"></div>
               <div className="relative flex flex-col items-center justify-center">
-                <div className="p-1.5 rounded-md bg-white/10 backdrop-blur-sm mb-1 group-hover:bg-white/20 transition-all duration-200">
-                  <Plus className="w-4 h-4 group-hover:rotate-90 group-hover:scale-110 transition-all duration-300" />
+                <div className="p-2 rounded-lg bg-white/15 backdrop-blur-sm mb-1.5 group-hover:bg-white/25 group-hover:scale-110 transition-all duration-300 shadow-inner">
+                  <Plus className="w-5 h-5 group-hover:rotate-180 transition-all duration-500" />
                 </div>
-                <span className="text-xs font-medium">New</span>
+                <span className="text-xs font-semibold tracking-wide">New</span>
               </div>
             </Button>
           </div>
@@ -234,13 +235,13 @@ An Echo AI User`;
                 <Button 
                   onClick={() => fileInputRef.current?.click()}
                   variant="outline"
-                  className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-purple-300 dark:hover:border-purple-600 hover:bg-gradient-to-r hover:from-purple-50 hover:to-purple-100/50 dark:hover:from-purple-900/20 dark:hover:to-purple-800/20 transition-all duration-300 transform hover:scale-[1.01] rounded-lg group"
+                  className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-purple-400 dark:hover:border-purple-500 bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-br hover:from-purple-50 hover:to-purple-100/80 dark:hover:from-purple-900/30 dark:hover:to-purple-800/30 transition-all duration-300 transform hover:scale-105 hover:-translate-y-0.5 active:scale-95 rounded-xl group shadow-sm hover:shadow-md hover:shadow-purple-500/10"
                 >
                   <div className="flex flex-col items-center justify-center">
-                    <div className="p-1.5 rounded-md bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:from-purple-100 group-hover:to-purple-200/70 dark:group-hover:from-purple-800/50 dark:group-hover:to-purple-700/50 transition-all duration-200 mb-1">
-                      <Upload className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors duration-200" />
+                    <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 group-hover:bg-purple-100 dark:group-hover:bg-purple-800/60 group-hover:scale-110 transition-all duration-300 mb-1.5 shadow-sm">
+                      <Upload className="w-4 h-4 text-gray-500 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 group-hover:-translate-y-0.5 transition-all duration-300" />
                     </div>
-                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-700 dark:group-hover:text-purple-300">Upload</span>
+                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 group-hover:text-purple-700 dark:group-hover:text-purple-300 tracking-wide">Upload</span>
                   </div>
                 </Button>
               </TooltipTrigger>
@@ -256,13 +257,13 @@ An Echo AI User`;
                   onClick={handleExport}
                   variant="outline" 
                   disabled={!analysis || !riskAssessment}
-                  className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-purple-300 dark:hover:border-purple-600 hover:bg-gradient-to-r hover:from-purple-50 hover:to-purple-100/50 dark:hover:from-purple-900/20 dark:hover:to-purple-800/20 transition-all duration-300 transform hover:scale-[1.01] rounded-lg group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-purple-400 dark:hover:border-purple-500 bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-br hover:from-purple-50 hover:to-purple-100/80 dark:hover:from-purple-900/30 dark:hover:to-purple-800/30 transition-all duration-300 transform hover:scale-105 hover:-translate-y-0.5 active:scale-95 rounded-xl group shadow-sm hover:shadow-md hover:shadow-purple-500/10 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:translate-y-0 disabled:hover:shadow-sm"
                 >
                   <div className="flex flex-col items-center justify-center">
-                    <div className="p-1.5 rounded-md bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:from-purple-100 group-hover:to-purple-200/70 dark:group-hover:from-purple-800/50 dark:group-hover:to-purple-700/50 transition-all duration-200 mb-1">
-                      <Download className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors duration-200" />
+                    <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 group-hover:bg-purple-100 dark:group-hover:bg-purple-800/60 group-hover:scale-110 transition-all duration-300 mb-1.5 shadow-sm">
+                      <Download className="w-4 h-4 text-gray-500 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 group-hover:translate-y-0.5 transition-all duration-300" />
                     </div>
-                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-700 dark:group-hover:text-purple-300">Export</span>
+                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 group-hover:text-purple-700 dark:group-hover:text-purple-300 tracking-wide">Export</span>
                   </div>
                 </Button>
               </TooltipTrigger>
@@ -276,13 +277,13 @@ An Echo AI User`;
                 <Button 
                   onClick={handleLibrary}
                   variant="outline"
-                  className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-amber-300 dark:hover:border-amber-600 hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50 dark:hover:from-amber-900/20 dark:hover:to-orange-900/20 transition-all duration-300 transform hover:scale-[1.01] rounded-lg group relative"
+                  className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-amber-400 dark:hover:border-amber-500 bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-br hover:from-amber-50 hover:to-orange-50 dark:hover:from-amber-900/30 dark:hover:to-orange-900/30 transition-all duration-300 transform hover:scale-105 hover:-translate-y-0.5 active:scale-95 rounded-xl group relative shadow-sm hover:shadow-md hover:shadow-amber-500/10"
                 >
                   <div className="flex flex-col items-center justify-center">
-                    <div className="p-1.5 rounded-md bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:from-amber-100 group-hover:to-orange-100 dark:group-hover:from-amber-800/50 dark:group-hover:to-orange-800/50 transition-all duration-200 mb-1">
-                      <Library className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors duration-200" />
+                    <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 group-hover:bg-amber-100 dark:group-hover:bg-amber-800/60 group-hover:scale-110 transition-all duration-300 mb-1.5 shadow-sm">
+                      <Library className="w-4 h-4 text-gray-500 dark:text-gray-400 group-hover:text-amber-600 dark:group-hover:text-amber-400 group-hover:rotate-[-8deg] transition-all duration-300" />
                     </div>
-                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-amber-700 dark:group-hover:text-amber-300">Library</span>
+                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 group-hover:text-amber-700 dark:group-hover:text-amber-300 tracking-wide">Library</span>
                   </div>
                 </Button>
               </TooltipTrigger>
@@ -302,14 +303,14 @@ An Echo AI User`;
                 <Button 
                   onClick={handleFeedback}
                   variant="outline"
-                  className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-pink-300 dark:hover:border-pink-600 hover:bg-gradient-to-r hover:from-pink-50 hover:to-rose-50 dark:hover:from-pink-900/20 dark:hover:to-rose-900/20 transition-all duration-300 transform hover:scale-[1.01] rounded-lg group"
+                  className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-pink-400 dark:hover:border-pink-500 bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-br hover:from-pink-50 hover:to-rose-50 dark:hover:from-pink-900/30 dark:hover:to-rose-900/30 transition-all duration-300 transform hover:scale-105 hover:-translate-y-0.5 active:scale-95 rounded-xl group shadow-sm hover:shadow-md hover:shadow-pink-500/10"
                 >
                   <div className="flex flex-col items-center justify-center">
-                    <div className="p-1.5 rounded-md bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:from-pink-100 group-hover:to-rose-100 dark:group-hover:from-pink-800/50 dark:group-hover:to-rose-800/50 transition-all duration-200 mb-1 relative">
-                      <Heart className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors duration-200" />
-                      <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse group-hover:animate-bounce"></div>
+                    <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 group-hover:bg-pink-100 dark:group-hover:bg-pink-800/60 group-hover:scale-110 transition-all duration-300 mb-1.5 relative shadow-sm">
+                      <Heart className="w-4 h-4 text-gray-500 dark:text-gray-400 group-hover:text-pink-600 dark:group-hover:text-pink-400 group-hover:scale-110 transition-all duration-300" />
+                      <div className="absolute -top-1 -right-1 w-2 h-2 bg-pink-500 rounded-full animate-pulse group-hover:animate-ping"></div>
                     </div>
-                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-pink-700 dark:group-hover:text-pink-300">Feedback</span>
+                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 group-hover:text-pink-700 dark:group-hover:text-pink-300 tracking-wide">Feedback</span>
                   </div>
                 </Button>
               </TooltipTrigger>
@@ -325,14 +326,14 @@ An Echo AI User`;
                   <DialogTrigger asChild>
                     <Button 
                       variant="outline"
-                      className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-cyan-300 dark:hover:border-cyan-600 hover:bg-gradient-to-r hover:from-cyan-50 hover:to-sky-50 dark:hover:from-cyan-900/20 dark:hover:to-sky-900/20 transition-all duration-300 transform hover:scale-[1.01] rounded-lg group"
+                      className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-cyan-400 dark:hover:border-cyan-500 bg-white/50 dark:bg-gray-800/50 hover:bg-gradient-to-br hover:from-cyan-50 hover:to-sky-50 dark:hover:from-cyan-900/30 dark:hover:to-sky-900/30 transition-all duration-300 transform hover:scale-105 hover:-translate-y-0.5 active:scale-95 rounded-xl group shadow-sm hover:shadow-md hover:shadow-cyan-500/10"
                     >
                       <div className="flex flex-col items-center justify-center">
-                        <div className="p-1.5 rounded-md bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:from-cyan-100 group-hover:to-sky-100 dark:group-hover:from-cyan-800/50 dark:group-hover:to-sky-800/50 transition-all duration-200 mb-1 relative">
-                          <Tornado className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors duration-200" />
-                          <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-cyan-500 rounded-full opacity-0 group-hover:opacity-100 animate-ping transition-opacity"></div>
+                        <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 group-hover:bg-cyan-100 dark:group-hover:bg-cyan-800/60 group-hover:scale-110 transition-all duration-300 mb-1.5 relative shadow-sm">
+                          <Tornado className="w-4 h-4 text-gray-500 dark:text-gray-400 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 group-hover:rotate-12 transition-all duration-300" />
+                          <div className="absolute -top-1 -right-1 w-2 h-2 bg-cyan-500 rounded-full opacity-0 group-hover:opacity-100 animate-ping transition-opacity"></div>
                         </div>
-                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-cyan-700 dark:group-hover:text-cyan-300">About</span>
+                        <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 group-hover:text-cyan-700 dark:group-hover:text-cyan-300 tracking-wide">About</span>
                       </div>
                     </Button>
                   </DialogTrigger>
@@ -620,23 +621,25 @@ An Echo AI User`;
 
       {/* Feedback Dialog */}
       <Dialog open={showFeedbackDialog} onOpenChange={setShowFeedbackDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md bg-gradient-to-br from-white via-white to-purple-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-purple-950/30 border-purple-200/50 dark:border-purple-800/50">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Heart className="w-5 h-5 text-pink-600" />
-              Share Your Experience
+            <DialogTitle className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <span className="text-lg font-bold text-gray-900 dark:text-white">Rate Your Experience</span>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-normal">Help improve Echo's hallucination detection</p>
+              </div>
             </DialogTitle>
-            <DialogDescription>
-              Your feedback helps improve Echo for everyone!
-            </DialogDescription>
           </DialogHeader>
           
           {!feedbackSubmitted ? (
-            <div className="space-y-4">
+            <div className="space-y-5 pt-2">
               {/* Star Rating */}
               <div className="text-center">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">How would you rate your experience?</p>
-                <div className="flex justify-center gap-3 mb-4">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">How well did Echo help you refine your prompts?</p>
+                <div className="flex justify-center gap-2 mb-3">
                   {[1, 2, 3, 4, 5].map((value) => {
                     const isSelected = value <= rating;
                     const isHovered = value <= hoveredStar;
@@ -647,15 +650,15 @@ An Echo AI User`;
                         onClick={() => setRating(value)}
                         onMouseEnter={() => setHoveredStar(value)}
                         onMouseLeave={() => setHoveredStar(0)}
-                        className="group transition-all duration-300 ease-out transform hover:scale-110 focus:outline-none"
+                        className="group transition-all duration-300 ease-out transform hover:scale-110 focus:outline-none p-1"
                       >
                         <Star 
-                          className={`w-8 h-8 transition-all duration-300 ${
+                          className={`w-9 h-9 transition-all duration-300 ${
                             isSelected 
-                              ? 'text-yellow-400 fill-yellow-400 drop-shadow-lg scale-110' 
+                              ? 'text-purple-500 fill-purple-500 drop-shadow-lg scale-110' 
                               : isHovered
-                              ? 'text-yellow-300 fill-yellow-300 scale-105'
-                              : 'text-gray-300 dark:text-gray-600 hover:text-yellow-300 hover:scale-105'
+                              ? 'text-purple-400 fill-purple-400 scale-105'
+                              : 'text-gray-300 dark:text-gray-600 hover:text-purple-300 hover:scale-105'
                           }`} 
                           strokeWidth={1.5}
                         />
@@ -665,10 +668,10 @@ An Echo AI User`;
                 </div>
                 
                 {/* Message Area */}
-                <div className="h-16 flex flex-col justify-center">
+                <div className="h-14 flex flex-col justify-center">
                   {hoveredStar > 0 && (
                     <div className="text-center animate-in fade-in duration-200">
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <p className="text-sm font-semibold text-purple-600 dark:text-purple-400 mb-0.5">
                         {getRatingLabel(hoveredStar)}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -678,11 +681,11 @@ An Echo AI User`;
                   )}
                   {rating > 0 && hoveredStar === 0 && (
                     <div className="text-center">
-                      <p className="text-lg font-semibold text-yellow-600 dark:text-yellow-400 mb-1">
-                        {getRatingLabel(rating)} ⭐
+                      <p className="text-base font-bold text-purple-600 dark:text-purple-400 mb-0.5">
+                        {getRatingLabel(rating)}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Thanks for your feedback! This helps us improve.
+                        {getRatingMessage(rating)}
                       </p>
                     </div>
                   )}
@@ -692,43 +695,45 @@ An Echo AI User`;
               {/* Feedback Text Areas */}
               <div className="space-y-3">
                 <div>
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
-                    👍 What did you like? (Optional)
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 block flex items-center gap-2">
+                    <span className="w-5 h-5 bg-green-100 dark:bg-green-900/30 rounded flex items-center justify-center text-xs">✓</span>
+                    What worked well? <span className="text-gray-400 font-normal">(Optional)</span>
                   </label>
                   <Textarea
                     value={goodFeedback}
                     onChange={(e) => setGoodFeedback(e.target.value)}
-                    placeholder="Tell us what worked well..."
-                    className="resize-none h-20"
+                    placeholder="e.g., Risk detection was accurate, the improved prompt was helpful..."
+                    className="resize-none h-20 border-gray-200 dark:border-gray-700 focus:border-purple-400 focus:ring-purple-400/20"
                   />
                 </div>
                 
                 <div>
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
-                    👎 What could be improved? (Optional)
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 block flex items-center gap-2">
+                    <span className="w-5 h-5 bg-orange-100 dark:bg-orange-900/30 rounded flex items-center justify-center text-xs">!</span>
+                    What could be improved? <span className="text-gray-400 font-normal">(Optional)</span>
                   </label>
                   <Textarea
                     value={badFeedback}
                     onChange={(e) => setBadFeedback(e.target.value)}
-                    placeholder="Help us make Echo better..."
-                    className="resize-none h-20"
+                    placeholder="e.g., Missed some risks, suggestions for new features..."
+                    className="resize-none h-20 border-gray-200 dark:border-gray-700 focus:border-purple-400 focus:ring-purple-400/20"
                   />
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-3 pt-2">
                 <Button 
                   variant="outline" 
                   onClick={() => setShowFeedbackDialog(false)}
-                  className="flex-1"
+                  className="flex-1 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   Cancel
                 </Button>
                 <Button 
                   onClick={submitFeedback}
                   disabled={rating === 0}
-                  className="flex-1 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 disabled:opacity-50"
+                  className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 disabled:opacity-40 shadow-md hover:shadow-lg transition-all duration-200"
                 >
                   <Mail className="w-4 h-4 mr-2" />
                   Send Feedback
@@ -737,15 +742,15 @@ An Echo AI User`;
             </div>
           ) : (
             <div className="text-center py-8">
-              <div className="w-16 h-16 mx-auto mb-4 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
-                <Check className="w-8 h-8 text-green-600 dark:text-green-400" />
+              <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-900/50 dark:to-purple-800/50 rounded-2xl flex items-center justify-center shadow-lg">
+                <Check className="w-8 h-8 text-purple-600 dark:text-purple-400" />
               </div>
-              <h3 className="text-lg font-semibold mb-2">Thank You!</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                Your {rating}-star rating has been sent to Mohamed.
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Thank You!</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                Your feedback helps make Echo better at detecting hallucination risks.
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-500">
-                We truly appreciate your feedback! ❤️
+              <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                {rating}/5 stars sent to the developer 💜
               </p>
             </div>
           )}

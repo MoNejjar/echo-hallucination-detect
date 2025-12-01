@@ -557,24 +557,22 @@ function App() {
                 </p>
               </div>
             </div>
-            {analysis && (
-              <motion.button
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowHelpGuide(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-transparent backdrop-blur-md border border-purple-300 dark:border-purple-700 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-300"
+            <motion.button
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowHelpGuide(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-transparent backdrop-blur-md border border-purple-300 dark:border-purple-700 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-300"
+            >
+              <motion.div
+                animate={{ rotate: [0, 15, -15, 0] }}
+                transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
               >
-                <motion.div
-                  animate={{ rotate: [0, 15, -15, 0] }}
-                  transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
-                >
-                  <HelpCircle className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                </motion.div>
-                <span className="font-medium text-sm text-purple-600 dark:text-purple-400">Guide</span>
-              </motion.button>
-            )}
+                <HelpCircle className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              </motion.div>
+              <span className="font-medium text-sm text-purple-600 dark:text-purple-400">Guide</span>
+            </motion.button>
           </div>
         </header>
 
@@ -1751,7 +1749,7 @@ function App() {
                   <ExpandableEditor
                     prompt={currentPrompt}
                     onChange={setCurrentPrompt}
-                    placeholder="Enter your prompt here for hallucination analysis..."
+                    placeholder="Paste your prompt here to detect and mitigate hallucination risks..."
                     disabled={isAnalyzing}
                     className="flex-1"
                   />

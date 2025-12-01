@@ -280,7 +280,7 @@ const ExpandableEditor: React.FC<ExpandableEditorProps> = ({
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
               disabled={disabled}
-              className="min-h-[300px] resize-none pr-16 text-sm leading-relaxed font-mono bg-white/70 dark:bg-gray-900/70 backdrop-blur-lg rounded-2xl border border-gray-200/60 dark:border-gray-700/60 shadow-xl hover:shadow-2xl transition-all duration-500 focus:border-purple-300 dark:focus:border-purple-600 focus:ring-4 focus:ring-purple-100 dark:focus:ring-purple-900/30 p-6 text-transparent focus:text-current selection:bg-purple-200 dark:selection:bg-purple-800"
+              className="min-h-[300px] resize-none pr-16 text-sm leading-relaxed bg-white/70 dark:bg-gray-900/70 backdrop-blur-lg rounded-2xl border border-gray-200/60 dark:border-gray-700/60 shadow-xl hover:shadow-2xl transition-all duration-500 focus:border-purple-300 dark:focus:border-purple-600 focus:ring-4 focus:ring-purple-100 dark:focus:ring-purple-900/30 p-6 text-transparent focus:text-current selection:bg-purple-200 dark:selection:bg-purple-800"
             />
             
             {/* Enhanced Expand Button */}
@@ -566,7 +566,7 @@ const ExpandableEditor: React.FC<ExpandableEditorProps> = ({
                       onKeyDown={handleKeyDown}
                       placeholder={`${placeholder}\n\nTip: Press Escape to minimize this editor.`}
                       disabled={disabled}
-                      className="w-full h-full min-h-[400px] resize-none text-sm leading-relaxed font-mono"
+                      className="w-full h-full min-h-[400px] resize-none text-sm leading-relaxed"
                     />
                   </motion.div>
 
