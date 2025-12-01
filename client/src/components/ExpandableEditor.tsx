@@ -15,7 +15,6 @@ import {
   Copy, 
   FileText, 
   Hash,
-  Type,
   Zap,
   PenLine,
   Bold,
@@ -148,13 +147,15 @@ const ExpandableEditor: React.FC<ExpandableEditorProps> = ({
     }, 0);
   };
 
-  // Calculate stats
+  // Calculate stats with estimated API cost
   const stats = useMemo(() => {
     const characters = prompt.length;
     const words = prompt.split(/\s+/).filter(w => w.length > 0).length;
     const tokens = estimateTokens(prompt);
+    // Rough estimation: ~$0.01 per 1000 tokens for GPT-4o-mini
+    const estimatedCost = (tokens / 1000) * 0.01;
 
-    return { characters, words, tokens };
+    return { characters, words, tokens, estimatedCost };
   }, [prompt]);
 
   const handleCopy = async () => {
@@ -245,18 +246,19 @@ const ExpandableEditor: React.FC<ExpandableEditorProps> = ({
         >
           {/* Editor Header */}
           <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-            className="flex items-center justify-between"
-          >
-            <div className="flex items-center gap-2">
-              <PenLine className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-              <h3 className="text-lg font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent tracking-tight">
-                Prompt Editor
-              </h3>
-            </div>
-          </motion.div>
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.3 }}
+          className="flex items-center justify-between"
+        >
+          <div className="flex items-center gap-2">
+            <PenLine className="w-5 h-5 text-purple-600 dark:text-purple-600" />
+            <h3 className="text-lg font-bold text-purple-600 dark:text-purple-600 tracking-tight">
+              Prompt Editor
+            </h3>
+          </div>
+        </motion.div>
+
 
           <motion.div 
             whileHover={{ scale: 1.002 }}
@@ -293,7 +295,7 @@ const ExpandableEditor: React.FC<ExpandableEditorProps> = ({
                     onClick={() => setIsExpanded(true)}
                     variant="ghost"
                     size="sm"
-                    className="h-10 w-10 p-0 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 hover:from-purple-100 hover:to-blue-100 dark:hover:from-purple-800/50 dark:hover:to-blue-800/50 border border-purple-200/60 dark:border-purple-700/60 rounded-xl backdrop-blur-sm transition-all duration-300"
+                    className="h-10 w-10 p-0 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 hover:from-purple-100 hover:to-purple-200 dark:hover:from-purple-800/50 dark:hover:to-purple-700/50 border border-purple-200/60 dark:border-purple-700/60 rounded-xl backdrop-blur-sm transition-all duration-300 shadow-sm hover:shadow-md"
                   >
                     <Maximize2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                   </Button>
@@ -310,21 +312,22 @@ const ExpandableEditor: React.FC<ExpandableEditorProps> = ({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="flex items-center justify-between text-sm bg-white/70 dark:bg-gray-900/70 backdrop-blur-lg rounded-xl border border-gray-200/60 dark:border-gray-700/60 p-4 shadow-lg"
+            className="flex items-center justify-between text-sm bg-gradient-to-r from-gray-50 to-purple-50/50 dark:from-gray-900/80 dark:to-purple-900/20 backdrop-blur-lg rounded-xl border border-gray-200/60 dark:border-gray-700/60 p-3 shadow-sm"
           >
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <motion.div 
                     whileHover={{ scale: 1.05 }}
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-1.5 px-2.5 py-1 bg-white/60 dark:bg-gray-800/60 rounded-lg"
                   >
-                    <Type className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                    <span className="bg-gradient-to-r from-purple-600 to-purple-600 bg-clip-text text-transparent font-medium">{stats.characters}</span>
+                    <FileText className="w-3.5 h-3.5 text-purple-500" />
+                    <span className="text-gray-700 dark:text-gray-300 font-medium">{stats.words}</span>
+                    <span className="text-gray-400 dark:text-gray-500 text-xs">words</span>
                   </motion.div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Characters</p>
+                  <p>Word count</p>
                 </TooltipContent>
               </Tooltip>
 
@@ -332,57 +335,34 @@ const ExpandableEditor: React.FC<ExpandableEditorProps> = ({
                 <TooltipTrigger asChild>
                   <motion.div 
                     whileHover={{ scale: 1.05 }}
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-1.5 px-2.5 py-1 bg-white/60 dark:bg-gray-800/60 rounded-lg"
                   >
-                    <FileText className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                    <span className="bg-gradient-to-r from-purple-600 to-purple-600 bg-clip-text text-transparent font-medium">{stats.words}</span>
+                    <Hash className="w-3.5 h-3.5 text-purple-500" />
+                    <span className="text-gray-700 dark:text-gray-300 font-medium">{stats.tokens}</span>
+                    <span className="text-gray-400 dark:text-gray-500 text-xs">tokens</span>
                   </motion.div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Words</p>
-                </TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <motion.div 
-                    whileHover={{ scale: 1.05 }}
-                    className="flex items-center gap-2"
-                  >
-                    <Hash className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                    <span className="bg-gradient-to-r from-purple-600 to-purple-600 bg-clip-text text-transparent font-medium">{stats.tokens}</span>
-                  </motion.div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Estimated Tokens</p>
+                  <p>Estimated tokens (approximate)</p>
                 </TooltipContent>
               </Tooltip>
             </div>
 
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={handleCopy}
-                    variant="ghost"
-                    size="sm"
-                    className="h-9 px-4 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 hover:from-purple-100 hover:to-blue-100 dark:hover:from-purple-800/50 dark:hover:to-blue-800/50 border border-purple-200/60 dark:border-purple-700/60 rounded-lg backdrop-blur-sm transition-all duration-300"
-                    disabled={!prompt}
-                  >
-                    <Copy className="w-4 h-4 text-purple-600 dark:text-purple-400 mr-2" />
-                    <span className="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent font-medium">
-                      {copied ? 'Copied!' : 'Copy'}
-                    </span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Copy prompt to clipboard</p>
-                </TooltipContent>
-              </Tooltip>
-            </motion.div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <motion.div 
+                  whileHover={{ scale: 1.05 }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-100 to-purple-50 dark:from-purple-900/40 dark:to-purple-800/20 rounded-lg border border-purple-200/50 dark:border-purple-700/50"
+                >
+                  <Zap className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                  <span className="text-purple-700 dark:text-purple-300 font-semibold">~${stats.estimatedCost.toFixed(4)}</span>
+                  <span className="text-purple-500/70 dark:text-purple-400/70 text-xs">est. cost</span>
+                </motion.div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Estimated API cost based on token count</p>
+              </TooltipContent>
+            </Tooltip>
           </motion.div>
         </motion.div>
 
@@ -397,9 +377,11 @@ const ExpandableEditor: React.FC<ExpandableEditorProps> = ({
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
                   >
-                    <DialogTitle className="flex items-center gap-3 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent text-2xl font-bold">
-                      <Zap className="w-7 h-7 text-purple-600" />
-                      Prompt Editor
+                    <DialogTitle className="flex items-center gap-3 text-2xl font-bold">
+                      <div className="w-9 h-9 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <Zap className="w-5 h-5 text-white" />
+                      </div>
+                      <span className="text-gray-900 dark:text-white">Prompt Editor</span>
                     </DialogTitle>
                   </motion.div>
                 </DialogHeader>
@@ -415,7 +397,7 @@ const ExpandableEditor: React.FC<ExpandableEditorProps> = ({
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.2 }}
-                    className="flex items-center justify-between p-3 bg-gradient-to-r from-purple-50 via-blue-50 to-purple-50 dark:from-purple-950/30 dark:via-blue-950/30 dark:to-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800"
+                    className="flex items-center justify-between p-3 bg-gradient-to-r from-purple-50 via-purple-50/80 to-purple-50 dark:from-purple-950/30 dark:via-purple-950/20 dark:to-purple-950/30 rounded-xl border border-purple-200/50 dark:border-purple-800/50"
                   >
                     <div className="flex items-center gap-1">
                       <Tooltip>
@@ -560,7 +542,7 @@ const ExpandableEditor: React.FC<ExpandableEditorProps> = ({
                         variant="ghost"
                         size="sm"
                         disabled={!prompt.trim()}
-                        className="h-8 px-3 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300"
+                        className="h-8 px-3 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300"
                       >
                         <Copy className="w-4 h-4 mr-2" />
                         <span className="font-medium text-sm">

@@ -36,8 +36,12 @@ import {
   Check,
   Image,
   FileJson,
-  Tornado
+  Tornado,
+  ScanEye,
+  ChevronRight,
+  RefreshCw
 } from 'lucide-react';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import DarkModeToggle from './DarkModeToggle';
 import { LibraryDialog } from './LibraryDialog';
 import { ExportDialog } from './ExportDialog';
@@ -184,11 +188,11 @@ An Echo AI User`;
         <div className="p-3 flex flex-col items-center border-b border-transparent bg-transparent backdrop-blur-lg">
           <div className="relative mb-3 group ml-4">
             {/* Enhanced purple aura background */}
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-400/30 to-blue-400/30 rounded-full blur-2xl scale-150 group-hover:scale-175 transition-transform duration-500"></div>
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/40 to-blue-500/40 rounded-full blur-xl scale-125 group-hover:scale-150 transition-transform duration-300"></div>
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 to-blue-600/20 rounded-full blur-lg scale-110 animate-pulse"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-400/30 to-purple-300/30 rounded-full blur-2xl scale-150 group-hover:scale-175 transition-transform duration-500"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/40 to-purple-400/40 rounded-full blur-xl scale-125 group-hover:scale-150 transition-transform duration-300"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 to-purple-500/20 rounded-full blur-lg scale-110 animate-pulse"></div>
             {/* Logo */}
-            <div className="relative w-12 h-12 bg-gradient-to-r from-purple-600 via-purple-500 to-blue-600 rounded-full flex items-center justify-center shadow-2xl ring-2 ring-purple-200/50 dark:ring-purple-800/50 group-hover:shadow-purple-500/25 transition-all duration-300">
+            <div className="relative w-12 h-12 bg-gradient-to-br from-purple-600 via-purple-500 to-purple-700 rounded-full flex items-center justify-center shadow-2xl ring-2 ring-purple-200/50 dark:ring-purple-800/50 group-hover:shadow-purple-500/25 transition-all duration-300">
               <img src="/logo.png" alt="Echo Logo" className="w-7 h-7 drop-shadow-lg" />
             </div>
           </div>
@@ -205,7 +209,7 @@ An Echo AI User`;
           <div className="mb-3">
             <Button 
               onClick={onNewAnalysis}
-              className="h-20 w-20 mx-auto block bg-gradient-to-r from-purple-600 via-purple-500 to-blue-600 hover:from-purple-500 hover:via-purple-400 hover:to-blue-500 text-white shadow-lg hover:shadow-xl hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] rounded-lg group relative overflow-hidden"
+              className="h-20 w-20 mx-auto block bg-gradient-to-br from-purple-600 via-purple-500 to-purple-700 hover:from-purple-500 hover:via-purple-400 hover:to-purple-600 text-white shadow-lg hover:shadow-xl hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] rounded-lg group relative overflow-hidden"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
               <div className="relative flex flex-col items-center justify-center">
@@ -230,10 +234,10 @@ An Echo AI User`;
                 <Button 
                   onClick={() => fileInputRef.current?.click()}
                   variant="outline"
-                  className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-purple-300 dark:hover:border-purple-600 hover:bg-gradient-to-r hover:from-purple-50 hover:to-blue-50 dark:hover:from-purple-900/20 dark:hover:to-blue-900/20 transition-all duration-300 transform hover:scale-[1.01] rounded-lg group"
+                  className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-purple-300 dark:hover:border-purple-600 hover:bg-gradient-to-r hover:from-purple-50 hover:to-purple-100/50 dark:hover:from-purple-900/20 dark:hover:to-purple-800/20 transition-all duration-300 transform hover:scale-[1.01] rounded-lg group"
                 >
                   <div className="flex flex-col items-center justify-center">
-                    <div className="p-1.5 rounded-md bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:from-purple-100 group-hover:to-blue-100 dark:group-hover:from-purple-800/50 dark:group-hover:to-blue-800/50 transition-all duration-200 mb-1">
+                    <div className="p-1.5 rounded-md bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:from-purple-100 group-hover:to-purple-200/70 dark:group-hover:from-purple-800/50 dark:group-hover:to-purple-700/50 transition-all duration-200 mb-1">
                       <Upload className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors duration-200" />
                     </div>
                     <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-700 dark:group-hover:text-purple-300">Upload</span>
@@ -245,20 +249,20 @@ An Echo AI User`;
               </TooltipContent>
             </Tooltip>
 
-            {/* Export Button with Light Blue Colors */}
+            {/* Export Button - Purple themed */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button 
                   onClick={handleExport}
                   variant="outline" 
                   disabled={!analysis || !riskAssessment}
-                  className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-gradient-to-r hover:from-blue-50 hover:to-sky-50 dark:hover:from-blue-900/20 dark:hover:to-sky-900/20 transition-all duration-300 transform hover:scale-[1.01] rounded-lg group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  className="h-20 w-20 mx-auto block border-2 border-gray-200/60 dark:border-gray-700/60 hover:border-purple-300 dark:hover:border-purple-600 hover:bg-gradient-to-r hover:from-purple-50 hover:to-purple-100/50 dark:hover:from-purple-900/20 dark:hover:to-purple-800/20 transition-all duration-300 transform hover:scale-[1.01] rounded-lg group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 >
                   <div className="flex flex-col items-center justify-center">
-                    <div className="p-1.5 rounded-md bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:from-blue-100 group-hover:to-sky-100 dark:group-hover:from-blue-800/50 dark:group-hover:to-sky-800/50 transition-all duration-200 mb-1">
-                      <Download className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200" />
+                    <div className="p-1.5 rounded-md bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:from-purple-100 group-hover:to-purple-200/70 dark:group-hover:from-purple-800/50 dark:group-hover:to-purple-700/50 transition-all duration-200 mb-1">
+                      <Download className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors duration-200" />
                     </div>
-                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-blue-700 dark:group-hover:text-blue-300">Export</span>
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-700 dark:group-hover:text-purple-300">Export</span>
                   </div>
                 </Button>
               </TooltipTrigger>
@@ -337,110 +341,266 @@ An Echo AI User`;
                   <p>Learn about Echo</p>
                 </TooltipContent>
               </Tooltip>
-              <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
-                <DialogHeader className="flex-shrink-0">
-                  <DialogTitle className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center">
-                      <Sparkles className="w-5 h-5 text-white" />
+              <DialogContent className="max-w-4xl max-h-[90vh] bg-gradient-to-br from-gray-50 via-white to-purple-50/30 dark:from-gray-950 dark:via-gray-900 dark:to-purple-950/30 border-purple-200/50 dark:border-purple-800/50 p-0 overflow-hidden">
+                <VisuallyHidden>
+                  <DialogTitle>About Echo - Mitigating AI Hallucinations</DialogTitle>
+                </VisuallyHidden>
+                <DialogDescription className="sr-only">
+                  Learn about Echo's approach to mitigating hallucination potential in user prompts
+                </DialogDescription>
+                
+                {/* Hero Header */}
+                <div className="relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-600/90 via-purple-700/90 to-purple-900/90"></div>
+                  <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-400/20 via-transparent to-transparent"></div>
+                  <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+                  <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-400/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+                  
+                  <div className="relative px-8 py-10">
+                    <div className="flex items-center gap-6">
+                      <div className="relative group">
+                        <div className="absolute inset-0 bg-white/20 rounded-2xl blur-xl scale-110 group-hover:scale-125 transition-transform duration-500"></div>
+                        <div className="relative w-20 h-20 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/20 shadow-2xl">
+                          <ScanEye className="w-10 h-10 text-white" />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <h2 className="text-4xl font-bold text-white mb-2 tracking-tight">Echo</h2>
+                        <p className="text-purple-200 text-lg font-medium">AI-Guided Prompt Risk Analysis</p>
+                        <p className="text-purple-300/70 text-sm mt-1">Bachelor Thesis Solution Design</p>
+                      </div>
+                      <div className="hidden sm:block">
+                        <div className="px-4 py-2 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
+                          <p className="text-white/80 text-xs font-medium">Research by</p>
+                          <p className="text-white font-semibold">Mohamed Nejjar</p>
+                        </div>
+                      </div>
                     </div>
-                    Echo: Prompt Refinement for Hallucination-Free LLMs
-                  </DialogTitle>
-                  <DialogDescription>
-                    Learn how Echo helps you write better prompts
-                  </DialogDescription>
-                </DialogHeader>
-                <ScrollArea className="flex-1 overflow-auto pr-4" style={{ maxHeight: 'calc(80vh - 120px)' }}>
-                  <div className="space-y-6 py-4">
-                    <section>
-                      <h2 className="text-xl font-semibold mb-3 text-purple-600 dark:text-purple-400">
-                        🔍 What Is Echo?
-                      </h2>
-                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                        <strong>Echo</strong> is an AI-powered <strong>hallucination detection system</strong> that analyzes prompts using <strong>PRD (Prompt Risk Detection)</strong> methodology. It identifies potential risks that could lead to hallucinations, empowering users to create clearer, more reliable prompts for LLMs.
-                      </p>
-                    </section>
+                  </div>
+                </div>
+                
+                <ScrollArea className="h-[calc(90vh-200px)] max-h-[600px]">
+                  <div className="p-8 space-y-8">
+                    
+                    {/* The Problem Section */}
+                    <div className="relative">
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-500 to-purple-300 rounded-full"></div>
+                      <div className="pl-6">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                          <span className="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-lg flex items-center justify-center text-purple-600 dark:text-purple-400 text-sm font-bold">1</span>
+                          The Problem: AI Hallucinations
+                        </h3>
+                        <p className="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
+                          Large Language Models can generate confident yet <strong className="text-gray-900 dark:text-white">factually incorrect or inconsistent responses</strong>—a phenomenon known as hallucination. 
+                          While current research focuses on detecting hallucinations in AI outputs, Echo takes a <strong className="text-purple-600 dark:text-purple-400">proactive approach</strong>: analyzing prompts <em>before</em> they trigger problematic responses.
+                        </p>
+                        <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border border-purple-200/50 dark:border-purple-700/50">
+                          <p className="text-sm text-purple-800 dark:text-purple-200 italic">
+                            "Mitigating Hallucination Potential in User Prompts Through AI-Guided Iterative Refinement"
+                          </p>
+                        </div>
+                      </div>
+                    </div>
 
-                    <section>
-                      <h2 className="text-xl font-semibold mb-3 text-purple-600 dark:text-purple-400">
-                        📊 PRD Methodology
-                      </h2>
-                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed mb-3">
-                        Echo evaluates prompts across <strong>5 key pillars</strong> of prompt quality:
-                      </p>
-                      <ul className="space-y-2 text-gray-700 dark:text-gray-300 ml-4">
-                        <li className="flex items-start gap-2">
-                          <span className="text-purple-500 font-bold">1.</span>
-                          <span><strong>Referential Ambiguity & Quantification</strong> — Clear references and quantifiers</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-purple-500 font-bold">2.</span>
-                          <span><strong>Context Sufficiency & Integrity</strong> — Complete and consistent context</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-purple-500 font-bold">3.</span>
-                          <span><strong>Instruction Structure & Delimitation</strong> — Well-formed and delimited instructions</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-purple-500 font-bold">4.</span>
-                          <span><strong>Verifiability & Factuality</strong> — Verifiable claims and factual grounding</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-purple-500 font-bold">5.</span>
-                          <span><strong>Reasoning & Uncertainty Handling</strong> — Clear reasoning paths and uncertainty management</span>
-                        </li>
-                      </ul>
-                    </section>
-
-                    <section>
-                      <h2 className="text-xl font-semibold mb-3 text-purple-600 dark:text-purple-400">
-                        🎯 How It Works
-                      </h2>
-                      <div className="space-y-3 text-gray-700 dark:text-gray-300">
-                        <div className="flex items-start gap-3">
-                          <span className="text-2xl">📝</span>
-                          <div>
-                            <strong className="text-purple-600 dark:text-purple-400">Prompt Analysis</strong>
-                            <p className="text-sm">Echo scans your prompt for risky tokens and patterns</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <span className="text-2xl">📈</span>
-                          <div>
-                            <strong className="text-pink-600 dark:text-pink-400">PRD Scores</strong>
-                            <p className="text-sm">Prompt PRD (pink) and Meta PRD (cyan) measure risk levels from 0.00-1.00+</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <span className="text-2xl">⚠️</span>
-                          <div>
-                            <strong className="text-orange-600 dark:text-orange-400">Violations</strong>
-                            <p className="text-sm">Specific issues categorized by severity (Critical, High, Medium, Low)</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <span className="text-2xl">💡</span>
-                          <div>
-                            <strong className="text-cyan-600 dark:text-cyan-400">Mitigation</strong>
-                            <p className="text-sm">Actionable suggestions to improve your prompt and reduce hallucination risk</p>
+                    {/* Novel Taxonomy Section */}
+                    <div className="relative">
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-400 to-purple-300 rounded-full"></div>
+                      <div className="pl-6">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                          <span className="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-lg flex items-center justify-center text-purple-600 dark:text-purple-400 text-sm font-bold">2</span>
+                          Novel Risk Taxonomy
+                        </h3>
+                        <p className="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
+                          Echo introduces a structured classification for hallucination triggers:
+                        </p>
+                        
+                        {/* Taxonomy Visualization - Natural Tree Style */}
+                        <div className="bg-white dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm overflow-x-auto">
+                          <div className="min-w-[380px]">
+                            {/* Tree using SVG for clean lines */}
+                            <svg viewBox="0 0 380 260" className="w-full h-auto" style={{ maxHeight: '280px' }}>
+                              {/* Tree Lines */}
+                              <g className="stroke-gray-400 dark:stroke-gray-500" strokeWidth="2" fill="none">
+                                {/* Root to Level 1 split */}
+                                <path d="M190 42 L190 68 M190 68 L100 68 M190 68 L280 68 M100 68 L100 85 M280 68 L280 85" />
+                                {/* User-Sided to children */}
+                                <path d="M100 125 L100 148 M100 148 L55 148 M100 148 L145 148 M55 148 L55 168 M145 148 L145 168" className="stroke-purple-400" strokeWidth="2" />
+                                {/* LLM-Sided to child */}
+                                <path d="M280 125 L280 168" />
+                              </g>
+                              
+                              {/* Root Node - Hallucinations */}
+                              <g transform="translate(190, 22)">
+                                <rect x="-60" y="-18" width="120" height="36" rx="8" className="fill-gray-900 dark:fill-white" />
+                                <text textAnchor="middle" y="6" className="fill-white dark:fill-gray-900 text-[13px] font-semibold">Hallucinations</text>
+                              </g>
+                              
+                              {/* User-Sided Node */}
+                              <g transform="translate(100, 105)">
+                                <rect x="-48" y="-18" width="96" height="36" rx="8" className="fill-purple-100 dark:fill-purple-900/60 stroke-purple-300 dark:stroke-purple-600" strokeWidth="2" />
+                                <text textAnchor="middle" y="6" className="fill-purple-700 dark:fill-purple-300 text-[12px] font-medium">User-Sided</text>
+                              </g>
+                              
+                              {/* LLM-Sided Node */}
+                              <g transform="translate(280, 105)">
+                                <rect x="-48" y="-18" width="96" height="36" rx="8" className="fill-gray-100 dark:fill-gray-700 stroke-gray-300 dark:stroke-gray-600" strokeWidth="2" />
+                                <text textAnchor="middle" y="6" className="fill-gray-600 dark:fill-gray-400 text-[12px] font-medium">LLM-Sided</text>
+                              </g>
+                              
+                              {/* Prompt Risk Node */}
+                              <g transform="translate(55, 198)">
+                                <rect x="-42" y="-18" width="84" height="36" rx="7" className="fill-purple-500" />
+                                <text textAnchor="middle" y="6" className="fill-white text-[11px] font-medium">Prompt Risk</text>
+                              </g>
+                              
+                              {/* Meta Risk Node */}
+                              <g transform="translate(145, 198)">
+                                <rect x="-38" y="-18" width="76" height="36" rx="7" className="fill-purple-400" />
+                                <text textAnchor="middle" y="6" className="fill-white text-[11px] font-medium">Meta Risk</text>
+                              </g>
+                              
+                              {/* Training/Data/Arch Node */}
+                              <g transform="translate(280, 200)">
+                                <rect x="-48" y="-22" width="96" height="44" rx="7" className="fill-gray-300 dark:fill-gray-600" opacity="0.7" />
+                                <text textAnchor="middle" y="-2" className="fill-gray-600 dark:fill-gray-300 text-[10px]">Training, Data,</text>
+                                <text textAnchor="middle" y="12" className="fill-gray-600 dark:fill-gray-300 text-[10px]">Architecture</text>
+                              </g>
+                            </svg>
+                            
+                            {/* Faithfulness/Factuality Footer */}
+                            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+                              <p className="text-[11px] text-gray-500 dark:text-gray-400 text-center mb-3">Any hallucination type can be classified as:</p>
+                              <div className="flex justify-center gap-3">
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-700">
+                                  <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                                  <span className="text-[11px] font-medium text-orange-700 dark:text-orange-300">Faithfulness</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
+                                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                  <span className="text-[11px] font-medium text-green-700 dark:text-green-300">Factuality</span>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </section>
+                    </div>
 
-                    <section className="border-t pt-4">
-                      <h2 className="text-xl font-semibold mb-3 text-purple-600 dark:text-purple-400">
-                        💬 Contact & Collaboration
-                      </h2>
-                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                        Have questions, feedback, or want to collaborate on prompt engineering research? Reach out via{' '}
-                        <a 
-                          href="mailto:mohamed.nejjar@tum.de" 
-                          className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
-                        >
-                          mohamed.nejjar@tum.de
-                        </a>
-                      </p>
-                    </section>
+                    {/* PRD Section */}
+                    <div className="relative">
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-300 to-purple-200 rounded-full"></div>
+                      <div className="pl-6">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                          <span className="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-lg flex items-center justify-center text-purple-600 dark:text-purple-400 text-sm font-bold">3</span>
+                          Prompt Risk Density (PRD)
+                        </h3>
+                        <p className="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
+                          A novel metric that quantifies hallucination potential by measuring the concentration of risky tokens:
+                        </p>
+                        
+                        {/* PRD Formula */}
+                        <div className="bg-gradient-to-r from-gray-900 to-gray-800 dark:from-gray-800 dark:to-gray-900 rounded-xl p-5 mb-4 shadow-lg">
+                          <div className="text-center">
+                            <p className="text-gray-400 text-xs uppercase tracking-wider mb-3">Formula</p>
+                            <div className="bg-white/5 rounded-lg py-4 px-6 backdrop-blur-sm border border-white/10">
+                              <p className="text-white font-mono text-lg">
+                                PRD = <span className="text-purple-400">Σ</span>(severity<sub className="text-purple-300">i</sub> × token<sub className="text-purple-300">i</sub>) <span className="text-purple-400">/</span> total_tokens
+                              </p>
+                            </div>
+                            <p className="text-gray-500 text-xs mt-3">
+                              Where severity weights: <span className="text-red-400">Critical=4</span>, <span className="text-orange-400">High=3</span>, <span className="text-yellow-400">Medium=2</span>, <span className="text-green-400">Low=1</span>
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {/* PRD Gauge Example */}
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 border border-green-200/50 dark:border-green-700/50 text-center">
+                            <div className="text-2xl font-bold text-green-600 dark:text-green-400">0-30%</div>
+                            <div className="text-xs text-green-700 dark:text-green-300 font-medium">Low Risk</div>
+                            <div className="text-xs text-green-600/70 dark:text-green-400/70 mt-1">Safe to use</div>
+                          </div>
+                          <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3 border border-yellow-200/50 dark:border-yellow-700/50 text-center">
+                            <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">31-60%</div>
+                            <div className="text-xs text-yellow-700 dark:text-yellow-300 font-medium">Moderate Risk</div>
+                            <div className="text-xs text-yellow-600/70 dark:text-yellow-400/70 mt-1">Review suggested</div>
+                          </div>
+                          <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3 border border-red-200/50 dark:border-red-700/50 text-center">
+                            <div className="text-2xl font-bold text-red-600 dark:text-red-400">61-100%</div>
+                            <div className="text-xs text-red-700 dark:text-red-300 font-medium">High Risk</div>
+                            <div className="text-xs text-red-600/70 dark:text-red-400/70 mt-1">Refinement needed</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Agent Pipeline Section */}
+                    <div className="relative">
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-200 to-purple-100 rounded-full"></div>
+                      <div className="pl-6">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                          <span className="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-lg flex items-center justify-center text-purple-600 dark:text-purple-400 text-sm font-bold">4</span>
+                          Multi-Agent Architecture
+                        </h3>
+                        <p className="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
+                          Four specialized AI agents work in sequence to analyze and refine your prompts:
+                        </p>
+                        
+                        {/* Agent Flow */}
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-3 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200/50 dark:border-purple-700/50 group hover:border-purple-400 dark:hover:border-purple-500 transition-colors">
+                            <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">1</div>
+                            <div className="flex-1">
+                              <p className="font-semibold text-gray-900 dark:text-white text-sm">Analyzer Agent</p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">Detects risky tokens, calculates PRD, annotates prompt</p>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-purple-400 group-hover:translate-x-1 transition-transform" />
+                          </div>
+                          
+                          <div className="flex items-center gap-3 p-3 bg-purple-50/80 dark:bg-purple-900/15 rounded-lg border border-purple-200/40 dark:border-purple-700/40 group hover:border-purple-400 dark:hover:border-purple-500 transition-colors">
+                            <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center text-white font-bold shrink-0">2</div>
+                            <div className="flex-1">
+                              <p className="font-semibold text-gray-900 dark:text-white text-sm">Initiator Agent</p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">Summarizes analysis, prepares context for conversation</p>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-purple-400 group-hover:translate-x-1 transition-transform" />
+                          </div>
+                          
+                          <div className="flex items-center gap-3 p-3 bg-purple-50/60 dark:bg-purple-900/10 rounded-lg border border-purple-200/30 dark:border-purple-700/30 group hover:border-purple-400 dark:hover:border-purple-500 transition-colors">
+                            <div className="w-10 h-10 bg-purple-400 rounded-lg flex items-center justify-center text-white font-bold shrink-0">3</div>
+                            <div className="flex-1">
+                              <p className="font-semibold text-gray-900 dark:text-white text-sm">Conversational Agent</p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">Guides iterative refinement through natural dialogue</p>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-purple-400 group-hover:translate-x-1 transition-transform" />
+                          </div>
+                          
+                          <div className="flex items-center gap-3 p-3 bg-purple-50/40 dark:bg-purple-900/5 rounded-lg border border-purple-200/20 dark:border-purple-700/20 group hover:border-purple-400 dark:hover:border-purple-500 transition-colors">
+                            <div className="w-10 h-10 bg-purple-300 rounded-lg flex items-center justify-center text-purple-900 font-bold shrink-0">4</div>
+                            <div className="flex-1">
+                              <p className="font-semibold text-gray-900 dark:text-white text-sm">Preparator Agent</p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">Generates refined prompt for re-analysis cycle</p>
+                            </div>
+                            <RefreshCw className="w-4 h-4 text-purple-400" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Contact Section */}
+                    <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center justify-between flex-wrap gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            Contact: <a href="mailto:mohamed.nejjar@tum.de" className="text-purple-600 dark:text-purple-400 hover:underline">mohamed.nejjar@tum.de</a>
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-500">
+                          Echo — AI-Guided Prompt Risk Mitigation
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </ScrollArea>
               </DialogContent>

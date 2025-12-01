@@ -162,6 +162,7 @@ function App() {
   const [riskLevelFilter, setRiskLevelFilter] = useState<Set<'medium' | 'high' | 'critical'>>(new Set(['medium', 'high', 'critical']));
   const [currentHallucinationMode, setCurrentHallucinationMode] = useState<'faithfulness' | 'factuality' | 'both'>('both');
   const [showHelpGuide, setShowHelpGuide] = useState(false);
+  const [guideStep, setGuideStep] = useState(0);
   const [showReanalyzeDialog, setShowReanalyzeDialog] = useState(false);
   const [isPreparingReanalysis, setIsPreparingReanalysis] = useState(false);
   const [showConversationWarning, setShowConversationWarning] = useState(false);
@@ -577,343 +578,404 @@ function App() {
           </div>
         </header>
 
-        {/* Interactive Help Guide Overlay */}
+        {/* Interactive Help Guide Overlay - Step-Based Tutorial */}
         <AnimatePresence>
           {showHelpGuide && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-6"
-              onClick={() => setShowHelpGuide(false)}
+              className="fixed inset-0 bg-black/85 backdrop-blur-lg z-50 flex items-center justify-center p-4"
+              onClick={() => { setShowHelpGuide(false); setGuideStep(0); }}
             >
               <motion.div
-                initial={{ scale: 0.8, opacity: 0, y: 50 }}
+                initial={{ scale: 0.9, opacity: 0, y: 30 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.8, opacity: 0, y: 50 }}
-                transition={{ type: "spring", damping: 20, stiffness: 300 }}
-                className="bg-gray-900 dark:bg-gray-950 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+                exit={{ scale: 0.9, opacity: 0, y: 30 }}
+                transition={{ type: "spring", damping: 25, stiffness: 400 }}
+                className="bg-gradient-to-br from-gray-900 via-gray-900 to-purple-950/50 rounded-3xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col border border-purple-500/20"
                 onClick={(e) => e.stopPropagation()}
               >
-                {/* Header */}
-                <div className="bg-gray-800 dark:bg-gray-900 p-6 border-b border-gray-700 dark:border-gray-800">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                {/* Header with Step Indicator */}
+                <div className="relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 via-purple-500/10 to-transparent"></div>
+                  <div className="relative px-8 py-6 border-b border-gray-700/50">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-4">
+                        <div className="relative">
+                          <div className="absolute inset-0 bg-purple-500/30 rounded-xl blur-lg"></div>
+                          <div className="relative w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl flex items-center justify-center shadow-lg">
+                            <HelpCircle className="w-6 h-6 text-white" />
+                          </div>
+                        </div>
+                        <div>
+                          <h2 className="text-2xl font-bold text-white">How to Use Echo</h2>
+                          <p className="text-purple-300/70 text-sm">Interactive step-by-step guide</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => { setShowHelpGuide(false); setGuideStep(0); }}
+                        className="p-2 hover:bg-white/10 rounded-xl transition-colors text-gray-400 hover:text-white"
                       >
-                        <HelpCircle className="w-8 h-8 text-purple-400" />
-                      </motion.div>
-                      <div>
-                        <h2 className="text-2xl font-bold text-white">Interactive Guide</h2>
-                        <p className="text-gray-400 text-sm">Learn how to use Echo effectively</p>
-                      </div>
+                        <X className="w-6 h-6" />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => setShowHelpGuide(false)}
-                      className="p-2 hover:bg-gray-700 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-400 hover:text-white"
-                    >
-                      <X className="w-6 h-6" />
-                    </button>
+                    
+                    {/* Step Progress Dots */}
+                    <div className="flex items-center justify-center gap-2">
+                      {[0, 1, 2, 3, 4, 5].map((step) => (
+                        <button
+                          key={step}
+                          onClick={() => setGuideStep(step)}
+                          className={`transition-all duration-300 ${
+                            step === guideStep 
+                              ? 'w-8 h-2 bg-purple-500 rounded-full' 
+                              : step < guideStep 
+                                ? 'w-2 h-2 bg-purple-400 rounded-full'
+                                : 'w-2 h-2 bg-gray-600 rounded-full hover:bg-gray-500'
+                          }`}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                {/* Content */}
-                <div className="flex-1 overflow-y-auto">
-                  <div className="p-6 space-y-6">
-                    {/* Section 1: Getting Started */}
-                    <motion.div
-                      initial={{ x: -50, opacity: 0 }}
-                      animate={{ x: 0, opacity: 1 }}
-                      transition={{ delay: 0.1 }}
-                      className="group"
-                    >
-                      <div className="flex items-start gap-4 p-4 rounded-xl border border-gray-700 bg-gray-800/50 hover:border-blue-600 transition-all duration-300">
-                        <motion.div
-                          whileHover={{ scale: 1.1, rotate: 15 }}
-                          className="flex-shrink-0 p-3 bg-blue-600/80 rounded-xl text-white"
-                        >
-                          <ScrollText className="w-6 h-6" />
-                        </motion.div>
-                        <div className="flex-1">
-                          <h3 className="text-lg font-bold text-blue-400 mb-2">
-                            1. Write Your Prompt
-                          </h3>
-                          <p className="text-gray-300 mb-3">
-                            Type or paste your prompt in the editor. You need at least <strong className="text-white">3 tokens</strong> (words) before the Analyze button becomes active.
+                {/* Step Content */}
+                <div className="flex-1 overflow-y-auto p-8">
+                  <AnimatePresence mode="wait">
+                    {/* Step 0: Write Prompt */}
+                    {guideStep === 0 && (
+                      <motion.div
+                        key="step0"
+                        initial={{ x: 50, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: -50, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="space-y-6"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-2xl flex items-center justify-center border border-purple-500/30">
+                            <ScrollText className="w-8 h-8 text-purple-400" />
+                          </div>
+                          <div>
+                            <p className="text-purple-400 text-sm font-medium uppercase tracking-wider">Step 1 of 6</p>
+                            <h3 className="text-2xl font-bold text-white">Write Your Prompt</h3>
+                          </div>
+                        </div>
+                        
+                        <p className="text-gray-300 text-lg leading-relaxed">
+                          Start by entering the prompt you want to analyze in the editor on the left. Echo will examine it for patterns that might lead AI models to hallucinate.
+                        </p>
+                        
+                        <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50 space-y-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                              <span className="text-purple-400 font-bold">3+</span>
+                            </div>
+                            <p className="text-gray-300">Minimum <strong className="text-white">3 tokens</strong> required to enable analysis</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                              <Sparkles className="w-4 h-4 text-purple-400" />
+                            </div>
+                            <p className="text-gray-300">Supports <strong className="text-white">markdown formatting</strong> in preview mode</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                              <FileText className="w-4 h-4 text-purple-400" />
+                            </div>
+                            <p className="text-gray-300">Upload <strong className="text-white">.txt or .md files</strong> via the sidebar</p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* Step 1: Choose Analysis Mode */}
+                    {guideStep === 1 && (
+                      <motion.div
+                        key="step1"
+                        initial={{ x: 50, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: -50, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="space-y-6"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-2xl flex items-center justify-center border border-purple-500/30">
+                            <Target className="w-8 h-8 text-purple-400" />
+                          </div>
+                          <div>
+                            <p className="text-purple-400 text-sm font-medium uppercase tracking-wider">Step 2 of 6</p>
+                            <h3 className="text-2xl font-bold text-white">Choose Analysis Mode</h3>
+                          </div>
+                        </div>
+                        
+                        <p className="text-gray-300 text-lg leading-relaxed">
+                          Select how you want Echo to analyze your prompt. Each mode focuses on different types of hallucination risks.
+                        </p>
+                        
+                        <div className="space-y-4">
+                          <div className="bg-gradient-to-r from-orange-500/10 to-orange-600/5 rounded-2xl p-5 border border-orange-500/30 hover:border-orange-400/50 transition-colors">
+                            <div className="flex items-center gap-3 mb-2">
+                              <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                              <h4 className="text-orange-400 font-bold text-lg">Faithfulness</h4>
+                            </div>
+                            <p className="text-gray-300">Checks for <strong className="text-white">internal consistency</strong> — contradictions, ambiguous references, and logical conflicts within your prompt.</p>
+                          </div>
+                          
+                          <div className="bg-gradient-to-r from-green-500/10 to-green-600/5 rounded-2xl p-5 border border-green-500/30 hover:border-green-400/50 transition-colors">
+                            <div className="flex items-center gap-3 mb-2">
+                              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                              <h4 className="text-green-400 font-bold text-lg">Factuality</h4>
+                            </div>
+                            <p className="text-gray-300">Verifies <strong className="text-white">external accuracy</strong> — claims, facts, and references that might not align with real-world knowledge.</p>
+                          </div>
+                          
+                          <div className="bg-gradient-to-r from-purple-500/10 to-purple-600/5 rounded-2xl p-5 border border-purple-500/30 hover:border-purple-400/50 transition-colors">
+                            <div className="flex items-center gap-3 mb-2">
+                              <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                              <h4 className="text-purple-400 font-bold text-lg">Comprehensive</h4>
+                              <Badge className="bg-purple-600 text-white text-xs ml-auto">Recommended</Badge>
+                            </div>
+                            <p className="text-gray-300">Combines both modes for <strong className="text-white">complete coverage</strong> of all hallucination risk types.</p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* Step 2: Analysis Progress */}
+                    {guideStep === 2 && (
+                      <motion.div
+                        key="step2"
+                        initial={{ x: 50, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: -50, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="space-y-6"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-2xl flex items-center justify-center border border-purple-500/30">
+                            <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }}>
+                              <Loader2 className="w-8 h-8 text-purple-400" />
+                            </motion.div>
+                          </div>
+                          <div>
+                            <p className="text-purple-400 text-sm font-medium uppercase tracking-wider">Step 3 of 6</p>
+                            <h3 className="text-2xl font-bold text-white">Watch the Analysis</h3>
+                          </div>
+                        </div>
+                        
+                        <p className="text-gray-300 text-lg leading-relaxed">
+                          After clicking Analyze, watch as Echo's multi-agent system processes your prompt through <strong className="text-white">5 stages</strong>.
+                        </p>
+                        
+                        <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50">
+                          <div className="space-y-4">
+                            {[
+                              { icon: '📖', title: 'Reading', desc: 'Parsing prompt structure and content' },
+                              { icon: '🎯', title: 'Detecting', desc: 'Identifying risky tokens and patterns' },
+                              { icon: '🧮', title: 'Calculating', desc: 'Computing PRD (Prompt Risk Density) scores' },
+                              { icon: '✅', title: 'Finalizing', desc: 'Compiling analysis results' },
+                              { icon: '💬', title: 'Summarizing', desc: 'Preparing context for AI conversation' }
+                            ].map((stage, i) => (
+                              <div key={i} className="flex items-center gap-4 p-3 bg-gray-900/50 rounded-xl">
+                                <span className="text-2xl">{stage.icon}</span>
+                                <div className="flex-1">
+                                  <p className="text-white font-medium">{stage.title}</p>
+                                  <p className="text-gray-400 text-sm">{stage.desc}</p>
+                                </div>
+                                <div className="w-8 h-8 bg-purple-500/20 rounded-full flex items-center justify-center">
+                                  <span className="text-purple-400 font-bold text-sm">{i + 1}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* Step 3: Review Results */}
+                    {guideStep === 3 && (
+                      <motion.div
+                        key="step3"
+                        initial={{ x: 50, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: -50, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="space-y-6"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-2xl flex items-center justify-center border border-purple-500/30">
+                            <ChartSpline className="w-8 h-8 text-purple-400" />
+                          </div>
+                          <div>
+                            <p className="text-purple-400 text-sm font-medium uppercase tracking-wider">Step 4 of 6</p>
+                            <h3 className="text-2xl font-bold text-white">Review Analysis Results</h3>
+                          </div>
+                        </div>
+                        
+                        <p className="text-gray-300 text-lg leading-relaxed">
+                          The analysis panel on the right shows your annotated prompt with highlighted risks, PRD scores, and detailed token breakdowns.
+                        </p>
+                        
+                        <div className="grid grid-cols-3 gap-4 mb-4">
+                          <div className="bg-red-500/10 rounded-xl p-4 border border-red-500/30 text-center">
+                            <p className="text-red-400 font-bold text-lg">Critical</p>
+                            <p className="text-gray-400 text-sm">Severe risks</p>
+                          </div>
+                          <div className="bg-orange-500/10 rounded-xl p-4 border border-orange-500/30 text-center">
+                            <p className="text-orange-400 font-bold text-lg">High</p>
+                            <p className="text-gray-400 text-sm">Important risks</p>
+                          </div>
+                          <div className="bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/30 text-center">
+                            <p className="text-yellow-400 font-bold text-lg">Medium</p>
+                            <p className="text-gray-400 text-sm">Moderate risks</p>
+                          </div>
+                        </div>
+                        
+                        <div className="bg-gray-800/50 rounded-2xl p-5 border border-gray-700/50">
+                          <p className="text-gray-300">
+                            <strong className="text-purple-400">💡 Pro tip:</strong> Click on highlighted tokens to expand and see detailed explanations and mitigation strategies.
                           </p>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* Step 4: Chat with AI */}
+                    {guideStep === 4 && (
+                      <motion.div
+                        key="step4"
+                        initial={{ x: 50, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: -50, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="space-y-6"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-2xl flex items-center justify-center border border-purple-500/30">
+                            <MessageSquare className="w-8 h-8 text-purple-400" />
+                          </div>
+                          <div>
+                            <p className="text-purple-400 text-sm font-medium uppercase tracking-wider">Step 5 of 6</p>
+                            <h3 className="text-2xl font-bold text-white">Chat with Echo AI</h3>
+                          </div>
+                        </div>
+                        
+                        <p className="text-gray-300 text-lg leading-relaxed">
+                          After analysis, Echo's AI assistant provides an initial prompt rewrite and explanation. Use the chat to <strong className="text-white">iteratively refine</strong> your prompt.
+                        </p>
+                        
+                        <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50 space-y-4">
+                          <p className="text-gray-400 text-sm uppercase tracking-wider font-medium">You can ask Echo to:</p>
                           <div className="flex flex-wrap gap-2">
-                            <Badge className="bg-gray-700 text-blue-300 border-blue-600">
-                              3+ tokens required
-                            </Badge>
-                            <Badge className="bg-gray-700 text-blue-300 border-blue-600">
-                              Auto-validation
-                            </Badge>
+                            {['Explain specific risks', 'Suggest alternatives', 'Clarify recommendations', 'Rewrite sections', 'Provide examples'].map((item) => (
+                              <Badge key={item} className="bg-purple-500/20 text-purple-300 border-purple-500/30 py-1.5 px-3">
+                                {item}
+                              </Badge>
+                            ))}
                           </div>
                         </div>
-                      </div>
-                    </motion.div>
-
-                    {/* Section 2: Analysis Modes */}
-                    <motion.div
-                      initial={{ x: -50, opacity: 0 }}
-                      animate={{ x: 0, opacity: 1 }}
-                      transition={{ delay: 0.15 }}
-                      className="group"
-                    >
-                      <div className="flex items-start gap-4 p-4 rounded-xl border border-gray-700 bg-gray-800/50 hover:border-purple-600 transition-all duration-300">
-                        <motion.div
-                          whileHover={{ scale: 1.1, rotate: -15 }}
-                          className="flex-shrink-0 p-3 bg-purple-600/80 rounded-xl text-white"
-                        >
-                          <Target className="w-6 h-6" />
-                        </motion.div>
-                        <div className="flex-1">
-                          <h3 className="text-lg font-bold text-purple-400 mb-2">
-                            2. Choose Analysis Mode
-                          </h3>
-                          <p className="text-gray-300 mb-3">
-                            Select your preferred analysis mode using the toolbar buttons:
+                        
+                        <div className="bg-purple-500/10 rounded-2xl p-5 border border-purple-500/30">
+                          <p className="text-gray-300">
+                            <strong className="text-purple-400">💡 Note:</strong> The AI retains full context of your analysis, so you can reference specific tokens or risks in your questions.
                           </p>
-                          <div className="space-y-2 text-sm">
-                            <div className="flex items-center gap-2 p-2 bg-gray-700/50 rounded-lg">
-                              <Badge className="bg-orange-600 text-white">Faithfulness</Badge>
-                              <span className="text-gray-300">Detects internal consistency issues</span>
-                            </div>
-                            <div className="flex items-center gap-2 p-2 bg-gray-700/50 rounded-lg">
-                              <Badge className="bg-green-600 text-white">Factuality</Badge>
-                              <span className="text-gray-300">Checks external world knowledge</span>
-                            </div>
-                            <div className="flex items-center gap-2 p-2 bg-gray-700/50 rounded-lg">
-                              <Badge className="bg-gray-600 text-white">Comprehensive</Badge>
-                              <span className="text-gray-300">Both modes combined</span>
-                            </div>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* Step 5: Re-Analyze */}
+                    {guideStep === 5 && (
+                      <motion.div
+                        key="step5"
+                        initial={{ x: 50, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: -50, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="space-y-6"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-2xl flex items-center justify-center border border-purple-500/30">
+                            <Zap className="w-8 h-8 text-purple-400" />
+                          </div>
+                          <div>
+                            <p className="text-purple-400 text-sm font-medium uppercase tracking-wider">Step 6 of 6</p>
+                            <h3 className="text-2xl font-bold text-white">Re-Analyze & Iterate</h3>
                           </div>
                         </div>
-                      </div>
-                    </motion.div>
-
-                    {/* Section 3: Analysis Loading */}
-                    <motion.div
-                      initial={{ x: -50, opacity: 0 }}
-                      animate={{ x: 0, opacity: 1 }}
-                      transition={{ delay: 0.2 }}
-                      className="group"
-                    >
-                      <div className="flex items-start gap-4 p-4 rounded-xl border border-gray-700 bg-gray-800/50 hover:border-teal-600 transition-all duration-300">
-                        <div className="flex-shrink-0 p-3 bg-teal-600/80 rounded-xl text-white">
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                          >
-                            <Loader2 className="w-6 h-6" />
-                          </motion.div>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="text-lg font-bold text-teal-400 mb-2">
-                            3. Analysis Progress
-                          </h3>
-                          <p className="text-gray-300 mb-3">
-                            Watch the analysis unfold through <strong className="text-white">5 checkpoints</strong>:
-                          </p>
-                          <div className="space-y-1.5 text-sm">
-                            <div className="flex items-center gap-2 text-gray-300">
-                              <span className="text-teal-400">📖</span>
-                              <span><strong>Reading</strong> the prompt structure</span>
+                        
+                        <p className="text-gray-300 text-lg leading-relaxed">
+                          Click the <strong className="text-purple-400">Re-Analyze</strong> button to generate a refined prompt based on your conversation, then run a fresh analysis to see improvements.
+                        </p>
+                        
+                        <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50">
+                          <div className="space-y-4">
+                            <div className="flex items-start gap-4">
+                              <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold shrink-0">1</div>
+                              <div>
+                                <p className="text-white font-medium">Add Custom Requests</p>
+                                <p className="text-gray-400 text-sm">Optionally specify additional changes you want to see</p>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 text-gray-300">
-                              <span className="text-teal-400">🎯</span>
-                              <span><strong>Detecting</strong> risky tokens</span>
+                            <div className="flex items-start gap-4">
+                              <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold shrink-0">2</div>
+                              <div>
+                                <p className="text-white font-medium">Preview the Refined Prompt</p>
+                                <p className="text-gray-400 text-sm">Review the AI-generated improvements before committing</p>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 text-gray-300">
-                              <span className="text-teal-400">🧮</span>
-                              <span><strong>Calculating</strong> PRD scores</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-gray-300">
-                              <span className="text-teal-400">✅</span>
-                              <span><strong>Finalizing</strong> analysis</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-gray-300">
-                              <span className="text-teal-400">💬</span>
-                              <span><strong>Summarizing</strong> for chat agent</span>
+                            <div className="flex items-start gap-4">
+                              <div className="w-8 h-8 bg-purple-400 rounded-full flex items-center justify-center text-white font-bold shrink-0">3</div>
+                              <div>
+                                <p className="text-white font-medium">Confirm & Analyze</p>
+                                <p className="text-gray-400 text-sm">Run a new analysis cycle to see your reduced PRD score</p>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    </motion.div>
-
-                    {/* Section 4: Analysis Results */}
-                    <motion.div
-                      initial={{ x: -50, opacity: 0 }}
-                      animate={{ x: 0, opacity: 1 }}
-                      transition={{ delay: 0.25 }}
-                      className="group"
-                    >
-                      <div className="flex items-start gap-4 p-4 rounded-xl border border-gray-700 bg-gray-800/50 hover:border-green-600 transition-all duration-300">
-                        <motion.div
-                          whileHover={{ scale: 1.1, rotate: 360 }}
-                          transition={{ duration: 0.6 }}
-                          className="flex-shrink-0 p-3 bg-green-600/80 rounded-xl text-white"
-                        >
-                          <ChartSpline className="w-6 h-6" />
-                        </motion.div>
-                        <div className="flex-1">
-                          <h3 className="text-lg font-bold text-green-400 mb-2">
-                            4. Review Analysis Results
-                          </h3>
-                          <p className="text-gray-300 mb-3">
-                            The right panel shows comprehensive analysis with:
-                          </p>
-                          <div className="flex flex-wrap gap-2 mb-2">
-                            <Badge className="bg-gray-700 text-green-300 border-green-600">
-                              Annotated Prompt
-                            </Badge>
-                            <Badge className="bg-gray-700 text-green-300 border-green-600">
-                              Risk Scores
-                            </Badge>
-                            <Badge className="bg-gray-700 text-green-300 border-green-600">
-                              Token Details
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-gray-400">
-                            💡 Use filter buttons to show/hide risk levels: <span className="text-red-400">Critical</span>, <span className="text-orange-400">High</span>, <span className="text-yellow-400">Medium</span>
+                        
+                        <div className="bg-gradient-to-r from-purple-500/10 to-purple-600/5 rounded-2xl p-5 border border-purple-500/30">
+                          <p className="text-gray-300 text-center">
+                            🎉 <strong className="text-white">That's it!</strong> You're ready to use Echo like a pro.
                           </p>
                         </div>
-                      </div>
-                    </motion.div>
-
-                    {/* Section 5: Conversational Agent */}
-                    <motion.div
-                      initial={{ x: -50, opacity: 0 }}
-                      animate={{ x: 0, opacity: 1 }}
-                      transition={{ delay: 0.3 }}
-                      className="group"
-                    >
-                      <div className="flex items-start gap-4 p-4 rounded-xl border border-gray-700 bg-gray-800/50 hover:border-pink-600 transition-all duration-300">
-                        <motion.div
-                          whileHover={{ scale: 1.1 }}
-                          className="flex-shrink-0 p-3 bg-pink-600/80 rounded-xl text-white"
-                        >
-                          <MessageSquare className="w-6 h-6" />
-                        </motion.div>
-                        <div className="flex-1">
-                          <h3 className="text-lg font-bold text-pink-400 mb-2">
-                            5. Chat with AI Assistant
-                          </h3>
-                          <p className="text-gray-300 mb-3">
-                            After analysis, an AI assistant provides an initial rewrite. Continue the conversation to:
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            <Badge className="bg-gray-700 text-pink-300 border-pink-600">
-                              Ask questions
-                            </Badge>
-                            <Badge className="bg-gray-700 text-pink-300 border-pink-600">
-                              Request changes
-                            </Badge>
-                            <Badge className="bg-gray-700 text-pink-300 border-pink-600">
-                              Get explanations
-                            </Badge>
-                            <Badge className="bg-gray-700 text-pink-300 border-pink-600">
-                              Iterative refinement
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-
-                    {/* Section 6: Re-Analysis */}
-                    <motion.div
-                      initial={{ x: -50, opacity: 0 }}
-                      animate={{ x: 0, opacity: 1 }}
-                      transition={{ delay: 0.35 }}
-                      className="group"
-                    >
-                      <div className="flex items-start gap-4 p-4 rounded-xl border border-gray-700 bg-gray-800/50 hover:border-yellow-600 transition-all duration-300">
-                        <motion.div
-                          whileHover={{ scale: 1.1 }}
-                          animate={{ rotate: [0, 5, -5, 0] }}
-                          transition={{ duration: 2, repeat: Infinity }}
-                          className="flex-shrink-0 p-3 bg-yellow-600/80 rounded-xl text-white"
-                        >
-                          <Zap className="w-6 h-6" />
-                        </motion.div>
-                        <div className="flex-1">
-                          <h3 className="text-lg font-bold text-yellow-400 mb-2">
-                            6. Re-Analyze with Refinements
-                          </h3>
-                          <p className="text-gray-300 mb-3">
-                            Click <strong className="text-white">Re-Analyze</strong> to generate a refined prompt based on your conversation:
-                          </p>
-                          <div className="space-y-2 text-sm text-gray-300">
-                            <div className="flex items-start gap-2">
-                              <span className="text-yellow-400">1.</span>
-                              <span>Add optional changes you want to see</span>
-                            </div>
-                            <div className="flex items-start gap-2">
-                              <span className="text-yellow-400">2.</span>
-                              <span>Click <strong className="text-white">Generate Preview</strong> to see the refined prompt</span>
-                            </div>
-                            <div className="flex items-start gap-2">
-                              <span className="text-yellow-400">3.</span>
-                              <span>Review and click <strong className="text-white">Confirm & Re-Analyze</strong></span>
-                            </div>
-                            <div className="flex items-start gap-2">
-                              <span className="text-yellow-400">4.</span>
-                              <span>Watch the same 5-checkpoint loading animation</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-
-                    {/* Quick Tips */}
-                    <motion.div
-                      initial={{ y: 50, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      transition={{ delay: 0.4 }}
-                      className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 p-4 rounded-xl border border-purple-600/50"
-                    >
-                      <h3 className="font-bold text-purple-400 mb-3 flex items-center gap-2">
-                        <Sparkles className="w-5 h-5" />
-                        Pro Tips
-                      </h3>
-                      <ul className="space-y-2 text-sm text-gray-300">
-                        <li className="flex items-start gap-2">
-                          <span className="text-purple-400">💡</span>
-                          <span>The loading dialog shows real-time progress through 5 analysis stages</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-purple-400">💡</span>
-                          <span>Conversation context is automatically included in re-analysis</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-purple-400">💡</span>
-                          <span>Expand token cards to see detailed reasoning and mitigation strategies</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-purple-400">💡</span>
-                          <span>Use the sidebar to access guidelines library and export results</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-purple-400">💡</span>
-                          <span>Switch between light/dark mode using the theme toggle</span>
-                        </li>
-                      </ul>
-                    </motion.div>
-                  </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
-                {/* Footer */}
-                <div className="border-t border-gray-700 dark:border-gray-800 p-4 bg-gray-800 dark:bg-gray-900">
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setShowHelpGuide(false)}
-                    className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-semibold transition-all duration-300"
-                  >
-                    Got it! Let's get started
-                  </motion.button>
+                {/* Footer Navigation */}
+                <div className="border-t border-gray-700/50 p-6 bg-gray-900/50">
+                  <div className="flex items-center justify-between">
+                    <Button
+                      variant="outline"
+                      onClick={() => setGuideStep(Math.max(0, guideStep - 1))}
+                      disabled={guideStep === 0}
+                      className="bg-transparent border-gray-600 text-gray-300 hover:bg-white/5 hover:border-gray-500 disabled:opacity-30"
+                    >
+                      Previous
+                    </Button>
+                    
+                    <p className="text-gray-500 text-sm">
+                      Step {guideStep + 1} of 6
+                    </p>
+                    
+                    {guideStep < 5 ? (
+                      <Button
+                        onClick={() => setGuideStep(guideStep + 1)}
+                        className="bg-purple-600 hover:bg-purple-500 text-white"
+                      >
+                        Next Step
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={() => { setShowHelpGuide(false); setGuideStep(0); }}
+                        className="bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white"
+                      >
+                        Get Started
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </motion.div>
             </motion.div>
@@ -1065,7 +1127,7 @@ function App() {
                       </div>
                       <div className="flex items-center justify-end mb-2">
                         <button 
-                          className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm flex items-center gap-1"
+                          className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 text-sm flex items-center gap-1"
                           onClick={() => setAnalysisResultsExpanded(!analysisResultsExpanded)}
                         >
                           {analysisResultsExpanded ? (
@@ -1102,13 +1164,13 @@ function App() {
                             initial={{ opacity: 0, y: -10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.4 }}
-                            className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700"
+                            className="mb-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-700"
                           >
                             <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed mb-3">
-                              <strong className="text-blue-700 dark:text-blue-300">Prompt Risk Density (PRD)</strong> quantifies the concentration of hallucination-inducing patterns in your prompt. 
+                              <strong className="text-purple-700 dark:text-purple-300">Prompt Risk Density (PRD)</strong> quantifies the concentration of hallucination-inducing patterns in your prompt. 
                               It's calculated as the sum of severity-weighted violations divided by total tokens:
                             </p>
-                            <div className="flex items-center justify-center gap-3 py-3 px-4 bg-white dark:bg-gray-800/50 rounded border border-blue-300 dark:border-blue-600 mb-3">
+                            <div className="flex items-center justify-center gap-3 py-3 px-4 bg-white dark:bg-gray-800/50 rounded border border-purple-300 dark:border-purple-600 mb-3">
                               <span className="text-lg font-semibold text-gray-800 dark:text-gray-200">
                                 PRD =
                               </span>
@@ -1532,7 +1594,7 @@ function App() {
                             High Risk Tokens ({analysis.risk_tokens.length})
                           </h4>
                           <button 
-                            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm flex items-center gap-1"
+                            className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 text-sm flex items-center gap-1"
                             onClick={() => setTokensExpanded(!tokensExpanded)}
                           >
                             {tokensExpanded ? (
@@ -1627,7 +1689,7 @@ function App() {
                                     {/* Classification Section */}
                                     <div className="flex gap-3">
                                       <div className="flex-shrink-0 mt-0.5">
-                                        <Tag className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                        <Tag className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                                       </div>
                                       <div>
                                         <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1">Classification</div>

@@ -336,8 +336,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onReanal
                 }}
                 className="w-20 h-20 mx-auto mb-6 relative"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/30 to-blue-500/30 rounded-full blur-xl animate-pulse"></div>
-                <div className="relative w-full h-full bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center shadow-2xl p-4">
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/30 to-purple-400/30 rounded-full blur-xl animate-pulse"></div>
+                <div className="relative w-full h-full bg-gradient-to-br from-purple-600 to-purple-700 rounded-full flex items-center justify-center shadow-2xl p-4">
                   <img 
                     src="/logo.png" 
                     alt="Echo AI Logo" 
@@ -350,7 +350,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onReanal
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="text-2xl font-bold mb-3 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent"
+                className="text-2xl font-bold mb-3 bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent"
               >
                 Welcome to Echo AI
               </motion.h3>
@@ -397,7 +397,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onReanal
                 transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
                 className="w-16 h-16 mx-auto mb-6"
               >
-                <div className="w-full h-full bg-gradient-to-r from-purple-600 to-blue-600 rounded-full flex items-center justify-center">
+                <div className="w-full h-full bg-gradient-to-br from-purple-600 to-purple-700 rounded-full flex items-center justify-center">
                   <Brain className="w-8 h-8 text-white" />
                 </div>
               </motion.div>
@@ -407,7 +407,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onReanal
                   {[0, 1, 2].map((i) => (
                     <motion.div
                       key={i}
-                      className="w-2 h-2 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full"
+                      className="w-2 h-2 bg-gradient-to-r from-purple-500 to-purple-600 rounded-full"
                       animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}
                       transition={{ 
                         duration: 1.5, 
@@ -419,7 +419,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onReanal
                 </motion.div>
               </div>
               
-              <p className="text-lg font-medium bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+              <p className="text-lg font-medium bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
                 Analyzing your prompt...
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
@@ -444,7 +444,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onReanal
                     transition={{ type: "spring", stiffness: 400, damping: 25 }}
                     className={`${
                       message.role === 'user'
-                        ? 'px-4 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg shadow-purple-500/20 ml-auto max-w-fit'
+                        ? 'px-4 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/20 ml-auto max-w-fit'
                         : 'p-4 rounded-2xl bg-white/80 dark:bg-gray-800/80 border border-gray-200/60 dark:border-gray-700/60 shadow-lg backdrop-blur-sm shadow-gray-500/10'
                     }`}
                   >
@@ -588,7 +588,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onReanal
             <Button
               onClick={handleSend}
               disabled={!inputMessage.trim() || isLoading || isTyping || messages.length === 0}
-              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 w-[44px] h-[44px] rounded-2xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center p-0"
+              className="bg-gradient-to-br from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 w-[44px] h-[44px] rounded-2xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center p-0"
             >
               <Send className="w-4 h-4" />
             </Button>
@@ -602,7 +602,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onReanal
           transition={{ delay: 0.5 }}
           className="text-xs text-gray-500 dark:text-gray-400 text-center mt-3"
         >
-          <span className="font-medium bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">Echo AI</span> - 
+          <span className="font-medium text-purple-600 dark:text-purple-400">Echo AI</span> - 
           <span className="ml-1">Intelligent prompt analysis may contain inaccuracies</span>
         </motion.div>
       </motion.div>
