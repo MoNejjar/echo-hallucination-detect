@@ -62,7 +62,7 @@ Echo implements a **shift-left methodology** — tackling hallucinations *before
 
 | Insight | Implication |
 |---------|-------------|
-| **Market leaders are improving** | Closed-source models (GPT-4, Claude) are becoming robust against *factuality* hallucinations through better training and refusal mechanisms |
+| **Market leaders are improving** | Closed-source models (GPT-5, Claude) are becoming robust against *factuality* hallucinations through better training and refusal mechanisms |
 | **Faithfulness remains tricky** | *Faithfulness* hallucinations (contradicting user-provided context) are NOT solved by model improvements — they stem from how users formulate prompts |
 | **Accessibility gap** | Smaller, open-source models produce more hallucinations. Better prompts can bridge this gap, making robust AI more accessible without relying on expensive closed-source APIs |
 | **User-sided factors are controllable** | Unlike model architecture or training data, prompt quality is something users can directly improve |
@@ -469,7 +469,7 @@ flowchart TB
     end
     
     subgraph External["☁️ External Services"]
-        OpenAI[OpenAI GPT-4]
+        OpenAI[OpenAI GPT-5]
         Guidelines[XML Guidelines]
     end
     
@@ -509,7 +509,7 @@ flowchart TB
 | **Backend** | FastAPI | High-performance async API |
 | | Pydantic | Data validation & serialization |
 | | Python 3.13+ | Modern Python features |
-| **AI/ML** | OpenAI GPT-4 | LLM inference |
+| **AI/ML** | OpenAI GPT-5 | LLM inference |
 | | XML Guidelines | Structured analysis rules |
 | **Infrastructure** | Server-Sent Events | Real-time streaming |
 | | CORS | Cross-origin security |
@@ -666,7 +666,7 @@ interface AnalysisResponse {
 
 - **Python** 3.13+
 - **Node.js** 18+
-- **OpenAI API Key** with GPT-4 access
+- **OpenAI API Key** with GPT-5 access
 
 ### Installation
 
