@@ -442,7 +442,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, onReanal
                         <div 
                           className={`text-sm leading-relaxed ${
                             message.role === 'user' 
-                              ? 'text-white [&_strong]:text-white [&_em]:text-white [&_code]:text-white [&_code]:bg-white/20 [&_a]:text-white [&_a]:underline' 
+                              ? 'text-white [&_*]:!text-white [&_code]:!bg-white/20 [&_code]:!border-white/30' 
                               : 'text-gray-900 dark:text-gray-100 [&_a]:text-blue-600 dark:[&_a]:text-blue-400 [&_a]:hover:underline'
                           }`}
                           dangerouslySetInnerHTML={formatMessage(message.content)}

@@ -1206,6 +1206,11 @@ function App() {
                               const promptPercentage = Math.min((promptPRD / maxDisplay) * 100, 100);
                               const metaPercentage = Math.min((metaPRD / maxDisplay) * 100, 100);
                               
+                              // Check if values are close enough to overlap (within 8% of gauge width)
+                              const valuesOverlap = Math.abs(promptPercentage - metaPercentage) < 8;
+                              // Determine which one is higher to decide label positioning
+                              const promptIsHigher = promptPercentage >= metaPercentage;
+                              
                               return (
                                 <div className="space-y-4">
                                   <div className="relative">
@@ -1227,15 +1232,27 @@ function App() {
                                       animate={{ left: `${promptPercentage}%`, opacity: 1 }}
                                       transition={{ delay: 0.4, duration: 1, type: "spring", stiffness: 100 }}
                                       className="absolute top-0 bottom-0 transform -translate-x-1/2"
-                                      style={{ left: `${promptPercentage}%` }}
+                                      style={{ left: `${promptPercentage}%`, zIndex: promptIsHigher ? 20 : 10 }}
                                     >
                                       <div className="relative h-full">
-                                        <div className="absolute inset-y-0 w-1.5 bg-rose-600 dark:bg-rose-400" style={{ 
-                                          boxShadow: '0 0 12px rgba(225, 29, 72, 0.6)' 
+                                        <div className="absolute inset-y-0 w-1.5 bg-rose-600 dark:bg-rose-400 rounded-full" style={{ 
+                                          boxShadow: '0 0 12px rgba(225, 29, 72, 0.6)',
+                                          marginLeft: valuesOverlap && !promptIsHigher ? '-4px' : '0px'
                                         }}></div>
-                                        <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 px-1.5 py-0.5 bg-rose-600 dark:bg-rose-500 text-white text-[10px] font-bold rounded shadow-lg whitespace-nowrap">
+                                        <div 
+                                          className="absolute left-1/2 transform -translate-x-1/2 px-1.5 py-0.5 bg-rose-600 dark:bg-rose-500 text-white text-[10px] font-bold rounded shadow-lg whitespace-nowrap border border-rose-400 dark:border-rose-300"
+                                          style={{ 
+                                            top: valuesOverlap ? '-28px' : 'auto',
+                                            bottom: valuesOverlap ? 'auto' : '-24px',
+                                            zIndex: 30
+                                          }}
+                                        >
                                           {promptPRD.toFixed(4)}
                                         </div>
+                                        {/* Connecting line when label is on top */}
+                                        {valuesOverlap && (
+                                          <div className="absolute left-1/2 transform -translate-x-1/2 w-0.5 bg-rose-600 dark:bg-rose-400" style={{ top: '-12px', height: '12px' }}></div>
+                                        )}
                                       </div>
                                     </motion.div>
                                     
@@ -1245,21 +1262,28 @@ function App() {
                                       animate={{ left: `${metaPercentage}%`, opacity: 1 }}
                                       transition={{ delay: 0.6, duration: 1, type: "spring", stiffness: 100 }}
                                       className="absolute top-0 bottom-0 transform -translate-x-1/2"
-                                      style={{ left: `${metaPercentage}%` }}
+                                      style={{ left: `${metaPercentage}%`, zIndex: promptIsHigher ? 10 : 20 }}
                                     >
                                       <div className="relative h-full">
-                                        <div className="absolute inset-y-0 w-1.5 bg-teal-600 dark:bg-teal-400" style={{ 
-                                          boxShadow: '0 0 12px rgba(13, 148, 136, 0.6)' 
+                                        <div className="absolute inset-y-0 w-1.5 bg-teal-600 dark:bg-teal-400 rounded-full" style={{ 
+                                          boxShadow: '0 0 12px rgba(13, 148, 136, 0.6)',
+                                          marginLeft: valuesOverlap && promptIsHigher ? '-4px' : '0px'
                                         }}></div>
-                                        <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 px-1.5 py-0.5 bg-teal-600 dark:bg-teal-500 text-white text-[10px] font-bold rounded shadow-lg whitespace-nowrap">
+                                        <div 
+                                          className="absolute left-1/2 transform -translate-x-1/2 px-1.5 py-0.5 bg-teal-600 dark:bg-teal-500 text-white text-[10px] font-bold rounded shadow-lg whitespace-nowrap border border-teal-400 dark:border-teal-300"
+                                          style={{ 
+                                            bottom: '-24px',
+                                            zIndex: 30
+                                          }}
+                                        >
                                           {metaPRD.toFixed(4)}
                                         </div>
                                       </div>
                                     </motion.div>
                                   </div>
                                   
-                                  {/* Legend */}
-                                  <div className="flex items-center justify-center gap-4 pt-8 text-xs">
+                                  {/* Legend - adjusted padding for potential top label */}
+                                  <div className={`flex items-center justify-center gap-4 text-xs ${valuesOverlap ? 'pt-10' : 'pt-8'}`}>
                                     <div className="flex items-center gap-2">
                                       <div className="w-3 h-3 bg-rose-600 dark:bg-rose-400 rounded-sm shadow-sm"></div>
                                       <span className="text-gray-700 dark:text-gray-300">
