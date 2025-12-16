@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="client/public/logo.png" alt="Echo Logo" width="210" height="210">
+<img src="client/public/logo.png" alt="Echo Logo" width="350" height="350">
 
 # Echo
 
