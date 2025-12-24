@@ -591,13 +591,12 @@ function App() {
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.9, opacity: 0, y: 30 }}
                 transition={{ type: "spring", damping: 25, stiffness: 400 }}
-                className="bg-gradient-to-br from-gray-900 via-gray-900 to-purple-950/50 rounded-3xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col border border-purple-500/20"
+                className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col border border-gray-200 dark:border-purple-500/20"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Header with Step Indicator */}
                 <div className="relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 via-purple-500/10 to-transparent"></div>
-                  <div className="relative px-8 py-6 border-b border-gray-700/50">
+                  <div className="relative px-8 py-6 border-b border-gray-200 dark:border-gray-700/50">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-4">
                         <div className="relative">
@@ -607,13 +606,13 @@ function App() {
                           </div>
                         </div>
                         <div>
-                          <h2 className="text-2xl font-bold text-white">How to Use Echo</h2>
-                          <p className="text-purple-300/70 text-sm">Interactive step-by-step guide</p>
+                          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">How to Use Echo</h2>
+                          <p className="text-purple-600/70 dark:text-purple-300/70 text-sm">Interactive step-by-step guide</p>
                         </div>
                       </div>
                       <button
                         onClick={() => { setShowHelpGuide(false); setGuideStep(0); }}
-                        className="p-2 hover:bg-white/10 rounded-xl transition-colors text-gray-400 hover:text-white"
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-xl transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                       >
                         <X className="w-6 h-6" />
                       </button>
@@ -630,7 +629,7 @@ function App() {
                               ? 'w-8 h-2 bg-purple-500 rounded-full' 
                               : step < guideStep 
                                 ? 'w-2 h-2 bg-purple-400 rounded-full'
-                                : 'w-2 h-2 bg-gray-600 rounded-full hover:bg-gray-500'
+                                : 'w-2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full hover:bg-gray-400 dark:hover:bg-gray-500'
                           }`}
                         />
                       ))}
@@ -652,37 +651,37 @@ function App() {
                         className="space-y-6"
                       >
                         <div className="flex items-center gap-4">
-                          <div className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-2xl flex items-center justify-center border border-purple-500/30">
-                            <ScrollText className="w-8 h-8 text-purple-400" />
+                          <div className="w-16 h-16 bg-purple-100 dark:bg-gradient-to-br dark:from-purple-500/20 dark:to-purple-600/20 rounded-2xl flex items-center justify-center border border-purple-300 dark:border-purple-500/30">
+                            <ScrollText className="w-8 h-8 text-purple-600 dark:text-purple-400" />
                           </div>
                           <div>
-                            <p className="text-purple-400 text-sm font-medium uppercase tracking-wider">Step 1 of 6</p>
-                            <h3 className="text-2xl font-bold text-white">Write Your Prompt</h3>
+                            <p className="text-purple-600 dark:text-purple-400 text-sm font-medium uppercase tracking-wider">Step 1 of 6</p>
+                            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Write Your Prompt</h3>
                           </div>
                         </div>
                         
-                        <p className="text-gray-300 text-lg leading-relaxed">
+                        <p className="text-gray-600 dark:text-gray-300 text-lg leading-relaxed">
                           Start by entering the prompt you want to analyze in the editor on the left. Echo will examine it for patterns that might lead AI models to hallucinate.
                         </p>
                         
-                        <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50 space-y-4">
+                        <div className="bg-gray-100 dark:bg-gray-800/50 rounded-2xl p-6 border border-gray-200 dark:border-gray-700/50 space-y-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
-                              <span className="text-purple-400 font-bold">3+</span>
+                            <div className="w-8 h-8 bg-purple-100 dark:bg-purple-500/20 rounded-lg flex items-center justify-center">
+                              <span className="text-purple-600 dark:text-purple-400 font-bold">3+</span>
                             </div>
-                            <p className="text-gray-300">Minimum <strong className="text-white">3 tokens</strong> required to enable analysis</p>
+                            <p className="text-gray-600 dark:text-gray-300">Minimum <strong className="text-gray-900 dark:text-white">3 tokens</strong> required to enable analysis</p>
                           </div>
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
-                              <Sparkles className="w-4 h-4 text-purple-400" />
+                            <div className="w-8 h-8 bg-purple-100 dark:bg-purple-500/20 rounded-lg flex items-center justify-center">
+                              <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                             </div>
-                            <p className="text-gray-300">Supports <strong className="text-white">markdown formatting</strong> in preview mode</p>
+                            <p className="text-gray-600 dark:text-gray-300">Supports <strong className="text-gray-900 dark:text-white">markdown formatting</strong> in preview mode</p>
                           </div>
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
-                              <FileText className="w-4 h-4 text-purple-400" />
+                            <div className="w-8 h-8 bg-purple-100 dark:bg-purple-500/20 rounded-lg flex items-center justify-center">
+                              <FileText className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                             </div>
-                            <p className="text-gray-300">Upload <strong className="text-white">.txt or .md files</strong> via the sidebar</p>
+                            <p className="text-gray-600 dark:text-gray-300">Upload <strong className="text-gray-900 dark:text-white">.txt or .md files</strong> via the sidebar</p>
                           </div>
                         </div>
                       </motion.div>
@@ -699,43 +698,43 @@ function App() {
                         className="space-y-6"
                       >
                         <div className="flex items-center gap-4">
-                          <div className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-2xl flex items-center justify-center border border-purple-500/30">
-                            <Target className="w-8 h-8 text-purple-400" />
+                          <div className="w-16 h-16 bg-purple-100 dark:bg-gradient-to-br dark:from-purple-500/20 dark:to-purple-600/20 rounded-2xl flex items-center justify-center border border-purple-300 dark:border-purple-500/30">
+                            <Target className="w-8 h-8 text-purple-600 dark:text-purple-400" />
                           </div>
                           <div>
-                            <p className="text-purple-400 text-sm font-medium uppercase tracking-wider">Step 2 of 6</p>
-                            <h3 className="text-2xl font-bold text-white">Choose Analysis Mode</h3>
+                            <p className="text-purple-600 dark:text-purple-400 text-sm font-medium uppercase tracking-wider">Step 2 of 6</p>
+                            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Choose Analysis Mode</h3>
                           </div>
                         </div>
                         
-                        <p className="text-gray-300 text-lg leading-relaxed">
+                        <p className="text-gray-600 dark:text-gray-300 text-lg leading-relaxed">
                           Select how you want Echo to analyze your prompt. Each mode focuses on different types of hallucination risks.
                         </p>
                         
                         <div className="space-y-4">
-                          <div className="bg-gradient-to-r from-orange-500/10 to-orange-600/5 rounded-2xl p-5 border border-orange-500/30 hover:border-orange-400/50 transition-colors">
+                          <div className="bg-orange-50 dark:bg-gradient-to-r dark:from-orange-500/10 dark:to-orange-600/5 rounded-2xl p-5 border border-orange-200 dark:border-orange-500/30 hover:border-orange-300 dark:hover:border-orange-400/50 transition-colors">
                             <div className="flex items-center gap-3 mb-2">
                               <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                              <h4 className="text-orange-400 font-bold text-lg">Faithfulness</h4>
+                              <h4 className="text-orange-600 dark:text-orange-400 font-bold text-lg">Faithfulness</h4>
                             </div>
-                            <p className="text-gray-300">Checks for <strong className="text-white">internal consistency</strong> — contradictions, ambiguous references, and logical conflicts within your prompt.</p>
+                            <p className="text-gray-600 dark:text-gray-300">Checks for <strong className="text-gray-900 dark:text-white">internal consistency</strong> — contradictions, ambiguous references, and logical conflicts within your prompt.</p>
                           </div>
                           
-                          <div className="bg-gradient-to-r from-green-500/10 to-green-600/5 rounded-2xl p-5 border border-green-500/30 hover:border-green-400/50 transition-colors">
+                          <div className="bg-green-50 dark:bg-gradient-to-r dark:from-green-500/10 dark:to-green-600/5 rounded-2xl p-5 border border-green-200 dark:border-green-500/30 hover:border-green-300 dark:hover:border-green-400/50 transition-colors">
                             <div className="flex items-center gap-3 mb-2">
                               <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                              <h4 className="text-green-400 font-bold text-lg">Factuality</h4>
+                              <h4 className="text-green-600 dark:text-green-400 font-bold text-lg">Factuality</h4>
                             </div>
-                            <p className="text-gray-300">Verifies <strong className="text-white">external accuracy</strong> — claims, facts, and references that might not align with real-world knowledge.</p>
+                            <p className="text-gray-600 dark:text-gray-300">Verifies <strong className="text-gray-900 dark:text-white">external accuracy</strong> — claims, facts, and references that might not align with real-world knowledge.</p>
                           </div>
                           
-                          <div className="bg-gradient-to-r from-purple-500/10 to-purple-600/5 rounded-2xl p-5 border border-purple-500/30 hover:border-purple-400/50 transition-colors">
+                          <div className="bg-purple-50 dark:bg-gradient-to-r dark:from-purple-500/10 dark:to-purple-600/5 rounded-2xl p-5 border border-purple-200 dark:border-purple-500/30 hover:border-purple-300 dark:hover:border-purple-400/50 transition-colors">
                             <div className="flex items-center gap-3 mb-2">
                               <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-                              <h4 className="text-purple-400 font-bold text-lg">Comprehensive</h4>
+                              <h4 className="text-purple-600 dark:text-purple-400 font-bold text-lg">Comprehensive</h4>
                               <Badge className="bg-purple-600 text-white text-xs ml-auto">Recommended</Badge>
                             </div>
-                            <p className="text-gray-300">Combines both modes for <strong className="text-white">complete coverage</strong> of all hallucination risk types.</p>
+                            <p className="text-gray-600 dark:text-gray-300">Combines both modes for <strong className="text-gray-900 dark:text-white">complete coverage</strong> of all hallucination risk types.</p>
                           </div>
                         </div>
                       </motion.div>
@@ -752,22 +751,22 @@ function App() {
                         className="space-y-6"
                       >
                         <div className="flex items-center gap-4">
-                          <div className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-2xl flex items-center justify-center border border-purple-500/30">
+                          <div className="w-16 h-16 bg-purple-100 dark:bg-gradient-to-br dark:from-purple-500/20 dark:to-purple-600/20 rounded-2xl flex items-center justify-center border border-purple-300 dark:border-purple-500/30">
                             <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }}>
-                              <Loader2 className="w-8 h-8 text-purple-400" />
+                              <Loader2 className="w-8 h-8 text-purple-600 dark:text-purple-400" />
                             </motion.div>
                           </div>
                           <div>
-                            <p className="text-purple-400 text-sm font-medium uppercase tracking-wider">Step 3 of 6</p>
-                            <h3 className="text-2xl font-bold text-white">Watch the Analysis</h3>
+                            <p className="text-purple-600 dark:text-purple-400 text-sm font-medium uppercase tracking-wider">Step 3 of 6</p>
+                            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Watch the Analysis</h3>
                           </div>
                         </div>
                         
-                        <p className="text-gray-300 text-lg leading-relaxed">
-                          After clicking Analyze, watch as Echo's multi-agent system processes your prompt through <strong className="text-white">5 stages</strong>.
+                        <p className="text-gray-600 dark:text-gray-300 text-lg leading-relaxed">
+                          After clicking Analyze, watch as Echo's multi-agent system processes your prompt through <strong className="text-gray-900 dark:text-white">5 stages</strong>.
                         </p>
                         
-                        <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50">
+                        <div className="bg-gray-100 dark:bg-gray-800/50 rounded-2xl p-6 border border-gray-200 dark:border-gray-700/50">
                           <div className="space-y-4">
                             {[
                               { icon: '📖', title: 'Reading', desc: 'Parsing prompt structure and content' },
@@ -776,14 +775,14 @@ function App() {
                               { icon: '✅', title: 'Finalizing', desc: 'Compiling analysis results' },
                               { icon: '💬', title: 'Summarizing', desc: 'Preparing context for AI conversation' }
                             ].map((stage, i) => (
-                              <div key={i} className="flex items-center gap-4 p-3 bg-gray-900/50 rounded-xl">
+                              <div key={i} className="flex items-center gap-4 p-3 bg-white dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-transparent">
                                 <span className="text-2xl">{stage.icon}</span>
                                 <div className="flex-1">
-                                  <p className="text-white font-medium">{stage.title}</p>
-                                  <p className="text-gray-400 text-sm">{stage.desc}</p>
+                                  <p className="text-gray-900 dark:text-white font-medium">{stage.title}</p>
+                                  <p className="text-gray-500 dark:text-gray-400 text-sm">{stage.desc}</p>
                                 </div>
-                                <div className="w-8 h-8 bg-purple-500/20 rounded-full flex items-center justify-center">
-                                  <span className="text-purple-400 font-bold text-sm">{i + 1}</span>
+                                <div className="w-8 h-8 bg-purple-100 dark:bg-purple-500/20 rounded-full flex items-center justify-center">
+                                  <span className="text-purple-600 dark:text-purple-400 font-bold text-sm">{i + 1}</span>
                                 </div>
                               </div>
                             ))}
@@ -803,37 +802,37 @@ function App() {
                         className="space-y-6"
                       >
                         <div className="flex items-center gap-4">
-                          <div className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-2xl flex items-center justify-center border border-purple-500/30">
-                            <ChartSpline className="w-8 h-8 text-purple-400" />
+                          <div className="w-16 h-16 bg-purple-100 dark:bg-gradient-to-br dark:from-purple-500/20 dark:to-purple-600/20 rounded-2xl flex items-center justify-center border border-purple-300 dark:border-purple-500/30">
+                            <ChartSpline className="w-8 h-8 text-purple-600 dark:text-purple-400" />
                           </div>
                           <div>
-                            <p className="text-purple-400 text-sm font-medium uppercase tracking-wider">Step 4 of 6</p>
-                            <h3 className="text-2xl font-bold text-white">Review Analysis Results</h3>
+                            <p className="text-purple-600 dark:text-purple-400 text-sm font-medium uppercase tracking-wider">Step 4 of 6</p>
+                            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Review Analysis Results</h3>
                           </div>
                         </div>
                         
-                        <p className="text-gray-300 text-lg leading-relaxed">
+                        <p className="text-gray-600 dark:text-gray-300 text-lg leading-relaxed">
                           The analysis panel on the right shows your annotated prompt with highlighted risks, PRD scores, and detailed token breakdowns.
                         </p>
                         
                         <div className="grid grid-cols-3 gap-4 mb-4">
-                          <div className="bg-red-500/10 rounded-xl p-4 border border-red-500/30 text-center">
-                            <p className="text-red-400 font-bold text-lg">Critical</p>
-                            <p className="text-gray-400 text-sm">Severe risks</p>
+                          <div className="bg-red-50 dark:bg-red-500/10 rounded-xl p-4 border border-red-200 dark:border-red-500/30 text-center">
+                            <p className="text-red-600 dark:text-red-400 font-bold text-lg">Critical</p>
+                            <p className="text-gray-500 dark:text-gray-400 text-sm">Severe risks</p>
                           </div>
-                          <div className="bg-orange-500/10 rounded-xl p-4 border border-orange-500/30 text-center">
-                            <p className="text-orange-400 font-bold text-lg">High</p>
-                            <p className="text-gray-400 text-sm">Important risks</p>
+                          <div className="bg-orange-50 dark:bg-orange-500/10 rounded-xl p-4 border border-orange-200 dark:border-orange-500/30 text-center">
+                            <p className="text-orange-600 dark:text-orange-400 font-bold text-lg">High</p>
+                            <p className="text-gray-500 dark:text-gray-400 text-sm">Important risks</p>
                           </div>
-                          <div className="bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/30 text-center">
-                            <p className="text-yellow-400 font-bold text-lg">Medium</p>
-                            <p className="text-gray-400 text-sm">Moderate risks</p>
+                          <div className="bg-yellow-50 dark:bg-yellow-500/10 rounded-xl p-4 border border-yellow-200 dark:border-yellow-500/30 text-center">
+                            <p className="text-yellow-600 dark:text-yellow-400 font-bold text-lg">Medium</p>
+                            <p className="text-gray-500 dark:text-gray-400 text-sm">Moderate risks</p>
                           </div>
                         </div>
                         
-                        <div className="bg-gray-800/50 rounded-2xl p-5 border border-gray-700/50">
-                          <p className="text-gray-300">
-                            <strong className="text-purple-400">💡 Pro tip:</strong> Click on highlighted tokens to expand and see detailed explanations and mitigation strategies.
+                        <div className="bg-gray-100 dark:bg-gray-800/50 rounded-2xl p-5 border border-gray-200 dark:border-gray-700/50">
+                          <p className="text-gray-600 dark:text-gray-300">
+                            <strong className="text-purple-600 dark:text-purple-400">💡 Pro tip:</strong> Click on highlighted tokens to expand and see detailed explanations and mitigation strategies.
                           </p>
                         </div>
                       </motion.div>
@@ -850,33 +849,33 @@ function App() {
                         className="space-y-6"
                       >
                         <div className="flex items-center gap-4">
-                          <div className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-2xl flex items-center justify-center border border-purple-500/30">
-                            <MessageSquare className="w-8 h-8 text-purple-400" />
+                          <div className="w-16 h-16 bg-purple-100 dark:bg-gradient-to-br dark:from-purple-500/20 dark:to-purple-600/20 rounded-2xl flex items-center justify-center border border-purple-300 dark:border-purple-500/30">
+                            <MessageSquare className="w-8 h-8 text-purple-600 dark:text-purple-400" />
                           </div>
                           <div>
-                            <p className="text-purple-400 text-sm font-medium uppercase tracking-wider">Step 5 of 6</p>
-                            <h3 className="text-2xl font-bold text-white">Chat with Echo AI</h3>
+                            <p className="text-purple-600 dark:text-purple-400 text-sm font-medium uppercase tracking-wider">Step 5 of 6</p>
+                            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Chat with Echo AI</h3>
                           </div>
                         </div>
                         
-                        <p className="text-gray-300 text-lg leading-relaxed">
-                          After analysis, Echo's AI assistant provides an initial prompt rewrite and explanation. Use the chat to <strong className="text-white">iteratively refine</strong> your prompt.
+                        <p className="text-gray-600 dark:text-gray-300 text-lg leading-relaxed">
+                          After analysis, Echo's AI assistant provides an initial prompt rewrite and explanation. Use the chat to <strong className="text-gray-900 dark:text-white">iteratively refine</strong> your prompt.
                         </p>
                         
-                        <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50 space-y-4">
-                          <p className="text-gray-400 text-sm uppercase tracking-wider font-medium">You can ask Echo to:</p>
+                        <div className="bg-gray-100 dark:bg-gray-800/50 rounded-2xl p-6 border border-gray-200 dark:border-gray-700/50 space-y-4">
+                          <p className="text-gray-500 dark:text-gray-400 text-sm uppercase tracking-wider font-medium">You can ask Echo to:</p>
                           <div className="flex flex-wrap gap-2">
                             {['Explain specific risks', 'Suggest alternatives', 'Clarify recommendations', 'Rewrite sections', 'Provide examples'].map((item) => (
-                              <Badge key={item} className="bg-purple-500/20 text-purple-300 border-purple-500/30 py-1.5 px-3">
+                              <Badge key={item} className="bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-500/30 py-1.5 px-3">
                                 {item}
                               </Badge>
                             ))}
                           </div>
                         </div>
                         
-                        <div className="bg-purple-500/10 rounded-2xl p-5 border border-purple-500/30">
-                          <p className="text-gray-300">
-                            <strong className="text-purple-400">💡 Note:</strong> The AI retains full context of your analysis, so you can reference specific tokens or risks in your questions.
+                        <div className="bg-purple-50 dark:bg-purple-500/10 rounded-2xl p-5 border border-purple-200 dark:border-purple-500/30">
+                          <p className="text-gray-600 dark:text-gray-300">
+                            <strong className="text-purple-600 dark:text-purple-400">💡 Note:</strong> The AI retains full context of your analysis, so you can reference specific tokens or risks in your questions.
                           </p>
                         </div>
                       </motion.div>
@@ -893,48 +892,48 @@ function App() {
                         className="space-y-6"
                       >
                         <div className="flex items-center gap-4">
-                          <div className="w-16 h-16 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-2xl flex items-center justify-center border border-purple-500/30">
-                            <Zap className="w-8 h-8 text-purple-400" />
+                          <div className="w-16 h-16 bg-purple-100 dark:bg-gradient-to-br dark:from-purple-500/20 dark:to-purple-600/20 rounded-2xl flex items-center justify-center border border-purple-300 dark:border-purple-500/30">
+                            <Zap className="w-8 h-8 text-purple-600 dark:text-purple-400" />
                           </div>
                           <div>
-                            <p className="text-purple-400 text-sm font-medium uppercase tracking-wider">Step 6 of 6</p>
-                            <h3 className="text-2xl font-bold text-white">Re-Analyze & Iterate</h3>
+                            <p className="text-purple-600 dark:text-purple-400 text-sm font-medium uppercase tracking-wider">Step 6 of 6</p>
+                            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Re-Analyze & Iterate</h3>
                           </div>
                         </div>
                         
-                        <p className="text-gray-300 text-lg leading-relaxed">
-                          Click the <strong className="text-purple-400">Re-Analyze</strong> button to generate a refined prompt based on your conversation, then run a fresh analysis to see improvements.
+                        <p className="text-gray-600 dark:text-gray-300 text-lg leading-relaxed">
+                          Click the <strong className="text-purple-600 dark:text-purple-400">Re-Analyze</strong> button to generate a refined prompt based on your conversation, then run a fresh analysis to see improvements.
                         </p>
                         
-                        <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50">
+                        <div className="bg-gray-100 dark:bg-gray-800/50 rounded-2xl p-6 border border-gray-200 dark:border-gray-700/50">
                           <div className="space-y-4">
                             <div className="flex items-start gap-4">
                               <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold shrink-0">1</div>
                               <div>
-                                <p className="text-white font-medium">Add Custom Requests</p>
-                                <p className="text-gray-400 text-sm">Optionally specify additional changes you want to see</p>
+                                <p className="text-gray-900 dark:text-white font-medium">Add Custom Requests</p>
+                                <p className="text-gray-500 dark:text-gray-400 text-sm">Optionally specify additional changes you want to see</p>
                               </div>
                             </div>
                             <div className="flex items-start gap-4">
                               <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold shrink-0">2</div>
                               <div>
-                                <p className="text-white font-medium">Preview the Refined Prompt</p>
-                                <p className="text-gray-400 text-sm">Review the AI-generated improvements before committing</p>
+                                <p className="text-gray-900 dark:text-white font-medium">Preview the Refined Prompt</p>
+                                <p className="text-gray-500 dark:text-gray-400 text-sm">Review the AI-generated improvements before committing</p>
                               </div>
                             </div>
                             <div className="flex items-start gap-4">
                               <div className="w-8 h-8 bg-purple-400 rounded-full flex items-center justify-center text-white font-bold shrink-0">3</div>
                               <div>
-                                <p className="text-white font-medium">Confirm & Analyze</p>
-                                <p className="text-gray-400 text-sm">Run a new analysis cycle to see your reduced PRD score</p>
+                                <p className="text-gray-900 dark:text-white font-medium">Confirm & Analyze</p>
+                                <p className="text-gray-500 dark:text-gray-400 text-sm">Run a new analysis cycle to see your reduced PRD score</p>
                               </div>
                             </div>
                           </div>
                         </div>
                         
-                        <div className="bg-gradient-to-r from-purple-500/10 to-purple-600/5 rounded-2xl p-5 border border-purple-500/30">
-                          <p className="text-gray-300 text-center">
-                            🎉 <strong className="text-white">That's it!</strong> You're ready to use Echo like a pro.
+                        <div className="bg-purple-50 dark:bg-gradient-to-r dark:from-purple-500/10 dark:to-purple-600/5 rounded-2xl p-5 border border-purple-200 dark:border-purple-500/30">
+                          <p className="text-gray-600 dark:text-gray-300 text-center">
+                            🎉 <strong className="text-gray-900 dark:text-white">That's it!</strong> You're ready to use Echo like a pro.
                           </p>
                         </div>
                       </motion.div>
@@ -943,13 +942,13 @@ function App() {
                 </div>
 
                 {/* Footer Navigation */}
-                <div className="border-t border-gray-700/50 p-6 bg-gray-900/50">
+                <div className="border-t border-gray-200 dark:border-gray-700/50 p-6 bg-gray-50 dark:bg-gray-900/50">
                   <div className="flex items-center justify-between">
                     <Button
                       variant="outline"
                       onClick={() => setGuideStep(Math.max(0, guideStep - 1))}
                       disabled={guideStep === 0}
-                      className="bg-transparent border-gray-600 text-gray-300 hover:bg-white/5 hover:border-gray-500 disabled:opacity-30"
+                      className="bg-transparent border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 hover:border-gray-400 dark:hover:border-gray-500 disabled:opacity-30"
                     >
                       Previous
                     </Button>
@@ -968,7 +967,7 @@ function App() {
                     ) : (
                       <Button
                         onClick={() => { setShowHelpGuide(false); setGuideStep(0); }}
-                        className="bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white"
+                        className="bg-purple-600 hover:bg-purple-500 text-white"
                       >
                         Get Started
                       </Button>

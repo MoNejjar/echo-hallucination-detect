@@ -342,7 +342,7 @@ An Echo AI User`;
                   <p>Learn about Echo</p>
                 </TooltipContent>
               </Tooltip>
-              <DialogContent className="max-w-4xl max-h-[90vh] bg-gradient-to-br from-gray-50 via-white to-purple-50/30 dark:from-gray-950 dark:via-gray-900 dark:to-purple-950/30 border-purple-200/50 dark:border-purple-800/50 p-0 overflow-hidden">
+              <DialogContent className="max-w-4xl max-h-[90vh] bg-white dark:bg-gray-900 border-gray-200 dark:border-purple-800/50 p-0 overflow-hidden">
                 <VisuallyHidden>
                   <DialogTitle>About Echo - Mitigating AI Hallucinations</DialogTitle>
                 </VisuallyHidden>
@@ -500,16 +500,16 @@ An Echo AI User`;
                         </p>
                         
                         {/* PRD Formula */}
-                        <div className="bg-gradient-to-r from-gray-900 to-gray-800 dark:from-gray-800 dark:to-gray-900 rounded-xl p-5 mb-4 shadow-lg">
+                        <div className="bg-gradient-to-r from-purple-100 to-purple-50 dark:from-gray-800 dark:to-gray-900 rounded-xl p-5 mb-4 shadow-lg border border-purple-200/50 dark:border-transparent">
                           <div className="text-center">
-                            <p className="text-gray-400 text-xs uppercase tracking-wider mb-3">Formula</p>
-                            <div className="bg-white/5 rounded-lg py-4 px-6 backdrop-blur-sm border border-white/10">
-                              <p className="text-white font-mono text-lg">
-                                PRD = <span className="text-purple-400">Σ</span>(severity<sub className="text-purple-300">i</sub> × token<sub className="text-purple-300">i</sub>) <span className="text-purple-400">/</span> total_tokens
+                            <p className="text-purple-600 dark:text-gray-400 text-xs uppercase tracking-wider mb-3">Formula</p>
+                            <div className="bg-white dark:bg-white/5 rounded-lg py-4 px-6 backdrop-blur-sm border border-purple-200 dark:border-white/10 shadow-sm dark:shadow-none">
+                              <p className="text-gray-900 dark:text-white font-mono text-lg">
+                                PRD = <span className="text-purple-600 dark:text-purple-400">Σ</span>(severity<sub className="text-purple-500 dark:text-purple-300">i</sub> × token<sub className="text-purple-500 dark:text-purple-300">i</sub>) <span className="text-purple-600 dark:text-purple-400">/</span> total_tokens
                               </p>
                             </div>
-                            <p className="text-gray-500 text-xs mt-3">
-                              Where severity weights: <span className="text-red-400">Critical=4</span>, <span className="text-orange-400">High=3</span>, <span className="text-yellow-400">Medium=2</span>, <span className="text-green-400">Low=1</span>
+                            <p className="text-gray-500 dark:text-gray-500 text-xs mt-3">
+                              Where severity weights: <span className="text-red-600 dark:text-red-400">Critical=4</span>, <span className="text-orange-600 dark:text-orange-400">High=3</span>, <span className="text-yellow-600 dark:text-yellow-400">Medium=2</span>, <span className="text-green-600 dark:text-green-400">Low=1</span>
                             </p>
                           </div>
                         </div>
@@ -621,7 +621,7 @@ An Echo AI User`;
 
       {/* Feedback Dialog */}
       <Dialog open={showFeedbackDialog} onOpenChange={setShowFeedbackDialog}>
-        <DialogContent className="max-w-md bg-gradient-to-br from-white via-white to-purple-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-purple-950/30 border-purple-200/50 dark:border-purple-800/50">
+        <DialogContent className="max-w-md bg-white dark:bg-gray-900 border-gray-200 dark:border-purple-800/50">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
