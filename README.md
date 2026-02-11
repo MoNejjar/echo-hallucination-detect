@@ -200,8 +200,6 @@ Echo calculates **two separate PRD values**:
 │                                                                │
 │  Meta PRD:    ████████████░░░░░░░░  0.18 (High)               │
 │                                                                │
-│  Combined:    ████████████░░░░░░░░  0.15 (Moderate-High)      │
-│                                                                │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -312,13 +310,16 @@ The Analyzer Agent produces a comprehensive risk assessment:
 
 ### Guideline System
 
-Echo's analysis is grounded in structured XML-based guidelines:
+Echo's analysis is grounded in structured XML-based guidelines, split into **analysis** and **mitigation/conversation** rulesets:
 
 | File | Purpose | Risk Type |
 |------|---------|-----------|
-| `faithfulness.xml` | Rules for context-adherence violations | Faithfulness |
-| `factuality.xml` | Rules for world-knowledge violations | Factuality |
-| `both.xml` | Combined ruleset for comprehensive analysis | Both |
+| `faithfulness.xml` | Analysis rules for context-adherence violations | Faithfulness |
+| `factuality.xml` | Analysis rules for world-knowledge violations | Factuality |
+| `both.xml` | Combined analysis ruleset for comprehensive mode | Both |
+| `m_faithfulness.xml` | Mitigation/conversation rules for faithfulness | Faithfulness |
+| `m_factuality.xml` | Mitigation/conversation rules for factuality | Factuality |
+| `m_both.xml` | Combined mitigation/conversation ruleset | Both |
 
 Each guideline includes:
 - **Identifier**: Unique reference (e.g., F-1.2, M-2.1)
@@ -432,14 +433,15 @@ flowchart TB
 
 | Step | Action | Agent Involved | User Interaction |
 |------|--------|----------------|------------------|
-| 1️⃣ | Input prompt | — | Write or upload prompt |
-| 2️⃣ | Run analysis | Analyzer | Click "Analyze" |
-| 3️⃣ | Review results | — | Examine highlights, PRD, violations |
-| 4️⃣ | Get guidance | Initiator | Receive targeted questions |
-| 5️⃣ | Refine via chat | Conversation | Discuss improvements |
-| 6️⃣ | Re-analyze | Analyzer | Validate improvements |
-| 7️⃣ | Generate variants | Preparator | (Optional) Get polished versions |
-| 8️⃣ | Export | — | Download JSON/PDF report |
+| 1️⃣ | Input prompt | — | Write or upload prompt (.txt, .md, .prompt) |
+| 2️⃣ | Select analysis mode | — | Choose Faithfulness, Factuality, or Comprehensive |
+| 3️⃣ | Run analysis | Analyzer | Click "Analyze" |
+| 4️⃣ | Review results | — | Examine highlights, PRD, violations |
+| 5️⃣ | Get guidance | Initiator | Receive targeted questions |
+| 6️⃣ | Refine via chat | Conversation | Discuss improvements |
+| 7️⃣ | Re-analyze | Analyzer | Validate improvements (via Re-Analyze dialog with AI-generated variants) |
+| 8️⃣ | Generate variants | Preparator | (Optional) Get polished versions |
+| 9️⃣ | Export | — | Download JSON or PDF report |
 
 ---
 
@@ -469,7 +471,7 @@ flowchart TB
     end
     
     subgraph External["☁️ External Services"]
-        OpenAI[OpenAI GPT-5]
+        OpenAI[OpenAI API<br>default: gpt-4o-mini]
         Guidelines[XML Guidelines]
     end
     
@@ -509,10 +511,13 @@ flowchart TB
 | **Backend** | FastAPI | High-performance async API |
 | | Pydantic | Data validation & serialization |
 | | Python 3.13+ | Modern Python features |
-| **AI/ML** | OpenAI GPT-5 | LLM inference |
+| **AI/ML** | OpenAI API (default: gpt-4o-mini) | LLM inference (model configurable via `OPENAI_MODEL` env var) |
 | | XML Guidelines | Structured analysis rules |
-| **Infrastructure** | Server-Sent Events | Real-time streaming |
-| | CORS | Cross-origin security |
+| **Frontend Extras** | Lucide React | Icon library |
+| | js-tiktoken | Client-side token counting |
+| | react-hot-toast | Toast notifications |
+| | html2canvas | PDF export rendering |
+| **Infrastructure** | CORS | Cross-origin security |
 
 ### Directory Structure
 
@@ -521,37 +526,50 @@ echo-hallucination-detect/
 ├── client/                          # React frontend
 │   ├── src/
 │   │   ├── components/              # UI components
-│   │   │   ├── ui/                  # Radix-based primitives
-│   │   │   ├── AnalysisSection.tsx  # Risk visualization
-│   │   │   ├── ChatPanel.tsx        # Conversation interface
-│   │   │   ├── ExpandableEditor.tsx # Prompt input
-│   │   │   └── Sidebar.tsx          # Navigation & info
+│   │   │   ├── ui/                  # Radix-based primitives (15 components)
+│   │   │   ├── AnalysisLoadingDialog.tsx  # 5-stage animated loading
+│   │   │   ├── AnalysisModeToggle.tsx     # Simple/Comprehensive toggle
+│   │   │   ├── ChatPanel.tsx             # Conversation interface
+│   │   │   ├── DarkModeToggle.tsx        # Dark/light mode toggle
+│   │   │   ├── ExpandableEditor.tsx      # Prompt editor with markdown
+│   │   │   ├── ExportDialog.tsx          # JSON/PDF export
+│   │   │   ├── LibraryDialog.tsx         # Guidelines taxonomy browser
+│   │   │   ├── ReanalyzeDialog.tsx       # Re-analysis with variants
+│   │   │   ├── Sidebar.tsx               # Navigation & info
+│   │   │   ├── ThemeProvider.tsx         # Theme context provider
+│   │   │   └── Toolbar.tsx               # Mode carousel & analyze buttons
 │   │   ├── lib/                     # Utilities
-│   │   │   ├── api.ts               # API client
+│   │   │   ├── api.ts               # API client (singleton)
+│   │   │   ├── library-data.ts      # Guidelines taxonomy data (v3.0)
 │   │   │   └── utils.ts             # Helper functions
 │   │   └── types.ts                 # TypeScript definitions
 │   └── public/                      # Static assets
 ├── server/                          # FastAPI backend
 │   ├── routes/                      # API endpoints
-│   │   ├── analyze.py               # /api/analyze
-│   │   ├── refine.py                # /api/refine
-│   │   ├── initiate.py              # /api/initiate
-│   │   └── prepare.py               # /api/prepare
+│   │   ├── analyze.py               # POST /api/analyze/
+│   │   ├── refine.py                # POST /api/refine/ & GET /api/refine/stream
+│   │   ├── initiate.py              # POST /api/initiate/
+│   │   ├── prepare.py               # POST /api/prepare/prepare
+│   │   └── health.py                # GET /api/health/
 │   ├── services/                    # Business logic
 │   │   ├── analyzer_agent.py        # Risk detection
 │   │   ├── initiator_agent.py       # Question generation
 │   │   ├── conversation_agent.py    # Chat refinement
 │   │   ├── preparator.py            # Variant generation
-│   │   └── llm.py                   # OpenAI abstraction
+│   │   └── llm.py                   # OpenAI abstraction (LLM facade)
 │   ├── models/                      # Pydantic schemas
 │   ├── data/                        # XML guidelines
-│   │   ├── faithfulness.xml
-│   │   ├── factuality.xml
-│   │   └── both.xml
+│   │   ├── faithfulness.xml         # Faithfulness analysis rules
+│   │   ├── factuality.xml           # Factuality analysis rules
+│   │   ├── both.xml                 # Combined analysis rules
+│   │   ├── m_faithfulness.xml       # Faithfulness mitigation/conversation rules
+│   │   ├── m_factuality.xml         # Factuality mitigation/conversation rules
+│   │   └── m_both.xml               # Combined mitigation/conversation rules
 │   └── main.py                      # Application entry
 ├── docs/                            # Documentation
 │   ├── architecture.md
 │   ├── user_flow.md
+│   ├── hallucination_documentation.md
 │   └── contributing.md
 └── notebooks/                       # Evaluation notebooks
     └── evaluation.ipynb
@@ -567,10 +585,10 @@ echo-hallucination-detect/
 |--------|----------|-------------|-------|
 | `POST` | `/api/analyze/` | Analyze prompt for hallucination risk | Analyzer |
 | `POST` | `/api/initiate/` | Generate guiding questions | Initiator |
-| `POST` | `/api/refine/` | Get refinement suggestion | Conversation |
-| `POST` | `/api/refine/stream/` | Stream refinement response | Conversation |
-| `POST` | `/api/prepare/` | Generate prompt variants | Preparator |
-| `GET` | `/api/health/ping` | Health check | — |
+| `POST` | `/api/refine/` | Get refinement suggestion (single-turn) | Conversation |
+| `GET` | `/api/refine/stream` | Refinement with analysis context (query params) | Conversation |
+| `POST` | `/api/prepare/prepare` | Generate prompt variants | Preparator |
+| `GET` | `/api/health/` | Health check | — |
 
 ### Example: Analysis Request
 
@@ -594,21 +612,20 @@ Content-Type: application/json
       "id": "RISK_1",
       "text": "AI",
       "risk_level": "medium",
-      "classification": ["vague-domain"],
-      "guideline": "F-1.2",
+      "classification": "vague-domain",
+      "reasoning": "Broad domain with no depth specified",
       "mitigation": "Specify which aspect of AI (ML, NLP, robotics, etc.)"
     },
     {
       "id": "RISK_2",
       "text": "everyone",
       "risk_level": "high",
-      "classification": ["undefined-audience"],
-      "guideline": "M-2.1",
+      "classification": "undefined-audience",
+      "reasoning": "No audience knowledge level or role defined",
       "mitigation": "Define target audience (developers, executives, students)"
     }
   ],
   "risk_assessment": {
-    "overall_percentage": 45,
     "prompt": {
       "prompt_PRD": 0.08,
       "prompt_violations": [...],
@@ -628,30 +645,29 @@ Content-Type: application/json
 
 ```typescript
 interface RiskToken {
-  id: string;                              // RISK_#
-  text: string;                            // Extracted span
-  risk_level: 'low' | 'medium' | 'high';  // Categorical risk
-  classification: string[];                // Heuristic labels
-  guideline?: string;                      // Violated guideline ID
-  mitigation?: string;                     // Suggested fix
+  id: string;                                          // RISK_#
+  text: string;                                        // Extracted span
+  reasoning: string;                                   // Why this token is risky
+  classification: string;                              // Heuristic label
+  mitigation: string;                                  // Suggested fix
+  risk_level?: 'critical' | 'high' | 'medium' | 'low'; // Categorical risk
 }
 
 interface RiskAssessment {
-  overall_percentage: number;              // Weighted aggregate score
   prompt: {
-    prompt_PRD: number;                    // Prompt Risk Density
-    prompt_violations: Violation[];
+    prompt_PRD: number | string;                       // Prompt Risk Density
+    prompt_violations: PromptViolation[];               // rule_id, pillar, severity, span
     prompt_overview: string;
   };
   meta: {
-    meta_PRD: number;                      // Meta Risk Density
-    meta_violations: Violation[];
+    meta_PRD: number | string;                         // Meta Risk Density
+    meta_violations: MetaViolation[];                   // rule_id, pillar, severity, explanation
     meta_overview: string;
   };
 }
 
 interface AnalysisResponse {
-  annotated_prompt: string;                // HTML with RISK_n tags
+  annotated_prompt: string;                            // Text with <RISK_n>...</RISK_n> tags
   risk_tokens: RiskToken[];
   risk_assessment: RiskAssessment;
   analysis_summary: string;
@@ -666,7 +682,7 @@ interface AnalysisResponse {
 
 - **Python** 3.13+
 - **Node.js** 18+
-- **OpenAI API Key** with GPT-5 access
+- **OpenAI API Key** (default model: gpt-4o-mini, configurable via `OPENAI_MODEL` env var)
 
 ### Installation
 
@@ -686,7 +702,7 @@ python -m venv .venv
 pip install -r server/requirements.txt
 
 # 4. Start the backend server
-python start_server.py
+uvicorn server.main:app --reload
 # Server runs on http://localhost:8000
 
 # 5. In a new terminal, setup frontend
@@ -702,8 +718,8 @@ npm run dev
 
 ```bash
 # Health check
-curl http://localhost:8000/api/health/ping
-# Expected: {"status":"ok"}
+curl http://localhost:8000/api/health/
+# Expected: {"status":"healthy","service":"echo-hallucination-detect","version":"1.0.0"}
 
 # Test analysis
 curl -X POST http://localhost:8000/api/analyze/ \

@@ -7,11 +7,8 @@ load_dotenv()
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 
-# Try relative imports first (when running from server dir), fall back to absolute
-try:
-    from routes import health, analyze, refine, prepare, initiate
-except ImportError:
-    from server.routes import health, analyze, refine, prepare, initiate
+# Import routes using package imports
+from server.routes import health, analyze, refine, prepare, initiate
 
 # Create FastAPI app
 app = FastAPI(
