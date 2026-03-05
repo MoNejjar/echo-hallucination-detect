@@ -813,7 +813,7 @@ Technical University of Munich
 
 <div align="center">
 
-### Built at TUM. Designed for clarity. Aimed at prevention.
+### Designed for clarity. Aimed at prevention.
 
 **⭐ Star this repo if Echo helps improve your prompts!**
 
